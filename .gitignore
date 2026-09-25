@@ -1,0 +1,15 @@
+node_modules/
+/target/
+.scratch/
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+playwright-report/
+test-results/
+**/dist/
+apps/docs/.generated/
+apps/docs/.vitepress/cache/
+apps/docs/.vitepress/dist/
+.DS_Store
