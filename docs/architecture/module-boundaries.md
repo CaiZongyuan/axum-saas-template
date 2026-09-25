@@ -1,21 +1,23 @@
 # Core 与参考业务的边界
 
-当前 T01 只有通用服务状态这一条完整请求。它属于 Core，不属于知识库示例。
+Core 提供身份、会话、成员、审计、幂等和通用 HTTP 能力。Reference Domain 通过应用入口接入自己的业务；Core 不反向依赖它。
 
 - **platform** 拥有配置、连接池、迁移运行与日志初始化，不依赖应用或知识库类型。
-- **app** 拥有公开 HTTP 合同、Core 模块和必要的用例。
-- **API 入口** 组装 Router；未来在这里挂载可替换的知识库模块。
+- **app** 的各个模块拥有自己的用例和表；纯 `domain.rs` 不依赖 HTTP 或数据库。
+- **API 入口** 在 `apps/api/src/lib.rs` 组装 Router/OpenAPI，通用构建器接收额外路由与合同。
 - **contracts / sdk** 来自 OpenAPI 生成；SDK 的类型使用 contracts。
 - **core** 放平台无关的客户端 helper。
 - **ui / views** 分别提供通用 React DOM 组件与可共享页面。
-- **Web 入口** 拥有浏览器和 Router 接线，shared View 不自行访问 window。
+- **Web 入口** 拥有浏览器和 Router 接线，shared View 通过回调导航。
 
-[示例所有权清单](../../examples/knowledge-base/manifest.json)目前明确标记知识库尚未实现，ownedPaths 为空，列出未来组装位置。不能为了准备目录而宣称已经有注册或文档业务。
+[示例所有权清单](../../examples/knowledge-base/manifest.json)记录业务目录、迁移、测试、教程和明确的组装区块。新增功能时同步登记；后续移除工具按登记内容操作，Core 的能力不会随参考业务一起删除。
 
 ```bash
 pnpm boundaries:check
 ```
 
-当前检查验证包依赖方向、平台无关代码的导入以及组装清单。它不声称已经验证不存在的业务表隔离或完整删例能力；实际移除工具属于对应实施票。
+当前检查验证包导入方向、Core 对参考类型的直接引用、纯 Domain 的基础设施导入、模块声明的 SQL 表归属，以及组装清单。每个 Rust 模块的 `module.json` 是表归属入口；跨模块通过公开接口协作，例如让 Audit 在调用者事务中追加记录。
+
+SQL 检查基于源码中的字符串和已登记表名，不能证明动态 SQL、引号标识符或符号别名的全部行为；这些仍需 review。Rust 可见性与真实 HTTP/数据库测试共同补充验证。实际删例验收由移除工具对应任务执行。
 
 引入自己的业务时，使用公开身份、文件和任务能力；不要让 Core 通过私有表或反向 import 依赖示例。进一步决策见[可移除教程 ADR](../adr/0002-executable-removable-reference.md)。

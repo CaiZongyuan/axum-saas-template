@@ -1,0 +1,18 @@
+{
+  "kind": "reference",
+  "tables": [
+    "knowledge.knowledge_bases",
+    "knowledge.grants",
+    "knowledge.documents"
+  ],
+  "viewPath": "packages/views/src/knowledge",
+  "contractSymbols": [
+    "CreateDocument",
+    "Document",
+    "DocumentSummary",
+    "DocumentPage",
+    "createDocument",
+    "getDocument",
+    "listPersonalDocuments"
+  ]
+}

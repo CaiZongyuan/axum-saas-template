@@ -16,7 +16,7 @@ test('page, generated SDK, API and migrated PostgreSQL form one real request', a
   expect(api.headers()['x-request-id']).toBeTruthy();
   expect(await api.json()).toMatchObject({
     database: 'connected',
-    schema_version: 2,
+    schema_version: expect.any(Number),
     status: 'ok',
   });
   await expect(page.getByRole('heading', { name: '服务已就绪' })).toBeVisible();

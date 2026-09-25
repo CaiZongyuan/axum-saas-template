@@ -395,19 +395,49 @@ async fn current_session(
     Extension(id): Extension<RequestId>,
     headers: HeaderMap,
 ) -> Response {
-    let Some(secret) = cookie_secret(&headers, &state.settings) else {
-        return unauthorized(id);
+    match require_session(&state.pool, &state.settings, &headers, &id, false).await {
+        Ok(session) => Json(session).into_response(),
+        Err(response) => response,
+    }
+}
+
+/// Public HTTP authentication interface shared by Core and removable domains.
+pub async fn require_session(
+    pool: &PgPool,
+    settings: &AuthSettings,
+    headers: &HeaderMap,
+    id: &RequestId,
+    mutation: bool,
+) -> Result<CurrentSession, Response> {
+    if mutation && let Some(response) = origin_rejection(settings, headers, id) {
+        return Err(response);
+    }
+    let Some(secret) = cookie_secret(headers, settings) else {
+        return Err(unauthorized(id.clone()));
     };
+    if mutation
+        && !headers
+            .get("x-csrf-token")
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|token| crypto::verify_csrf(secret, token))
+    {
+        return Err(public_error(
+            StatusCode::FORBIDDEN,
+            "auth.csrf",
+            "Refresh the session before trying again",
+            id.clone(),
+        ));
+    }
     let result = tokio::time::timeout(Duration::from_secs(3), async {
         let row = sqlx::query_as::<_, (String, String, Option<String>)>("WITH active_session AS (UPDATE saas_core.sessions SET last_seen_at = now() WHERE secret_hash = $1 AND NOT revoked AND expires_at > now() AND last_seen_at > now() - make_interval(secs => $2) RETURNING user_id) SELECT u.id::text, u.email, u.display_name FROM active_session s JOIN saas_core.users u ON u.id = s.user_id")
-            .bind(crypto::secret_hash(secret)).bind(f64::from(state.settings.idle_secs)).fetch_optional(&state.pool).await?;
+            .bind(crypto::secret_hash(secret)).bind(f64::from(settings.idle_secs)).fetch_optional(pool).await?;
         let Some((user_id, email, display_name)) = row else { return Ok(None); };
-        let role = organization::active_role(&state.pool, &user_id).await?;
+        let role = organization::active_role(pool, &user_id).await?;
         Ok::<_, sqlx::Error>(role.map(|role| CurrentSession { user: CurrentUser { id: user_id, email, display_name, role }, csrf_token: crypto::csrf_token(secret) }))
     }).await;
     match result {
-        Ok(Ok(Some(session))) => Json(session).into_response(),
-        Ok(Ok(None)) => unauthorized(id),
-        _ => failure(&id),
+        Ok(Ok(Some(session))) => Ok(session),
+        Ok(Ok(None)) => Err(unauthorized(id.clone())),
+        _ => Err(failure(id)),
     }
 }

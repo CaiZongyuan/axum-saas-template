@@ -1,6 +1,6 @@
 use axum::{
     Extension, Json,
-    extract::{FromRequest, MatchedPath, Request},
+    extract::{FromRequest, FromRequestParts, MatchedPath, Path, Query, Request},
     http::{HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
@@ -12,6 +12,68 @@ use utoipa::ToSchema;
 
 /// Bound incoming JSON before the handler starts its database/CPU budgets.
 pub struct BoundedJson<T>(pub T);
+
+pub struct ApiQuery<T>(pub T);
+
+pub struct ApiPath<T>(pub T);
+
+impl<S, T> FromRequestParts<S> for ApiPath<T>
+where
+    S: Send + Sync,
+    T: serde::de::DeserializeOwned + Send,
+{
+    type Rejection = Response;
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let id = parts
+            .extensions
+            .get::<RequestId>()
+            .expect("request_context wraps application routes")
+            .clone();
+        Path::<T>::from_request_parts(parts, state)
+            .await
+            .map(|Path(value)| Self(value))
+            .map_err(|_| {
+                public_error(
+                    StatusCode::BAD_REQUEST,
+                    "http.invalid_path",
+                    "Path parameters are invalid",
+                    id,
+                )
+            })
+    }
+}
+
+impl<S, T> FromRequestParts<S> for ApiQuery<T>
+where
+    S: Send + Sync,
+    T: serde::de::DeserializeOwned + Send,
+{
+    type Rejection = Response;
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        state: &S,
+    ) -> Result<Self, Self::Rejection> {
+        let id = parts
+            .extensions
+            .get::<RequestId>()
+            .expect("request_context wraps application routes")
+            .clone();
+        Query::<T>::from_request_parts(parts, state)
+            .await
+            .map(|Query(value)| Self(value))
+            .map_err(|_| {
+                public_error(
+                    StatusCode::BAD_REQUEST,
+                    "http.invalid_query",
+                    "Query parameters are invalid",
+                    id,
+                )
+            })
+    }
+}
 
 impl<S, T> FromRequest<S> for BoundedJson<T>
 where
@@ -91,6 +153,10 @@ pub async fn request_context(mut request: Request, next: Next) -> Response {
         "x-request-id",
         HeaderValue::from_str(&id).expect("UUID is a valid header"),
     );
+    response
+        .headers_mut()
+        .entry("cache-control")
+        .or_insert(HeaderValue::from_static("no-store"));
     response
 }
 

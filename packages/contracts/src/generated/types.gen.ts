@@ -17,6 +17,11 @@ export type ApiErrorResponse = {
     error: ApiError;
 };
 
+export type CreateDocument = {
+    markdown: string;
+    title: string;
+};
+
 export type CurrentSession = {
     csrf_token: string;
     user: CurrentUser;
@@ -27,6 +32,33 @@ export type CurrentUser = {
     email: string;
     id: string;
     role: MemberRole;
+};
+
+export type Document = {
+    created_at: string;
+    created_by: string;
+    id: string;
+    knowledge_base_id: string;
+    markdown: string;
+    title: string;
+    updated_at: string;
+    updated_by: string;
+    version: number;
+};
+
+export type DocumentPage = {
+    data: Array<DocumentSummary>;
+    has_more: boolean;
+    next_cursor?: string | null;
+};
+
+export type DocumentSummary = {
+    created_at: string;
+    id: string;
+    knowledge_base_id: string;
+    title: string;
+    updated_at: string;
+    version: number;
 };
 
 export type HealthResponse = {
@@ -148,6 +180,83 @@ export type GetCurrentSessionResponses = {
 };
 
 export type GetCurrentSessionResponse = GetCurrentSessionResponses[keyof GetCurrentSessionResponses];
+
+export type ListPersonalDocumentsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/knowledge/documents';
+};
+
+export type ListPersonalDocumentsErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListPersonalDocumentsError = ListPersonalDocumentsErrors[keyof ListPersonalDocumentsErrors];
+
+export type ListPersonalDocumentsResponses = {
+    200: DocumentPage;
+};
+
+export type ListPersonalDocumentsResponse = ListPersonalDocumentsResponses[keyof ListPersonalDocumentsResponses];
+
+export type CreateDocumentData = {
+    body: CreateDocument;
+    headers: {
+        'x-csrf-token': string;
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/knowledge/documents';
+};
+
+export type CreateDocumentErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    408: ApiErrorResponse;
+    409: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type CreateDocumentError = CreateDocumentErrors[keyof CreateDocumentErrors];
+
+export type CreateDocumentResponses = {
+    201: Document;
+};
+
+export type CreateDocumentResponse = CreateDocumentResponses[keyof CreateDocumentResponses];
+
+export type GetDocumentData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}';
+};
+
+export type GetDocumentErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetDocumentError = GetDocumentErrors[keyof GetDocumentErrors];
+
+export type GetDocumentResponses = {
+    200: Document;
+};
+
+export type GetDocumentResponse = GetDocumentResponses[keyof GetDocumentResponses];
 
 export type GetSystemStatusData = {
     body?: never;

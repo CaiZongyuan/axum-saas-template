@@ -37,3 +37,16 @@ pub async fn active_role(pool: &PgPool, user_id: &str) -> Result<Option<MemberRo
         .fetch_optional(pool)
         .await
 }
+
+/// Hold membership stable for a caller's mutation; disabling/changing roles waits.
+pub async fn active_role_in(
+    connection: &mut PgConnection,
+    user_id: &str,
+) -> Result<Option<MemberRole>, sqlx::Error> {
+    sqlx::query_scalar(
+        "SELECT role FROM saas_core.memberships WHERE user_id = $1::uuid AND active FOR SHARE",
+    )
+    .bind(user_id)
+    .fetch_optional(connection)
+    .await
+}

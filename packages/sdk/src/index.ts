@@ -1,14 +1,6 @@
 import { createClient, createConfig } from './generated/client';
 
-export {
-  getLiveness,
-  getReadiness,
-  getSystemStatus,
-  registerUser,
-  getCurrentSession,
-  loginUser,
-  logoutUser,
-} from './generated/sdk.gen';
+export * from './generated/sdk.gen';
 export type { Client as ApiClient } from './generated/client';
 export type * from '@saas/contracts';
 

@@ -42,13 +42,27 @@ pub fn router(pool: PgPool) -> Router {
 }
 
 pub fn router_with_auth(pool: PgPool, auth: saas_platform::config::AuthSettings) -> Router {
+    compose_routes(pool, auth, Router::new(), openapi())
+}
+
+/// Application shells supply optional domain routes and the combined contract.
+pub fn compose_routes(
+    pool: PgPool,
+    auth: saas_platform::config::AuthSettings,
+    domain_routes: Router,
+    document: utoipa::openapi::OpenApi,
+) -> Router {
     Router::new()
         .route("/health/live", get(live))
         .route("/health/ready", get(ready))
         .route("/api/v1/system/status", get(modules::system::status))
-        .route("/api/openapi.json", get(|| async { Json(openapi()) }))
+        .route(
+            "/api/openapi.json",
+            get(move || std::future::ready(Json(document.clone()))),
+        )
         .with_state(pool.clone())
         .merge(modules::identity::router(pool, auth))
+        .merge(domain_routes)
         .fallback(http::not_found)
         .method_not_allowed_fallback(http::method_not_allowed)
         .layer(middleware::from_fn(http::request_context))

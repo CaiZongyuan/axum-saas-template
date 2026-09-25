@@ -7,7 +7,7 @@ test('two browsers register, refresh, log out and sign in with isolated sessions
   const second = await browser.newContext();
   try {
     for (const [context, email, role] of [
-      [first, 'owner@example.com', '企业所有者'],
+      [first, 'first-member@example.com', '成员'],
       [second, 'member@example.com', '成员'],
     ] as const) {
       const page = await context.newPage();

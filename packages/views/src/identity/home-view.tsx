@@ -12,13 +12,16 @@ import {
   CardTitle,
 } from '@saas/ui/components/card';
 import { replaceSession, sessionQuery } from './session';
+import type { ReactNode } from 'react';
 
 export function HomeView({
   apiClient,
   docsUrl,
+  children,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
+  children?: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
@@ -83,6 +86,7 @@ export function HomeView({
           {user ? (
             <>
               <p>{user.email}</p>
+              {children}
               <Badge variant="secondary">
                 {
                   { owner: '企业所有者', admin: '管理员', member: '成员' }[

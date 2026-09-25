@@ -8,6 +8,9 @@ import {
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
 import { StatusView, RegisterView, HomeView, LoginView } from '@saas/views';
+// example:knowledge:imports:start
+import { DocumentsView, NewDocumentView, DocumentView } from '@saas/views';
+// example:knowledge:imports:end
 
 type AppContext = { apiClient: ApiClient; docsUrl: string };
 const rootRoute = createRootRouteWithContext<AppContext>()({
@@ -38,7 +41,15 @@ function RegistrationPage() {
 }
 function HomePage() {
   const { apiClient, docsUrl } = rootRoute.useRouteContext();
-  return <HomeView apiClient={apiClient} docsUrl={docsUrl} />;
+  return (
+    <HomeView apiClient={apiClient} docsUrl={docsUrl}>
+      {/* example:knowledge:home:start */}
+      <a href="/documents" className="text-sm underline">
+        我的文档
+      </a>
+      {/* example:knowledge:home:end */}
+    </HomeView>
+  );
 }
 function LoginPage() {
   const { apiClient } = rootRoute.useRouteContext();
@@ -67,7 +78,74 @@ const homeRoute = createRoute({
   path: '/',
   component: HomePage,
 });
+// example:knowledge:routes:start
+function DocumentsPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <DocumentsView
+      apiClient={apiClient}
+      onNew={() => {
+        void navigate({ to: '/documents/new' });
+      }}
+      onOpen={(documentId) => {
+        void navigate({ to: '/documents/$documentId', params: { documentId } });
+      }}
+    />
+  );
+}
+function NewDocumentPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <NewDocumentView
+      apiClient={apiClient}
+      onBack={() => {
+        void navigate({ to: '/documents' });
+      }}
+      onCreated={(documentId) => {
+        void navigate({ to: '/documents/$documentId', params: { documentId } });
+      }}
+    />
+  );
+}
+function DocumentPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const { documentId } = documentRoute.useParams();
+  const navigate = useNavigate();
+  return (
+    <DocumentView
+      apiClient={apiClient}
+      documentId={documentId}
+      onBack={() => {
+        void navigate({ to: '/documents' });
+      }}
+    />
+  );
+}
+const documentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/documents',
+  component: DocumentsPage,
+});
+const newDocumentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/documents/new',
+  component: NewDocumentPage,
+});
+const documentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/documents/$documentId',
+  component: DocumentPage,
+});
+// example:knowledge:routes:end
+
 const routeTree = rootRoute.addChildren([
+  // example:knowledge:route-tree:start
+  documentsRoute,
+  newDocumentRoute,
+  documentRoute,
+  // example:knowledge:route-tree:end
   loginRoute,
   homeRoute,
   registrationRoute,

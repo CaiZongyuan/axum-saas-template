@@ -1,6 +1,6 @@
 # 快速开始
 
-当前版本支持邮箱密码自助注册、登录/退出、会话失效与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。Markdown 业务与附件按后续实施票交付。
+Core 提供邮箱密码注册、登录/退出、会话失效与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。
 
 ## 准备工具
 
@@ -17,9 +17,19 @@ just dev
 
 打开[注册页面](http://127.0.0.1:5173/register)，填写邮箱、12–128 字符的密码及可选显示名，成功后自动进入已登录首页。首个成功注册的账号成为企业 Owner，后续账号为 Member。部署人员应先注册自己的 Owner 账号，再交给普通使用者；不需要邀请或等待邮件。
 
-[服务状态页](http://127.0.0.1:5173/system)会显示“服务已就绪”“PostgreSQL 已连接”和迁移版本 `2`。
+[服务状态页](http://127.0.0.1:5173/system)会显示“服务已就绪”“PostgreSQL 已连接”和当前迁移版本；迁移历史必须与当前源码匹配。
 
 已有账号可以打开[登录页面](http://127.0.0.1:5173/login)。首页可退出登录，随后旧会话失效；详见[登录与会话教程](../tutorials/03-sessions.md)。
+
+<!-- example:knowledge:quickstart:start -->
+
+## 保存第一篇文档
+
+登录后点击“我的文档”→“新建文档”，填写标题和 Markdown，再点击“保存文档”。普通成员也可以直接开始；个人库与 Editor 授权在首次保存时自动准备。刷新详情页后正文仍在，返回列表可以重新打开。
+
+当前示例支持新建、列表、原文详情、访问隔离和可靠重试；Markdown 预览、编辑与附件按后续章节交付。跟做步骤见[第一篇 Markdown 文档](../tutorials/04-personal-documents.md)。
+
+<!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：
 
@@ -63,7 +73,7 @@ just docs
 
 ## 常见问题
 
-- **数据库能连接但 ready 仍失败**：运行 `just migrate`；API 不自动迁移，已应用的最新迁移必须匹配当前源码要求的版本。
+- **数据库能连接但 ready 仍失败**：运行 `just migrate`；API 不自动迁移，已应用的迁移集合、成功状态和 checksum 必须匹配当前源码。
 - **端口已占用**：修改 `.env` 中的 `APP_BIND` / `VITE_API_PROXY`；更改数据库端口时同时调整 `POSTGRES_PORT` 与 `DATABASE_URL`，然后重启开发入口。
 - **Rust 配置报错**：检查[生成的配置参考](site:reference/config.md)。错误不会打印数据库凭据。
 - **浏览器请求失败**：用 request_id 对照 API 的 JSON 日志；页面通过 Vite 同源代理访问 API，数据库 URL 不进入浏览器。

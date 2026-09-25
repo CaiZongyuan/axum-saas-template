@@ -24,12 +24,30 @@ await withTestPostgres(async ({ name, url }) => {
     E2E_WEB_URL: `http://127.0.0.1:${webPort}`,
     APP_ORIGIN: `http://127.0.0.1:${webPort}`,
     TEST_PG_CONTAINER: name,
+    E2E_OWNER_EMAIL: 'bootstrap-owner@example.test',
+    E2E_OWNER_PASSWORD: 'browser-test-owner-password',
   };
   run(resolve(root, 'target/debug/migrate'), [], env);
   const api = launch(resolve(root, 'target/debug/saas-api'), [], env);
   let web;
   try {
     await waitFor(`${env.E2E_API_URL}/health/ready`, api);
+    // All journeys start with a known Owner; newly registered accounts are Members.
+    // This prevents test-file ordering from changing role expectations.
+    const bootstrap = await fetch(`${env.E2E_API_URL}/api/v1/auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: env.APP_ORIGIN },
+      body: JSON.stringify({
+        email: env.E2E_OWNER_EMAIL,
+        password: env.E2E_OWNER_PASSWORD,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (
+      bootstrap.status !== 201 ||
+      (await bootstrap.json()).user.role !== 'owner'
+    )
+      throw new Error('Could not initialize the isolated E2E Owner');
     web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);
     await waitFor(env.E2E_WEB_URL, web);
     run('pnpm', ['exec', 'playwright', 'test', ...process.argv.slice(2)], env);

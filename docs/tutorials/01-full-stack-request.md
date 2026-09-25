@@ -14,7 +14,7 @@ just migrate
 
 ## 2. API 入口只组装能力
 
-[API 入口](../../apps/api/src/main.rs)读取经过校验的配置、创建连接池、初始化 tracing，然后组装 Core Router。后续 Reference Domain 的注册点也在入口层，Core 不反向依赖它。
+[API 入口](../../apps/api/src/main.rs)读取经过校验的配置、创建连接池、初始化 tracing，再通过[应用组装点](../../apps/api/src/lib.rs)合并 Core 与参考业务的 Router/OpenAPI。Core 接收额外的路由和合同，不反向 import 参考业务。
 
 <<< ../../apps/api/src/main.rs
 
@@ -61,4 +61,4 @@ just e2e
 
 把系统状态查询换成自己的公开用例：定义模型/迁移，注册用例与 HTTP/OpenAPI，再生成 SDK 和接入 View。连接池、错误、request_id、开发入口和检查流程可以复用；自己的实体与规则留在自己的模块里。
 
-此处演示的是当前源码的接线方式。后续知识库 example 会按同一条链路加入注册、文档、附件和后台任务，每项都有对应教程。
+此处演示当前源码的接线方式。认证和各个业务章节沿用同一条链路，每项能力同时提供对应教程与测试。
