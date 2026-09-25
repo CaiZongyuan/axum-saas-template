@@ -37,6 +37,13 @@ pub struct Registration {
     display_name: Option<String>,
 }
 
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Login {
+    email: String,
+    password: String,
+}
+
 #[derive(Serialize, ToSchema)]
 pub struct CurrentUser {
     pub id: String,
@@ -54,6 +61,8 @@ pub struct CurrentSession {
 pub fn router(pool: PgPool, settings: AuthSettings) -> Router {
     Router::new()
         .route("/api/v1/auth/register", post(register))
+        .route("/api/v1/auth/login", post(login))
+        .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/auth/session", get(current_session))
         .layer(DefaultBodyLimit::max(16 * 1024))
         .layer(middleware::map_response(
@@ -89,6 +98,95 @@ fn unauthorized(id: RequestId) -> Response {
     )
 }
 
+fn origin_rejection(
+    settings: &AuthSettings,
+    headers: &HeaderMap,
+    id: &RequestId,
+) -> Option<Response> {
+    if headers.get("origin").and_then(|value| value.to_str().ok()) == Some(&settings.origin) {
+        None
+    } else {
+        Some(public_error(
+            StatusCode::FORBIDDEN,
+            "auth.origin",
+            "Request origin is not trusted",
+            id.clone(),
+        ))
+    }
+}
+
+#[utoipa::path(post, path = "/api/v1/auth/login", operation_id = "loginUser", tag = "Identity", request_body = Login, responses((status = 200, body = CurrentSession), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 408, body = crate::http::ApiErrorResponse), (status = 413, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
+async fn login(
+    State(state): State<Identity>,
+    Extension(id): Extension<RequestId>,
+    headers: HeaderMap,
+    BoundedJson(input): BoundedJson<Login>,
+) -> Response {
+    if let Some(response) = origin_rejection(&state.settings, &headers, &id) {
+        return response;
+    }
+    if input.email.len() > 254 || input.password.chars().count() > 128 {
+        return public_error(
+            StatusCode::BAD_REQUEST,
+            "auth.invalid_input",
+            "Credentials exceed the allowed length",
+            id,
+        );
+    }
+    let lookup = sqlx::query_as::<_, (String, String, Option<String>, String)>("SELECT u.id::text, u.email, u.display_name, c.password_hash FROM saas_core.users u JOIN saas_core.credentials c ON c.user_id = u.id WHERE u.normalized_email = $1")
+        .bind(input.email.trim().to_lowercase()).fetch_optional(&state.pool);
+    let record = match tokio::time::timeout(Duration::from_secs(3), lookup).await {
+        Ok(Ok(record)) => record,
+        _ => return failure(&id),
+    };
+    let hash = record.as_ref().map(|record| record.3.clone());
+    let Ok(permit) = state.password_slots.clone().try_acquire_owned() else {
+        return failure(&id);
+    };
+    let work = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        crypto::verify_password(input.password, hash)
+    });
+    let valid = match tokio::time::timeout(Duration::from_secs(5), work).await {
+        Ok(Ok(valid)) => valid,
+        _ => return failure(&id),
+    };
+    let invalid = || {
+        public_error(
+            StatusCode::UNAUTHORIZED,
+            "auth.invalid_credentials",
+            "Email or password is incorrect",
+            id.clone(),
+        )
+    };
+    if !valid {
+        return invalid();
+    }
+    let Some((user_id, email, display_name, _)) = record else {
+        return invalid();
+    };
+    let role = match tokio::time::timeout(
+        Duration::from_secs(3),
+        organization::active_role(&state.pool, &user_id),
+    )
+    .await
+    {
+        Ok(Ok(Some(role))) => role,
+        Ok(Ok(None)) => return invalid(),
+        _ => return failure(&id),
+    };
+    let user = CurrentUser {
+        id: user_id,
+        email,
+        display_name,
+        role,
+    };
+    match tokio::time::timeout(Duration::from_secs(2), issue_session(&state, user)).await {
+        Ok(Ok((cookie, session))) => ([("set-cookie", cookie)], Json(session)).into_response(),
+        _ => failure(&id),
+    }
+}
+
 #[utoipa::path(post, path = "/api/v1/auth/register", operation_id = "registerUser", tag = "Identity", request_body = Registration, responses((status = 201, body = CurrentSession), (status = 400, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 408, body = crate::http::ApiErrorResponse), (status = 409, body = crate::http::ApiErrorResponse), (status = 413, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
 async fn register(
     State(state): State<Identity>,
@@ -96,13 +194,8 @@ async fn register(
     headers: HeaderMap,
     BoundedJson(input): BoundedJson<Registration>,
 ) -> Response {
-    if headers.get("origin").and_then(|value| value.to_str().ok()) != Some(&state.settings.origin) {
-        return public_error(
-            StatusCode::FORBIDDEN,
-            "auth.origin",
-            "Request origin is not trusted",
-            id,
-        );
+    if let Some(response) = origin_rejection(&state.settings, &headers, &id) {
+        return response;
     }
     let email = input.email.trim().to_owned();
     let display_name = input
@@ -209,6 +302,65 @@ fn cookie_name(settings: &AuthSettings) -> &'static str {
     }
 }
 
+fn cookie_secret<'a>(headers: &'a HeaderMap, settings: &AuthSettings) -> Option<&'a str> {
+    let name = cookie_name(settings);
+    headers
+        .get("cookie")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            value
+                .split(';')
+                .filter_map(|part| part.trim().split_once('='))
+                .find_map(|(key, value)| (key == name).then_some(value))
+        })
+        .filter(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
+}
+
+#[utoipa::path(post, path = "/api/v1/auth/logout", operation_id = "logoutUser", tag = "Identity", params(("x-csrf-token" = String, Header, description = "CSRF token from the current session")), responses((status = 204), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
+async fn logout(
+    State(state): State<Identity>,
+    Extension(id): Extension<RequestId>,
+    headers: HeaderMap,
+) -> Response {
+    if let Some(response) = origin_rejection(&state.settings, &headers, &id) {
+        return response;
+    }
+    let Some(secret) = cookie_secret(&headers, &state.settings) else {
+        return unauthorized(id);
+    };
+    let csrf = headers
+        .get("x-csrf-token")
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if !crypto::verify_csrf(secret, csrf) {
+        return public_error(
+            StatusCode::FORBIDDEN,
+            "auth.csrf",
+            "Refresh the session before trying again",
+            id,
+        );
+    }
+    let revoke = sqlx::query("UPDATE saas_core.sessions SET revoked = true WHERE secret_hash = $1")
+        .bind(crypto::secret_hash(secret))
+        .execute(&state.pool);
+    if !matches!(
+        tokio::time::timeout(Duration::from_secs(3), revoke).await,
+        Ok(Ok(_))
+    ) {
+        return failure(&id);
+    }
+    let expired = format!(
+        "{}=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0{}",
+        cookie_name(&state.settings),
+        if state.settings.secure_cookie {
+            "; Secure"
+        } else {
+            ""
+        }
+    );
+    (StatusCode::NO_CONTENT, [("set-cookie", expired)]).into_response()
+}
+
 async fn issue_session(
     state: &Identity,
     user: CurrentUser,
@@ -243,19 +395,7 @@ async fn current_session(
     Extension(id): Extension<RequestId>,
     headers: HeaderMap,
 ) -> Response {
-    let name = cookie_name(&state.settings);
-    let secret = headers
-        .get("cookie")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| {
-            value
-                .split(';')
-                .filter_map(|part| part.trim().split_once('='))
-                .find_map(|(key, value)| (key == name).then_some(value))
-        });
-    let Some(secret) = secret
-        .filter(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
-    else {
+    let Some(secret) = cookie_secret(&headers, &state.settings) else {
         return unauthorized(id);
     };
     let result = tokio::time::timeout(Duration::from_secs(3), async {

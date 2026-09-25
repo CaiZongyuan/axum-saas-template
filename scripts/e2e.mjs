@@ -1,6 +1,10 @@
 import { resolve } from 'node:path';
+import { rmSync } from 'node:fs';
 import { withTestPostgres } from './lib/postgres.mjs';
 import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
+
+// Remove legacy HTML reports that can contain authentication action arguments.
+rmSync(resolve(root, 'playwright-report'), { recursive: true, force: true });
 
 run('cargo', ['build', '--locked', '-p', 'saas-api', '--bins'], {
   ...process.env,

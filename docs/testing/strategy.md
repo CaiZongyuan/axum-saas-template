@@ -77,7 +77,7 @@ Worker 崩溃、过期租约、事务回滚的详细组合以集成测试承担�
 - 时限、租约和重试使用可控时钟或可调整测试配置；真实 E2E 用有截止时间的状态等待。
 - 数据库、Redis key、RustFS bucket/prefix、邮件捕获队列和浏览器 storage 按测试隔离。
 - 测试只清理自己创建的资源，不复用开发或生产数据目录。
-- 失败保存 API/Worker 日志、request/job/trace ID、Playwright trace 与必要截图；不保存密码、token 或完整签名 URL。
+- 失败保留已脱敏的 API/Worker 日志、关联 ID 和安全测试摘要。认证等敏感旅程默认关闭 Playwright trace/截图；只有确认无凭据的公共场景可单独启用。报告不保存动作参数、原始异常或页面快照，测试标题也不放秘密。CI 使用产物白名单，不保存密码、token 或完整签名 URL。
 - 重试不能把不稳定测试悄悄当成成功；报告首次失败及重试情况，修复根因。
 
 ## 7. TDD 与 GitHub 票的关系

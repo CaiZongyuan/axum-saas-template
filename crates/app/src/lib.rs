@@ -62,6 +62,8 @@ pub fn router_with_auth(pool: PgPool, auth: saas_platform::config::AuthSettings)
         ready,
         modules::system::status,
         modules::identity::register,
+        modules::identity::login,
+        modules::identity::logout,
         modules::identity::current_session
     ),
     components(schemas(

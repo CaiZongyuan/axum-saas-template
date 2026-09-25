@@ -52,8 +52,10 @@ jobs:
         with:
           name: browser-evidence
           path: |
-            playwright-report
-            test-results
+            test-results/summary.json
+            test-results/status-ready.png
+            test-results/status-*/trace.zip
+            test-results/status-*/test-failed-*.png
           if-no-files-found: ignore
           retention-days: 7
       - name: Keep verified documentation

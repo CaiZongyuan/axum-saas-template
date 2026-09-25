@@ -28,6 +28,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/03-sessions.md",
+      "route": "tutorials/sessions.md",
+      "title": "登录、退出与会话失效",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

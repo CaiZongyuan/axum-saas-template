@@ -1,6 +1,6 @@
 # Architecture rules
 
-The target behavior is defined by the architecture spec and approved GitHub tickets. Current Core slices provide system status, self-registration and session lookup.
+The target behavior is defined by the architecture spec and approved GitHub tickets. Current Core slices provide system status, self-registration, login, logout and persistent sessions.
 
 - The API entry point composes routers. Platform code supplies configuration, PostgreSQL and telemetry; it does not import application or Knowledge types.
 - Keep the removable Knowledge domain separate from Core. Its manifest owns its files; current Core system-status code is not part of the example.
