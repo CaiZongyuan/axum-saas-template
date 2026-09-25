@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses } from './types.gen';
+import type { CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, ListPersonalDocumentsData, ListPersonalDocumentsErrors, ListPersonalDocumentsResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -39,6 +39,19 @@ export const registerUser = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 export const getCurrentSession = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentSessionData, ThrowOnError>): RequestResult<GetCurrentSessionResponses, GetCurrentSessionErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentSessionResponses, GetCurrentSessionErrors, ThrowOnError>({ url: '/api/v1/auth/session', ...options });
+
+export const listPersonalDocuments = <ThrowOnError extends boolean = false>(options?: Options<ListPersonalDocumentsData, ThrowOnError>): RequestResult<ListPersonalDocumentsResponses, ListPersonalDocumentsErrors, ThrowOnError> => (options?.client ?? client).get<ListPersonalDocumentsResponses, ListPersonalDocumentsErrors, ThrowOnError>({ url: '/api/v1/knowledge/documents', ...options });
+
+export const createDocument = <ThrowOnError extends boolean = false>(options: Options<CreateDocumentData, ThrowOnError>): RequestResult<CreateDocumentResponses, CreateDocumentErrors, ThrowOnError> => (options.client ?? client).post<CreateDocumentResponses, CreateDocumentErrors, ThrowOnError>({
+    url: '/api/v1/knowledge/documents',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getDocument = <ThrowOnError extends boolean = false>(options: Options<GetDocumentData, ThrowOnError>): RequestResult<GetDocumentResponses, GetDocumentErrors, ThrowOnError> => (options.client ?? client).get<GetDocumentResponses, GetDocumentErrors, ThrowOnError>({ url: '/api/v1/knowledge/documents/{id}', ...options });
 
 export const getSystemStatus = <ThrowOnError extends boolean = false>(options?: Options<GetSystemStatusData, ThrowOnError>): RequestResult<GetSystemStatusResponses, GetSystemStatusErrors, ThrowOnError> => (options?.client ?? client).get<GetSystemStatusResponses, GetSystemStatusErrors, ThrowOnError>({ url: '/api/v1/system/status', ...options });
 

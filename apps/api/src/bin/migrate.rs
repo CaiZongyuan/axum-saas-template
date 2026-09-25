@@ -22,6 +22,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
     let _ = tokio::time::timeout(Duration::from_secs(1), pool.close()).await;
-    println!("Core migrations applied");
+    println!("Application migrations applied");
     Ok(())
 }

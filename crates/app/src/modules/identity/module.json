@@ -1,0 +1,4 @@
+{
+  "kind": "core",
+  "tables": ["saas_core.users", "saas_core.credentials", "saas_core.sessions"]
+}

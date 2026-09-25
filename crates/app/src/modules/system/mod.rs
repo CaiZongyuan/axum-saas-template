@@ -38,20 +38,25 @@ pub async fn status(
 
 /// Includes pool acquisition and the query in one bounded readiness budget.
 pub(crate) async fn schema_version(pool: &PgPool) -> Option<i64> {
-    let query = sqlx::query_scalar::<_, i64>(
-        "SELECT version FROM _sqlx_migrations WHERE success ORDER BY version DESC LIMIT 1",
+    let query = sqlx::query_as::<_, (i64, bool, Vec<u8>)>(
+        "SELECT version, success, checksum FROM _sqlx_migrations",
     )
-    .fetch_one(pool);
+    .fetch_all(pool);
     match tokio::time::timeout(std::time::Duration::from_secs(2), query).await {
-        Ok(Ok(version)) => {
-            let expected = saas_platform::postgres::MIGRATOR
-                .iter()
-                .last()
-                .map(|migration| migration.version);
-            if expected == Some(version) {
-                Some(version)
+        Ok(Ok(applied)) => {
+            let required: Vec<_> = saas_platform::postgres::MIGRATOR.iter().collect();
+            if applied.len() == required.len()
+                && required.iter().all(|expected| {
+                    applied.iter().any(|(version, success, checksum)| {
+                        *version == expected.version
+                            && *success
+                            && checksum.as_slice() == expected.checksum.as_ref()
+                    })
+                })
+            {
+                applied.iter().map(|(version, _, _)| *version).max()
             } else {
-                tracing::warn!("database migration version does not match this application");
+                tracing::warn!("database migration history does not match this application");
                 None
             }
         }

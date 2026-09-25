@@ -1,0 +1,4 @@
+{
+  "kind": "core",
+  "tables": ["saas_core.organizations", "saas_core.memberships"]
+}

@@ -1,10 +1,31 @@
 {
   "id": "knowledge-base",
-  "status": "planned",
-  "description": "The knowledge reference domain starts at T04; system status, self-registration, identity, membership and audit capabilities belong to Core.",
-  "ownedPaths": [],
+  "status": "active",
+  "description": "Personal knowledge bases and Markdown documents are the removable reference domain. Identity, membership, audit, idempotency and shared HTTP infrastructure belong to Core.",
+  "ownedPaths": [
+    "crates/app/src/modules/knowledge",
+    "packages/views/src/knowledge",
+    "migrations/0003_knowledge.sql",
+    "apps/api/tests/knowledge.rs",
+    "apps/web/src/knowledge.test.tsx",
+    "tests/e2e/knowledge.spec.ts",
+    "docs/tutorials/04-personal-documents.md"
+  ],
   "compositionPoints": {
-    "api": "apps/api/src/main.rs",
-    "web": "apps/web/src/router.tsx"
+    "api": "apps/api/src/lib.rs",
+    "rustModules": "crates/app/src/modules/mod.rs",
+    "web": "apps/web/src/router.tsx",
+    "views": "packages/views/src/index.ts",
+    "docs": "docs/site.json",
+    "quickstart": "docs/getting-started/quickstart.md",
+    "readme": "README.md"
+  },
+  "registrationMarkers": {
+    "apps/api/src/lib.rs": ["routes", "openapi"],
+    "crates/app/src/modules/mod.rs": ["module"],
+    "apps/web/src/router.tsx": ["imports", "home", "routes", "route-tree"],
+    "packages/views/src/index.ts": ["views"],
+    "docs/getting-started/quickstart.md": ["quickstart"],
+    "README.md": ["readme"]
   }
 }

@@ -89,7 +89,15 @@ async fn status_reports_a_real_migrated_database(pool: sqlx::PgPool) {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["database"], "connected");
-    assert_eq!(json["schema_version"], 2);
+    // Verify the public response against the migration bundle, including optional domains.
+    assert_eq!(
+        json["schema_version"],
+        saas_platform::postgres::MIGRATOR
+            .iter()
+            .last()
+            .unwrap()
+            .version
+    );
     assert_eq!(json["status"], "ok");
 }
 
