@@ -1,0 +1,4 @@
+{
+  "kind": "core",
+  "tables": ["saas_core.files", "saas_core.file_candidates"]
+}

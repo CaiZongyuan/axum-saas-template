@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetKnowledgeBaseData, GetKnowledgeBaseErrors, GetKnowledgeBaseResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, ListKnowledgeBaseGrantsData, ListKnowledgeBaseGrantsErrors, ListKnowledgeBaseGrantsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListPersonalDocumentsData, ListPersonalDocumentsErrors, ListPersonalDocumentsResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses, RenameKnowledgeBaseData, RenameKnowledgeBaseErrors, RenameKnowledgeBaseResponses, RevokeKnowledgeBaseGrantData, RevokeKnowledgeBaseGrantErrors, RevokeKnowledgeBaseGrantResponses, SetKnowledgeBaseGrantData, SetKnowledgeBaseGrantErrors, SetKnowledgeBaseGrantResponses, UpdateDocumentData, UpdateDocumentErrors, UpdateDocumentResponses, UpdateMemberData, UpdateMemberErrors, UpdateMemberResponses } from './types.gen';
+import type { CompleteAttachmentUploadData, CompleteAttachmentUploadErrors, CompleteAttachmentUploadResponses, CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, GetAttachmentDownloadData, GetAttachmentDownloadErrors, GetAttachmentDownloadResponses, GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetKnowledgeBaseData, GetKnowledgeBaseErrors, GetKnowledgeBaseResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, ListAttachmentsData, ListAttachmentsErrors, ListAttachmentsResponses, ListKnowledgeBaseGrantsData, ListKnowledgeBaseGrantsErrors, ListKnowledgeBaseGrantsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListPersonalDocumentsData, ListPersonalDocumentsErrors, ListPersonalDocumentsResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses, RenameKnowledgeBaseData, RenameKnowledgeBaseErrors, RenameKnowledgeBaseResponses, RevokeKnowledgeBaseGrantData, RevokeKnowledgeBaseGrantErrors, RevokeKnowledgeBaseGrantResponses, SetKnowledgeBaseGrantData, SetKnowledgeBaseGrantErrors, SetKnowledgeBaseGrantResponses, StartAttachmentUploadData, StartAttachmentUploadErrors, StartAttachmentUploadResponses, UpdateDocumentData, UpdateDocumentErrors, UpdateDocumentResponses, UpdateMemberData, UpdateMemberErrors, UpdateMemberResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -96,6 +96,21 @@ export const updateDocument = <ThrowOnError extends boolean = false>(options: Op
         ...options.headers
     }
 });
+
+export const listAttachments = <ThrowOnError extends boolean = false>(options: Options<ListAttachmentsData, ThrowOnError>): RequestResult<ListAttachmentsResponses, ListAttachmentsErrors, ThrowOnError> => (options.client ?? client).get<ListAttachmentsResponses, ListAttachmentsErrors, ThrowOnError>({ url: '/api/v1/knowledge/documents/{id}/attachments', ...options });
+
+export const getAttachmentDownload = <ThrowOnError extends boolean = false>(options: Options<GetAttachmentDownloadData, ThrowOnError>): RequestResult<GetAttachmentDownloadResponses, GetAttachmentDownloadErrors, ThrowOnError> => (options.client ?? client).get<GetAttachmentDownloadResponses, GetAttachmentDownloadErrors, ThrowOnError>({ url: '/api/v1/knowledge/documents/{id}/attachments/{file_id}/download', ...options });
+
+export const startAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<StartAttachmentUploadData, ThrowOnError>): RequestResult<StartAttachmentUploadResponses, StartAttachmentUploadErrors, ThrowOnError> => (options.client ?? client).post<StartAttachmentUploadResponses, StartAttachmentUploadErrors, ThrowOnError>({
+    url: '/api/v1/knowledge/documents/{id}/uploads',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const completeAttachmentUpload = <ThrowOnError extends boolean = false>(options: Options<CompleteAttachmentUploadData, ThrowOnError>): RequestResult<CompleteAttachmentUploadResponses, CompleteAttachmentUploadErrors, ThrowOnError> => (options.client ?? client).post<CompleteAttachmentUploadResponses, CompleteAttachmentUploadErrors, ThrowOnError>({ url: '/api/v1/knowledge/documents/{id}/uploads/{upload_id}/complete', ...options });
 
 export const listMembers = <ThrowOnError extends boolean = false>(options?: Options<ListMembersData, ThrowOnError>): RequestResult<ListMembersResponses, ListMembersErrors, ThrowOnError> => (options?.client ?? client).get<ListMembersResponses, ListMembersErrors, ThrowOnError>({ url: '/api/v1/organization/members', ...options });
 

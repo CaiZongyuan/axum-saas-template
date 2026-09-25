@@ -1,4 +1,5 @@
 mod application;
+mod attachments;
 mod bases;
 mod domain;
 mod grants;
@@ -26,6 +27,7 @@ use utoipa::{OpenApi, ToSchema};
 struct Knowledge {
     pool: PgPool,
     auth: AuthSettings,
+    files: Option<crate::modules::files::FileService>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -95,6 +97,7 @@ pub struct DocumentsQuery {
 }
 
 enum Failure {
+    File(crate::modules::files::Error),
     InvalidName,
     InvalidVersion,
     VersionConflict,
@@ -108,6 +111,11 @@ enum Failure {
     Forbidden,
     NotFound,
     Unavailable,
+}
+impl From<crate::modules::files::Error> for Failure {
+    fn from(error: crate::modules::files::Error) -> Self {
+        Self::File(error)
+    }
 }
 impl From<domain::ContentError> for Failure {
     fn from(error: domain::ContentError) -> Self {
@@ -135,6 +143,7 @@ impl From<crate::modules::idempotency::Error> for Failure {
 impl Failure {
     fn response(self, id: RequestId) -> Response {
         let (status, code, message) = match self {
+            Self::File(error) => return error.response(id),
             Self::InvalidName => (
                 StatusCode::BAD_REQUEST,
                 "knowledge.invalid_name",
@@ -206,7 +215,15 @@ impl Failure {
 }
 
 pub fn router(pool: PgPool, auth: AuthSettings) -> Router {
+    router_with_files(pool, auth, None)
+}
+pub fn router_with_files(
+    pool: PgPool,
+    auth: AuthSettings,
+    files: Option<crate::modules::files::FileService>,
+) -> Router {
     Router::new()
+        .merge(attachments::routes())
         .merge(bases::routes())
         .merge(grants::routes())
         .route(
@@ -218,7 +235,7 @@ pub fn router(pool: PgPool, auth: AuthSettings) -> Router {
             get(get_document).put(update_document),
         )
         .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
-        .with_state(Knowledge { pool, auth })
+        .with_state(Knowledge { pool, auth, files })
 }
 
 #[utoipa::path(post, path = "/api/v1/knowledge/documents", operation_id = "createDocument", tag = "Knowledge", request_body = CreateDocument, params(("x-csrf-token" = String, Header), ("idempotency-key" = String, Header)), responses((status = 201, body = Document), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 408, body = crate::http::ApiErrorResponse), (status = 409, body = crate::http::ApiErrorResponse), (status = 413, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
@@ -299,6 +316,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut document = KnowledgeApi::openapi();
     document.merge(bases::openapi());
     document.merge(grants::openapi());
+    document.merge(attachments::openapi());
     document
 }
 

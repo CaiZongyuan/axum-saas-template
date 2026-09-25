@@ -1,3 +1,4 @@
+use crate::object_storage::StorageSettings;
 use serde::Serialize;
 use sqlx::{ConnectOptions, postgres::PgConnectOptions};
 use std::{net::SocketAddr, str::FromStr, time::Duration};
@@ -53,6 +54,60 @@ const SESSION_IDLE: Setting = Setting {
     secret: false,
     description: "Idle session lifetime in seconds (60..absolute lifetime).",
 };
+const S3_ENDPOINT: Setting = Setting {
+    name: "S3_ENDPOINT",
+    default: None,
+    secret: false,
+    description: "Internal S3 endpoint at its root path. Unset disables object storage.",
+};
+const S3_PUBLIC_ENDPOINT: Setting = Setting {
+    name: "S3_PUBLIC_ENDPOINT",
+    default: None,
+    secret: false,
+    description: "Browser-accessible S3 origin. Defaults to S3_ENDPOINT; HTTPS except loopback.",
+};
+const S3_BUCKET: Setting = Setting {
+    name: "S3_BUCKET",
+    default: Some("saas-files"),
+    secret: false,
+    description: "Dedicated private application bucket.",
+};
+const S3_REGION: Setting = Setting {
+    name: "S3_REGION",
+    default: Some("us-east-1"),
+    secret: false,
+    description: "S3 signing region.",
+};
+const S3_ACCESS_KEY: Setting = Setting {
+    name: "S3_ACCESS_KEY",
+    default: None,
+    secret: true,
+    description: "Explicit S3 access key; required when S3_ENDPOINT is set.",
+};
+const S3_SECRET_KEY: Setting = Setting {
+    name: "S3_SECRET_KEY",
+    default: None,
+    secret: true,
+    description: "Explicit S3 secret; required when enabled, never logged.",
+};
+const FILE_MAX_BYTES: Setting = Setting {
+    name: "FILE_MAX_BYTES",
+    default: Some("20971520"),
+    secret: false,
+    description: "File byte limit, verified again on the final object (1..104857600).",
+};
+const UPLOAD_SESSION_SECS: Setting = Setting {
+    name: "UPLOAD_SESSION_SECS",
+    default: Some("900"),
+    secret: false,
+    description: "Upload resource/signing lifetime in seconds (1..3600).",
+};
+const DOWNLOAD_URL_SECS: Setting = Setting {
+    name: "DOWNLOAD_URL_SECS",
+    default: Some("60"),
+    secret: false,
+    description: "Download capability lifetime in seconds (1..300). Revocation blocks new signing.",
+};
 pub const FIELDS: &[Setting] = &[
     DATABASE,
     LISTENER,
@@ -61,6 +116,15 @@ pub const FIELDS: &[Setting] = &[
     APP_ORIGIN,
     SESSION_ABSOLUTE,
     SESSION_IDLE,
+    S3_ENDPOINT,
+    S3_PUBLIC_ENDPOINT,
+    S3_BUCKET,
+    S3_REGION,
+    S3_ACCESS_KEY,
+    S3_SECRET_KEY,
+    FILE_MAX_BYTES,
+    UPLOAD_SESSION_SECS,
+    DOWNLOAD_URL_SECS,
 ];
 
 #[derive(Clone)]
@@ -88,6 +152,14 @@ pub struct Settings {
     pub log_filter: EnvFilter,
     pub migration_timeout: Duration,
     pub auth: AuthSettings,
+    pub storage: Option<StorageSettings>,
+    pub file_limits: FileLimits,
+}
+
+pub struct FileLimits {
+    pub max_bytes: i64,
+    pub upload_secs: u32,
+    pub download_secs: u32,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -149,11 +221,63 @@ impl Settings {
         if !(60..=absolute_secs).contains(&idle_secs) {
             return Err(ConfigError(SESSION_IDLE.name));
         }
+        let max_bytes = value(&FILE_MAX_BYTES)?
+            .parse::<i64>()
+            .map_err(|_| ConfigError(FILE_MAX_BYTES.name))?;
+        let upload_secs = value(&UPLOAD_SESSION_SECS)?
+            .parse::<u32>()
+            .map_err(|_| ConfigError(UPLOAD_SESSION_SECS.name))?;
+        let download_secs = value(&DOWNLOAD_URL_SECS)?
+            .parse::<u32>()
+            .map_err(|_| ConfigError(DOWNLOAD_URL_SECS.name))?;
+        if !(1..=104857600).contains(&max_bytes) {
+            return Err(ConfigError(FILE_MAX_BYTES.name));
+        }
+        if !(1..=3600).contains(&upload_secs) {
+            return Err(ConfigError(UPLOAD_SESSION_SECS.name));
+        }
+        if !(1..=300).contains(&download_secs) {
+            return Err(ConfigError(DOWNLOAD_URL_SECS.name));
+        }
+        let storage = if std::env::var_os(S3_ENDPOINT.name).is_some() {
+            let endpoint = storage_endpoint(&value(&S3_ENDPOINT)?, false, S3_ENDPOINT.name)?;
+            let public =
+                std::env::var(S3_PUBLIC_ENDPOINT.name).unwrap_or_else(|_| endpoint.clone());
+            let public_endpoint = storage_endpoint(&public, true, S3_PUBLIC_ENDPOINT.name)?;
+            let bucket = value(&S3_BUCKET)?;
+            if !(3..=63).contains(&bucket.len())
+                || !bucket
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b".-".contains(&b))
+                || !bucket.starts_with(|c: char| c.is_ascii_alphanumeric())
+                || !bucket.ends_with(|c: char| c.is_ascii_alphanumeric())
+                || bucket.contains("..")
+                || bucket.parse::<std::net::Ipv4Addr>().is_ok()
+            {
+                return Err(ConfigError(S3_BUCKET.name));
+            }
+            Some(StorageSettings {
+                endpoint,
+                public_endpoint,
+                bucket,
+                region: value(&S3_REGION)?,
+                access_key: value(&S3_ACCESS_KEY)?,
+                secret_key: value(&S3_SECRET_KEY)?,
+            })
+        } else {
+            None
+        };
         Ok(Self {
             bind,
             database,
             log_filter,
             migration_timeout: Duration::from_secs(seconds),
+            storage,
+            file_limits: FileLimits {
+                max_bytes,
+                upload_secs,
+                download_secs,
+            },
             auth: AuthSettings {
                 origin: origin.origin().ascii_serialization(),
                 secure_cookie: origin.scheme() == "https",
@@ -162,4 +286,25 @@ impl Settings {
             },
         })
     }
+}
+
+fn storage_endpoint(value: &str, public: bool, name: &'static str) -> Result<String, ConfigError> {
+    let endpoint = url::Url::parse(value).map_err(|_| ConfigError(name))?;
+    let local = matches!(
+        endpoint.host_str(),
+        Some("localhost" | "127.0.0.1" | "[::1]")
+    );
+    if !matches!(endpoint.scheme(), "http" | "https")
+        || (public && endpoint.scheme() == "http" && !local)
+        || endpoint.host_str().is_none()
+        || endpoint.path() != "/"
+        || endpoint.query().is_some()
+        || endpoint.fragment().is_some()
+        || !endpoint.username().is_empty()
+        || endpoint.password().is_some()
+        || endpoint.port() == Some(0)
+    {
+        return Err(ConfigError(name));
+    }
+    Ok(endpoint.origin().ascii_serialization())
 }

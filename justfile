@@ -4,15 +4,21 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 default:
     @just --list
 
-# PostgreSQL in Docker, API reload and Web HMR on the host.
+# PostgreSQL/RustFS in Docker, API reload and Web HMR on the host.
 dev:
     node scripts/dev.mjs
+
+services-down:
+    docker compose stop postgres rustfs
 
 db-down:
     docker compose stop postgres
 
 migrate:
     node scripts/migrate.mjs
+
+bootstrap-storage:
+    node scripts/bootstrap-storage.mjs
 
 generate:
     pnpm generate

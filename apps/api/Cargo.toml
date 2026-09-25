@@ -21,6 +21,10 @@ sqlx.workspace = true
 http-body-util.workspace = true
 tower.workspace = true
 uuid.workspace = true
+reqwest.workspace = true
+sha2.workspace = true
+hex.workspace = true
+async-trait.workspace = true
 
 [lints]
 workspace = true

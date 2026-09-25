@@ -523,6 +523,17 @@ test('a new personal draft stays blocked after denied creation until current per
 });
 
 function open(path = '/documents', canCreate = () => true) {
+  server.use(
+    http.get('http://api.test/api/v1/knowledge/documents/:id/attachments', () =>
+      HttpResponse.json({
+        data: [],
+        can_upload: true,
+        max_upload_bytes: 20971520,
+        next_cursor: null,
+        has_more: false,
+      }),
+    ),
+  );
   if (path === '/documents/new')
     server.use(
       http.get('http://api.test/api/v1/knowledge/documents', ({ request }) => {

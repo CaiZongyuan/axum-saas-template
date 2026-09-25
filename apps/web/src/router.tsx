@@ -15,6 +15,7 @@ import {
   MembersView,
 } from '@saas/views';
 // example:knowledge:imports:start
+import { browserFileTransfer } from './knowledge-files';
 import { useDocumentNavigationGuard } from './knowledge-navigation';
 import {
   KnowledgeBaseView,
@@ -250,6 +251,7 @@ function DocumentPage() {
   return (
     <DocumentView
       apiClient={apiClient}
+      fileTransfer={browserFileTransfer}
       onLibrary={(baseId) => {
         void navigate({ to: '/knowledge-bases/$baseId', params: { baseId } });
       }}
@@ -276,6 +278,7 @@ function EditDocumentPage() {
       {guard.prompt}
       <EditDocumentView
         apiClient={apiClient}
+        fileTransfer={browserFileTransfer}
         documentId={documentId}
         onDirtyChange={guard.onDirtyChange}
         onBack={() => {

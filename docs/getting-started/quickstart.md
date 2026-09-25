@@ -13,7 +13,7 @@ pnpm install --frozen-lockfile
 just dev
 ```
 
-`just dev` 启动 Docker 中的 PostgreSQL，显式运行迁移，再启动宿主机 API 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
+`just dev` 启动 Docker 中的 PostgreSQL/RustFS，显式运行迁移并初始化私有存储 bucket，再启动宿主机 API 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
 
 打开[注册页面](http://127.0.0.1:5173/register)，填写邮箱、12–128 字符的密码及可选显示名，成功后自动进入已登录首页。首个成功注册的账号成为企业 Owner，后续账号为 Member。部署人员应先注册自己的 Owner 账号，再交给普通使用者；不需要邀请或等待邮件。
 
@@ -29,7 +29,7 @@ Owner/Admin 从首页“企业成员”管理角色和启用状态；最后一�
 
 登录后点击“我的文档”→“新建文档”，填写标题和 Markdown，再点击“保存文档”。普通成员也可以直接开始；个人库与 Editor 授权在首次保存时自动准备。刷新详情页后正文仍在，返回列表可以重新打开。
 
-支持新建、安全预览、标题搜索、分页、访问隔离和可靠重试；支持[编辑与冲突处理](../tutorials/06-edit-conflicts.md)，附件按后续章节交付。跟做步骤见[第一篇 Markdown 文档](../tutorials/04-personal-documents.md)和[搜索与预览](../tutorials/05-search-preview.md)。
+支持新建、安全预览、标题搜索、分页、访问隔离和可靠重试；支持[编辑与冲突处理](../tutorials/06-edit-conflicts.md)，并可[上传附件、下载与插入图片引用](../tutorials/09-attachments.md)。跟做步骤见[第一篇 Markdown 文档](../tutorials/04-personal-documents.md)和[搜索与预览](../tutorials/05-search-preview.md)。
 
 Owner/Admin 可从首页“知识库”创建共享库、修改名称、授予或撤销 Reader/Editor；获授权成员在库内浏览与写作。参见[共享知识库与权限](../tutorials/07-library-grants.md)。
 
@@ -61,7 +61,7 @@ just db-down
 docker compose up -d --wait postgres
 ```
 
-`Ctrl+C` 停止开发 API/Web，数据库与数据卷保留。`just db-down` 只停止数据库，不删除数据。
+`Ctrl+C` 停止开发 API/Web，数据库、RustFS 与数据卷保留。`just services-down` 停止两项依赖，不删除数据；`just db-down` 可单独停止数据库。
 
 ## 文档与下一步
 

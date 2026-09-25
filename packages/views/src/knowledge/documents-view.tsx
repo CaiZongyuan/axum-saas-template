@@ -50,6 +50,8 @@ import {
 import { sessionKey, sessionQuery } from '../identity';
 import { MarkdownPreview } from './markdown-preview';
 import { knowledgeBaseQuery } from './knowledge-base-query';
+import { AttachmentsPanel } from './attachments-panel';
+import type { FileTransfer } from './file-transfer';
 
 function permissionDenied(error: unknown): boolean {
   const code =
@@ -364,6 +366,7 @@ function DocumentForm({
   readOnly = false,
   knowledgeBaseId,
   onRefreshPermission,
+  fileTransfer,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
@@ -375,8 +378,18 @@ function DocumentForm({
   readOnly?: boolean;
   knowledgeBaseId?: string;
   onRefreshPermission: () => Promise<boolean>;
+  fileTransfer?: FileTransfer;
 }) {
   const queryClient = useQueryClient();
+  const attachmentContext =
+    document && fileTransfer
+      ? {
+          apiClient,
+          userId: identity.user.id,
+          documentId: document.id,
+          transfer: fileTransfer,
+        }
+      : undefined;
   const titleInput = useRef<HTMLInputElement>(null);
   const markdownInput = useRef<HTMLTextAreaElement>(null);
   const [baseline, setBaseline] = useState(() => ({
@@ -614,7 +627,10 @@ function DocumentForm({
             </Field>
           </TabsContent>
           <TabsContent value="preview">
-            <MarkdownPreview markdown={preview} />
+            <MarkdownPreview
+              markdown={preview}
+              attachments={attachmentContext}
+            />
           </TabsContent>
         </Tabs>
         {inputError ? (
@@ -638,7 +654,10 @@ function DocumentForm({
                 <h2 className="text-lg font-semibold">
                   最新版本 {latest.version}：{latest.title}
                 </h2>
-                <MarkdownPreview markdown={latest.markdown} />
+                <MarkdownPreview
+                  markdown={latest.markdown}
+                  attachments={attachmentContext}
+                />
                 <p>核对上方最新内容，再选择如何继续。不会自动保存。</p>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => reconcile(false)}>
@@ -664,6 +683,21 @@ function DocumentForm({
           {mutation.isPending ? '正在保存…' : '保存文档'}
         </Button>
       </FieldGroup>
+      {document && fileTransfer ? (
+        <AttachmentsPanel
+          apiClient={apiClient}
+          identity={identity}
+          documentId={document.id}
+          canEdit={!cannotEdit && !mutation.isPending}
+          transfer={fileTransfer}
+          onInsert={(reference) => {
+            if (!markdownInput.current) return;
+            markdownInput.current.value += `\n\n${reference}`;
+            setPreview(markdownInput.current.value);
+            setDirty(true);
+          }}
+        />
+      ) : null}
     </form>
   );
 }
@@ -776,12 +810,14 @@ export function DocumentView({
   onBack,
   onEdit,
   onLibrary,
+  fileTransfer,
 }: {
   apiClient: ApiClient;
   documentId: string;
   onEdit: () => void;
   onLibrary: (id: string) => void;
   onBack: () => void;
+  fileTransfer: FileTransfer;
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
@@ -813,7 +849,29 @@ export function DocumentView({
             <p className="text-sm text-muted-foreground">
               版本 {document.data.version}
             </p>
-            <MarkdownPreview markdown={document.data.markdown} />
+            <MarkdownPreview
+              markdown={document.data.markdown}
+              attachments={
+                session.data
+                  ? {
+                      apiClient,
+                      userId: session.data.user.id,
+                      documentId,
+                      transfer: fileTransfer,
+                    }
+                  : undefined
+              }
+            />
+            {session.data ? (
+              <AttachmentsPanel
+                key={`${session.data.user.id}:${documentId}`}
+                apiClient={apiClient}
+                identity={session.data}
+                documentId={documentId}
+                canEdit={document.data.can_edit}
+                transfer={fileTransfer}
+              />
+            ) : null}
           </article>
         )}
       </IdentityGate>
@@ -827,12 +885,14 @@ export function EditDocumentView({
   onSaved,
   onBack,
   onDirtyChange,
+  fileTransfer,
 }: {
   apiClient: ApiClient;
   documentId: string;
   onSaved: (id: string) => void;
   onBack: () => void;
   onDirtyChange: (dirty: boolean) => void;
+  fileTransfer: FileTransfer;
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
@@ -857,6 +917,7 @@ export function EditDocumentView({
             apiClient={apiClient}
             identity={session.data}
             document={document.data}
+            fileTransfer={fileTransfer}
             readOnly={document.isError}
             onSaved={onSaved}
             onDirtyChange={onDirtyChange}

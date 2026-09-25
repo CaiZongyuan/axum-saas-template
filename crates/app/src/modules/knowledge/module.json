@@ -3,7 +3,9 @@
   "tables": [
     "knowledge.knowledge_bases",
     "knowledge.grants",
-    "knowledge.documents"
+    "knowledge.documents",
+    "knowledge.attachment_uploads",
+    "knowledge.attachments"
   ],
   "viewPath": "packages/views/src/knowledge",
   "contractSymbols": [
@@ -31,6 +33,11 @@
     "renameKnowledgeBase",
     "listKnowledgeBaseGrants",
     "setKnowledgeBaseGrant",
-    "revokeKnowledgeBaseGrant"
+    "revokeKnowledgeBaseGrant",
+    "AttachmentPage",
+    "startAttachmentUpload",
+    "completeAttachmentUpload",
+    "listAttachments",
+    "getAttachmentDownload"
   ]
 }
