@@ -17,6 +17,8 @@ test('a newly registered Member writes Markdown and reads it after refresh', asy
   await page
     .getByLabel('Markdown 正文', { exact: true })
     .fill('# 起步\n\n来自真实 PostgreSQL。');
+  await page.getByRole('tab', { name: '预览' }).click();
+  await expect(page.getByRole('heading', { name: '起步' })).toBeVisible();
   await page.getByRole('button', { name: '保存文档' }).click();
   await expect(
     page.getByRole('heading', { name: '第一篇团队笔记' }),
@@ -27,8 +29,11 @@ test('a newly registered Member writes Markdown and reads it after refresh', asy
   ).toBeVisible();
   await expect(page.locator('article')).toContainText('来自真实 PostgreSQL。');
   await page.getByRole('button', { name: '我的文档' }).click();
+  await page.getByLabel('标题关键词').fill('团队');
+  await page.getByLabel('标题关键词').press('Enter');
   await page.getByRole('button', { name: '第一篇团队笔记' }).click();
   await expect(
     page.getByRole('heading', { name: '第一篇团队笔记' }),
   ).toBeVisible();
+  await expect(page.getByRole('heading', { name: '起步' })).toBeVisible();
 });

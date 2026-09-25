@@ -9,7 +9,8 @@
     "apps/api/tests/knowledge.rs",
     "apps/web/src/knowledge.test.tsx",
     "tests/e2e/knowledge.spec.ts",
-    "docs/tutorials/04-personal-documents.md"
+    "docs/tutorials/04-personal-documents.md",
+    "docs/tutorials/05-search-preview.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
@@ -27,5 +28,12 @@
     "packages/views/src/index.ts": ["views"],
     "docs/getting-started/quickstart.md": ["quickstart"],
     "README.md": ["readme"]
+  },
+  "ownedDependencies": {
+    "packages/views/package.json": [
+      "react-markdown",
+      "remark-gfm",
+      "rehype-sanitize"
+    ]
   }
 }
