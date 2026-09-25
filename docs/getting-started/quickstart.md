@@ -15,7 +15,7 @@ just dev
 
 `just dev` 启动 Docker 中的 PostgreSQL，显式运行迁移，再启动宿主机 API 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
 
-打开 **http://127.0.0.1:5173/**。正常情况下会看到“服务已就绪”“PostgreSQL 已连接”和迁移版本 `1`。
+打开 [http://127.0.0.1:5173/](http://127.0.0.1:5173/)。正常情况下会看到“服务已就绪”“PostgreSQL 已连接”和迁移版本 `1`。
 
 API 默认监听 `127.0.0.1:3000`：
 
@@ -51,7 +51,7 @@ docker compose up -d --wait postgres
 just docs
 ```
 
-本地文档入口为 **http://127.0.0.1:5174/axum-saas-template/**。在线站点和本地站点使用同一组 Markdown 源文件。
+本地文档入口为 [http://127.0.0.1:5174/axum-saas-template/](http://127.0.0.1:5174/axum-saas-template/)。在线站点和本地站点使用同一组 Markdown 源文件。
 
 复制模板后，按[发布教程站点](publish-docs.md)启用自己的 GitHub Pages；后续合并到 `main` 时由 CI 检查并发布。
 
