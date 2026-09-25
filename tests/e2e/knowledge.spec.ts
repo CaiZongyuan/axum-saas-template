@@ -37,3 +37,45 @@ test('a newly registered Member writes Markdown and reads it after refresh', asy
   ).toBeVisible();
   await expect(page.getByRole('heading', { name: '起步' })).toBeVisible();
 });
+
+test('two pages preserve a conflicting draft and reconcile it explicitly', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/register');
+  await page
+    .getByLabel('邮箱', { exact: true })
+    .fill('editing-member@example.com');
+  await page.getByLabel('密码', { exact: true }).fill('browser-test-password');
+  await page.getByRole('button', { name: '创建账号' }).click();
+  await page.getByRole('link', { name: '我的文档', exact: true }).click();
+  await page.getByRole('button', { name: '新建文档' }).click();
+  await page.getByLabel('标题', { exact: true }).fill('并发编辑示例');
+  await page.getByLabel('Markdown 正文').fill('初始正文');
+  await page.getByRole('button', { name: '保存文档' }).click();
+  await page.getByRole('button', { name: '编辑文档' }).click();
+  await expect(page.getByText('基于版本 1 编辑')).toBeVisible();
+  const other = await context.newPage();
+  await other.goto(page.url());
+  await expect(other.getByText('基于版本 1 编辑')).toBeVisible();
+  await other.getByLabel('Markdown 正文').fill('后保存的草稿');
+  await other.getByRole('button', { name: '返回文档' }).click();
+  await expect(other.getByRole('alertdialog')).toBeVisible();
+  await other.getByRole('button', { name: '继续编辑' }).click();
+  await page.getByLabel('Markdown 正文').fill('先保存的正文');
+  await page.getByRole('button', { name: '保存文档' }).click();
+  await expect(page.getByText('先保存的正文')).toBeVisible();
+  await other.getByRole('button', { name: '保存文档' }).click();
+  await expect(other.getByRole('alert')).toContainText('你的草稿已保留');
+  await expect(other.getByLabel('Markdown 正文')).toHaveValue('后保存的草稿');
+  await other.getByRole('button', { name: '读取最新版本' }).click();
+  await expect(other.getByText('先保存的正文')).toBeVisible();
+  await other.getByRole('button', { name: '已核对，保留草稿并继续' }).click();
+  await other
+    .getByLabel('Markdown 正文')
+    .fill('先保存的正文\n\n已人工合并草稿');
+  await other.getByRole('button', { name: '保存文档' }).click();
+  await expect(other.getByText('版本 3', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('已人工合并草稿')).toBeVisible();
+});

@@ -1,5 +1,6 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  queryOptions,
   useInfiniteQuery,
   useMutation,
   useQuery,
@@ -10,6 +11,8 @@ import {
   createDocument,
   getDocument,
   listPersonalDocuments,
+  updateDocument,
+  type Document,
   type ApiClient,
   type CurrentSession,
   type CreateDocument,
@@ -60,6 +63,8 @@ function Failure({ error }: { error: unknown }) {
     'knowledge.invalid_title': '请填写不超过 200 个字符的标题。',
     'knowledge.too_large': '正文超过大小上限，请缩减后重试。',
     'knowledge.invalid_text': '粘贴的内容包含无效字符，请清理后重试。',
+    'document.version_conflict':
+      '文档已被更新。你的草稿已保留，请读取最新版本后核对。',
     'idempotency.conflict': '这次保存的请求已用于其他内容，请重新保存。',
     'auth.unauthorized': '会话已失效，请重新登录。',
     'auth.csrf': '会话已变化，请刷新会话后重试。',
@@ -327,23 +332,67 @@ function markdownError(markdown: string): string | undefined {
     return 'knowledge.too_large';
 }
 
-function NewDocumentForm({
+function DocumentForm({
   apiClient,
   identity,
-  onCreated,
+  onSaved,
+  document,
+  onReadLatest,
+  latestPending,
+  onDirtyChange,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
-  onCreated: (id: string) => void;
+  onSaved: (id: string) => void;
+  document?: Document;
+  onReadLatest?: () => Promise<number | undefined>;
+  latestPending?: boolean;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const titleInput = useRef<HTMLInputElement>(null);
   const markdownInput = useRef<HTMLTextAreaElement>(null);
+  const [baseline, setBaseline] = useState(() => ({
+    title: document?.title ?? '',
+    markdown: document?.markdown ?? '',
+    version: document?.version,
+  }));
+  const [latestRead, setLatestRead] = useState<number>();
+  const [dirty, setDirty] = useState(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    onDirtyChange(dirty);
+    return () => onDirtyChange(false);
+  }, [dirty, onDirtyChange]);
   const [preview, setPreview] = useState('');
   const [inputError, setInputError] = useState<string>();
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
   const mutation = useMutation({
-    mutationFn: async ({ body, key }: { body: CreateDocument; key: string }) =>
-      (
+    mutationFn: async ({
+      body,
+      key,
+    }: {
+      body: CreateDocument;
+      key: string;
+    }) => {
+      if (document && baseline.version !== undefined) {
+        return (
+          await updateDocument({
+            client: apiClient,
+            path: { id: document.id },
+            body: { ...body, version: baseline.version },
+            headers: { 'x-csrf-token': identity.csrf_token },
+            throwOnError: true,
+          })
+        ).data;
+      }
+      return (
         await createDocument({
           client: apiClient,
           body,
@@ -353,12 +402,17 @@ function NewDocumentForm({
           },
           throwOnError: true,
         })
-      ).data,
+      ).data;
+    },
     retry: false,
     gcTime: 0,
     onSuccess: async (document) => {
       await queryClient.invalidateQueries({
         queryKey: ['knowledge', 'documents', identity.user.id],
+      });
+      await queryClient.cancelQueries({
+        queryKey: ['knowledge', 'document', identity.user.id, document.id],
+        exact: true,
       });
       if (
         queryClient.getQueryState(sessionKey(apiClient))?.fetchStatus ===
@@ -376,17 +430,55 @@ function NewDocumentForm({
           .id !== identity.user.id
       )
         return;
-      queryClient.setQueryData(
+      queryClient.setQueryData<Document>(
         ['knowledge', 'document', identity.user.id, document.id],
-        document,
+        (cached) =>
+          cached && cached.version > document.version ? cached : document,
       );
-      onCreated(document.id);
+      if (active.current) {
+        setDirty(false);
+        onSaved(document.id);
+      }
     },
   });
+  const conflict =
+    !!mutation.error &&
+    typeof mutation.error === 'object' &&
+    'error' in mutation.error &&
+    (mutation.error.error as { code?: string }).code ===
+      'document.version_conflict';
+  const latest = latestRead === document?.version ? document : undefined;
+  function reconcile(replace: boolean) {
+    if (!latest) return;
+    if (replace) {
+      if (titleInput.current) titleInput.current.value = latest.title;
+      if (markdownInput.current) markdownInput.current.value = latest.markdown;
+      setPreview(latest.markdown);
+    }
+    setBaseline({
+      title: latest.title,
+      markdown: latest.markdown,
+      version: latest.version,
+    });
+    setDirty(
+      !replace &&
+        (titleInput.current?.value !== latest.title ||
+          markdownInput.current?.value !== latest.markdown),
+    );
+    mutation.reset();
+    setLatestRead(undefined);
+  }
   return (
     <form
+      onChange={() =>
+        setDirty(
+          titleInput.current?.value !== baseline.title ||
+            markdownInput.current?.value !== baseline.markdown,
+        )
+      }
       onSubmit={(event) => {
         event.preventDefault();
+        if (mutation.isPending || conflict) return;
         const form = new FormData(event.currentTarget);
         const body = {
           title: String(form.get('title')).trim(),
@@ -413,6 +505,8 @@ function NewDocumentForm({
         >
           <FieldLabel htmlFor="document-title">标题</FieldLabel>
           <Input
+            ref={titleInput}
+            defaultValue={baseline.title}
             id="document-title"
             name="title"
             required
@@ -448,6 +542,7 @@ function NewDocumentForm({
               <FieldLabel htmlFor="document-markdown">Markdown 正文</FieldLabel>
               <Textarea
                 ref={markdownInput}
+                defaultValue={baseline.markdown}
                 id="document-markdown"
                 name="markdown"
                 rows={16}
@@ -471,7 +566,42 @@ function NewDocumentForm({
         ) : mutation.isError ? (
           <Failure error={mutation.error} />
         ) : null}
-        <Button type="submit" disabled={mutation.isPending}>
+        {conflict && onReadLatest ? (
+          <section aria-label="保存冲突" className="flex flex-col gap-3">
+            <Button
+              variant="outline"
+              disabled={latestPending}
+              onClick={() => {
+                void onReadLatest().then(setLatestRead);
+              }}
+            >
+              {latestPending ? '正在读取最新版本…' : '读取最新版本'}
+            </Button>
+            {latest ? (
+              <>
+                <h2 className="text-lg font-semibold">
+                  最新版本 {latest.version}：{latest.title}
+                </h2>
+                <MarkdownPreview markdown={latest.markdown} />
+                <p>核对上方最新内容，再选择如何继续。不会自动保存。</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => reconcile(false)}>
+                    已核对，保留草稿并继续
+                  </Button>
+                  <Button variant="outline" onClick={() => reconcile(true)}>
+                    放弃草稿，采用最新内容
+                  </Button>
+                </div>
+              </>
+            ) : null}
+          </section>
+        ) : null}
+        {baseline.version !== undefined ? (
+          <p className="text-sm text-muted-foreground">
+            基于版本 {baseline.version} 编辑
+          </p>
+        ) : null}
+        <Button type="submit" disabled={mutation.isPending || conflict}>
           {mutation.isPending ? '正在保存…' : '保存文档'}
         </Button>
       </FieldGroup>
@@ -483,10 +613,12 @@ export function NewDocumentView({
   apiClient,
   onCreated,
   onBack,
+  onDirtyChange,
 }: {
   apiClient: ApiClient;
   onCreated: (id: string) => void;
   onBack: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
@@ -501,11 +633,12 @@ export function NewDocumentView({
     >
       <IdentityGate session={session}>
         {session.data ? (
-          <NewDocumentForm
+          <DocumentForm
             key={session.data.user.id}
             apiClient={apiClient}
             identity={session.data}
-            onCreated={onCreated}
+            onSaved={onCreated}
+            onDirtyChange={onDirtyChange}
           />
         ) : null}
       </IdentityGate>
@@ -513,20 +646,14 @@ export function NewDocumentView({
   );
 }
 
-export function DocumentView({
-  apiClient,
-  documentId,
-  onBack,
-}: {
-  apiClient: ApiClient;
-  documentId: string;
-  onBack: () => void;
-}) {
-  const queryClient = useQueryClient();
-  const session = useQuery(sessionQuery(apiClient, queryClient));
-  const document = useQuery({
-    queryKey: ['knowledge', 'document', session.data?.user.id, documentId],
-    enabled: !!session.data,
+function documentQuery(
+  apiClient: ApiClient,
+  userId: string | undefined,
+  documentId: string,
+) {
+  return queryOptions({
+    queryKey: ['knowledge', 'document', userId, documentId],
+    enabled: !!userId,
     queryFn: async ({ signal }) =>
       (
         await getDocument({
@@ -538,6 +665,24 @@ export function DocumentView({
       ).data,
     retry: false,
   });
+}
+
+export function DocumentView({
+  apiClient,
+  documentId,
+  onBack,
+  onEdit,
+}: {
+  apiClient: ApiClient;
+  documentId: string;
+  onEdit: () => void;
+  onBack: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const session = useQuery(sessionQuery(apiClient, queryClient));
+  const document = useQuery(
+    documentQuery(apiClient, session.data?.user.id, documentId),
+  );
   return (
     <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
       <Button variant="outline" onClick={onBack}>
@@ -551,6 +696,7 @@ export function DocumentView({
         ) : (
           <article className="flex flex-col gap-6">
             <h1 className="text-3xl font-semibold">{document.data.title}</h1>
+            <Button onClick={onEdit}>编辑文档</Button>
             <p className="text-sm text-muted-foreground">
               版本 {document.data.version}
             </p>
@@ -559,5 +705,55 @@ export function DocumentView({
         )}
       </IdentityGate>
     </main>
+  );
+}
+
+export function EditDocumentView({
+  apiClient,
+  documentId,
+  onSaved,
+  onBack,
+  onDirtyChange,
+}: {
+  apiClient: ApiClient;
+  documentId: string;
+  onSaved: (id: string) => void;
+  onBack: () => void;
+  onDirtyChange: (dirty: boolean) => void;
+}) {
+  const queryClient = useQueryClient();
+  const session = useQuery(sessionQuery(apiClient, queryClient));
+  const document = useQuery(
+    documentQuery(apiClient, session.data?.user.id, documentId),
+  );
+  return (
+    <Page
+      title="编辑文档"
+      actions={
+        <Button variant="outline" onClick={onBack}>
+          返回文档
+        </Button>
+      }
+    >
+      <IdentityGate session={session}>
+        {document.isPending ? <p role="status">正在读取文档…</p> : null}
+        {document.isError ? <Failure error={document.error} /> : null}
+        {document.data && session.data ? (
+          <DocumentForm
+            key={`${session.data.user.id}:${documentId}`}
+            apiClient={apiClient}
+            identity={session.data}
+            document={document.data}
+            onSaved={onSaved}
+            onDirtyChange={onDirtyChange}
+            latestPending={document.isFetching}
+            onReadLatest={async () => {
+              const result = await document.refetch();
+              return result.isSuccess ? result.data.version : undefined;
+            }}
+          />
+        ) : null}
+      </IdentityGate>
+    </Page>
   );
 }

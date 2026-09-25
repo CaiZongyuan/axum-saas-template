@@ -100,6 +100,44 @@ pub(super) async fn read(
     document.ok_or(Failure::NotFound)
 }
 
+pub(super) async fn update(
+    pool: &PgPool,
+    actor: &CurrentUser,
+    id: uuid::Uuid,
+    version: i64,
+    content: Content,
+    request_id: &str,
+) -> Result<Document, Failure> {
+    let mut tx = pool.begin().await?;
+    let role = organization::active_role_in(&mut tx, &actor.id)
+        .await?
+        .ok_or(Failure::Forbidden)?;
+    let base: String = sqlx::query_scalar("SELECT b.id::text FROM knowledge.knowledge_bases b JOIN knowledge.documents d ON d.knowledge_base_id = b.id WHERE d.id = $1::uuid FOR SHARE OF b")
+        .bind(id.to_string()).fetch_optional(&mut *tx).await?.ok_or(Failure::NotFound)?;
+    let grant: Option<String> = sqlx::query_scalar("SELECT access FROM knowledge.grants WHERE knowledge_base_id = $1::uuid AND user_id = $2::uuid")
+        .bind(&base).bind(&actor.id).fetch_optional(&mut *tx).await?;
+    if !manager(role) {
+        match grant.as_deref() {
+            Some("editor") => (),
+            Some(_) => return Err(Failure::Forbidden),
+            None => return Err(Failure::NotFound),
+        }
+    }
+    let document = sqlx::query_as::<_, Document>(&format!("UPDATE knowledge.documents SET title = $1, markdown = $2, version = version + 1, updated_by = $3::uuid, updated_at = clock_timestamp() WHERE id = $4::uuid AND knowledge_base_id = $5::uuid AND version = $6 RETURNING {COLUMNS}"))
+        .bind(content.title).bind(content.markdown).bind(&actor.id).bind(id.to_string()).bind(base).bind(version)
+        .fetch_optional(&mut *tx).await?.ok_or(Failure::VersionConflict)?;
+    audit::append(
+        &mut tx,
+        &actor.id,
+        "knowledge.document.update",
+        &document.id,
+        request_id,
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(document)
+}
+
 pub(super) async fn list(
     pool: &PgPool,
     actor: &CurrentUser,

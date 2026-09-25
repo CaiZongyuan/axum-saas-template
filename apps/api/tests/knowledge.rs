@@ -254,6 +254,157 @@ async fn get(app: &Router, actor: &Browser, path: &str) -> Response {
         .unwrap()
 }
 
+async fn update(
+    app: &Router,
+    actor: &Browser,
+    id: &str,
+    version: i64,
+    title: &str,
+    markdown: &str,
+) -> Response {
+    app.clone()
+        .oneshot(
+            Request::put(format!("/api/v1/knowledge/documents/{id}"))
+                .header("origin", "http://127.0.0.1:5173")
+                .header("content-type", "application/json")
+                .header("cookie", &actor.cookie)
+                .header("x-csrf-token", &actor.csrf)
+                .body(Body::from(
+                    json!({"version":version,"title":title,"markdown":markdown}).to_string(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn updates_require_current_edit_permission_and_rollback_with_audit(pool: PgPool) {
+    let app = application(pool.clone());
+    register(&app, "owner@example.com").await;
+    let writer = register(&app, "writer@example.com").await;
+    let other = register(&app, "other@example.com").await;
+    let original = data(create(&app, &writer, "private", "original").await).await;
+    let id = original["id"].as_str().unwrap();
+    assert_eq!(
+        update(&app, &other, id, 1, "not allowed", "bad")
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    sqlx::query("UPDATE knowledge.grants SET access = 'reader'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        update(&app, &writer, id, 1, "reader cannot edit", "bad")
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        data(get(&app, &writer, &format!("/api/v1/knowledge/documents/{id}")).await).await,
+        original
+    );
+    sqlx::query("UPDATE knowledge.grants SET access = 'editor'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("CREATE FUNCTION reject_update_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action = 'knowledge.document.update' THEN RAISE EXCEPTION 'audit unavailable'; END IF; RETURN NEW; END $$").execute(&pool).await.unwrap();
+    sqlx::query("CREATE TRIGGER fail_update_audit BEFORE INSERT ON saas_core.audit_events FOR EACH ROW EXECUTE FUNCTION reject_update_audit()").execute(&pool).await.unwrap();
+    assert_eq!(
+        update(&app, &writer, id, 1, "must roll back", "bad")
+            .await
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(
+        data(get(&app, &writer, &format!("/api/v1/knowledge/documents/{id}")).await).await,
+        original
+    );
+    sqlx::query("DROP TRIGGER fail_update_audit ON saas_core.audit_events")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        update(&app, &writer, id, 1, "retry", "saved")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        update(&app, &writer, id, 0, "invalid", "bad")
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn concurrent_editors_cannot_silently_overwrite_the_same_version(pool: PgPool) {
+    let app = application(pool.clone());
+    let writer = register(&app, "writer@example.com").await;
+    let document = data(create(&app, &writer, "共享初版", "original").await).await;
+    let id = document["id"].as_str().unwrap();
+    let mut gate = pool.begin().await.unwrap();
+    sqlx::query("LOCK TABLE knowledge.documents IN SHARE MODE")
+        .execute(&mut *gate)
+        .await
+        .unwrap();
+    let release = async {
+        tokio::time::timeout(std::time::Duration::from_secs(3), async {
+            loop {
+                let waiting: i64 = sqlx::query_scalar("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'").fetch_one(&pool).await.unwrap();
+                if waiting >= 2 { break; }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }).await.expect("both updates must reach the write gate");
+        gate.rollback().await.unwrap();
+    };
+    let (first, second, ()) = tokio::join!(
+        update(&app, &writer, id, 1, "editor one", "first draft"),
+        update(&app, &writer, id, 1, "editor two", "second draft"),
+        release
+    );
+    let (saved, conflict) = if first.status() == StatusCode::OK {
+        (first, second)
+    } else {
+        (second, first)
+    };
+    assert_eq!(saved.status(), StatusCode::OK);
+    assert_eq!(conflict.status(), StatusCode::CONFLICT);
+    let saved = data(saved).await;
+    assert_eq!(saved["version"], 2);
+    assert_eq!(
+        data(get(&app, &writer, &format!("/api/v1/knowledge/documents/{id}")).await).await,
+        saved
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_document_update_advances_version_and_rejects_a_stale_save(pool: PgPool) {
+    let app = application(pool);
+    let writer = register(&app, "writer@example.com").await;
+    let original = data(create(&app, &writer, "初版", "旧正文").await).await;
+    let id = original["id"].as_str().unwrap();
+    let saved = update(&app, &writer, id, 1, "更新标题", "# 新正文").await;
+    assert_eq!(saved.status(), StatusCode::OK);
+    let saved = data(saved).await;
+    assert_eq!(saved["version"], 2);
+    assert_eq!(saved["markdown"], "# 新正文");
+    assert_eq!(saved["created_at"], original["created_at"]);
+    let stale = update(&app, &writer, id, 1, "过期编辑", "不能覆盖").await;
+    assert_eq!(stale.status(), StatusCode::CONFLICT);
+    assert_eq!(
+        data(stale).await["error"]["code"],
+        "document.version_conflict"
+    );
+    assert_eq!(
+        data(get(&app, &writer, &format!("/api/v1/knowledge/documents/{id}")).await).await,
+        saved
+    );
+}
+
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_member_can_create_and_read_their_first_document_without_admin_setup(pool: PgPool) {
     let app = application(pool);

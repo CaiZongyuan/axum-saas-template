@@ -13,6 +13,8 @@
     "DocumentPage",
     "createDocument",
     "getDocument",
-    "listPersonalDocuments"
+    "listPersonalDocuments",
+    "UpdateDocument",
+    "updateDocument"
   ]
 }
