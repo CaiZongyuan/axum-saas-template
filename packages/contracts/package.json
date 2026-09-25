@@ -1,0 +1,9 @@
+{
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "name": "@saas/contracts",
+  "exports": {
+    ".": "./src/generated/types.gen.ts"
+  }
+}
