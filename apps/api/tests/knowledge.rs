@@ -172,6 +172,7 @@ async fn data(response: Response) -> Value {
 }
 
 struct Browser {
+    id: String,
     cookie: String,
     csrf: String,
 }
@@ -198,12 +199,11 @@ async fn register(app: &Router, email: &str) -> Browser {
         .next()
         .unwrap()
         .to_owned();
+    let registration = data(response).await;
     Browser {
+        id: registration["user"]["id"].as_str().unwrap().to_owned(),
         cookie,
-        csrf: data(response).await["csrf_token"]
-            .as_str()
-            .unwrap()
-            .to_owned(),
+        csrf: registration["csrf_token"].as_str().unwrap().to_owned(),
     }
 }
 
@@ -252,6 +252,575 @@ async fn get(app: &Router, actor: &Browser, path: &str) -> Response {
         )
         .await
         .unwrap()
+}
+
+async fn mutate(app: &Router, actor: &Browser, method: &str, path: &str, body: Value) -> Response {
+    app.clone()
+        .oneshot(
+            Request::builder()
+                .method(method)
+                .uri(path)
+                .header("origin", "http://127.0.0.1:5173")
+                .header("content-type", "application/json")
+                .header("cookie", &actor.cookie)
+                .header("x-csrf-token", &actor.csrf)
+                .header("idempotency-key", uuid::Uuid::now_v7().to_string())
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn personal_creation_capability_tracks_revocation_without_reinitializing_the_grant(
+    pool: PgPool,
+) {
+    let app = application(pool);
+    let owner = register(&app, "owner@example.com").await;
+    let member = register(&app, "member@example.com").await;
+    assert_eq!(
+        data(get(&app, &member, "/api/v1/knowledge/documents?limit=1").await).await["can_create"],
+        true
+    );
+    let document = data(create(&app, &member, "第一篇", "body").await).await;
+    let grant = format!(
+        "/api/v1/knowledge/bases/{}/grants/{}",
+        document["knowledge_base_id"].as_str().unwrap(),
+        member.id
+    );
+    assert_eq!(
+        mutate(&app, &owner, "DELETE", &grant, json!({}))
+            .await
+            .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        data(get(&app, &member, "/api/v1/knowledge/documents?limit=1").await).await["can_create"],
+        false
+    );
+    assert_eq!(
+        mutate(&app, &owner, "PUT", &grant, json!({"access":"editor"}))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        data(get(&app, &member, "/api/v1/knowledge/documents?limit=1").await).await["can_create"],
+        true
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn only_managers_rename_a_visible_library(pool: PgPool) {
+    let app = application(pool);
+    let owner = register(&app, "owner@example.com").await;
+    let member = register(&app, "member@example.com").await;
+    let base = data(
+        mutate(
+            &app,
+            &owner,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"旧名称"}),
+        )
+        .await,
+    )
+    .await;
+    let path = format!("/api/v1/knowledge/bases/{}", base["id"].as_str().unwrap());
+    assert_eq!(
+        mutate(&app, &owner, "PUT", &path, json!({"name":"新名称"}))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(data(get(&app, &owner, &path).await).await["name"], "新名称");
+    assert_eq!(
+        mutate(&app, &member, "PUT", &path, json!({"name":"不可见"}))
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        mutate(
+            &app,
+            &owner,
+            "PUT",
+            &format!("{path}/grants/{}", member.id),
+            json!({"access":"editor"})
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        mutate(&app, &member, "PUT", &path, json!({"name":"不允许"}))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        mutate(&app, &owner, "PUT", &path, json!({"name":"  "}))
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn grant_revocation_waits_for_an_already_authorized_write_then_blocks_later_writes(
+    pool: PgPool,
+) {
+    let app = application(pool.clone());
+    let owner = register(&app, "owner@example.com").await;
+    let editor = register(&app, "editor@example.com").await;
+    let base = data(
+        mutate(
+            &app,
+            &owner,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"并发授权"}),
+        )
+        .await,
+    )
+    .await;
+    let base_id = base["id"].as_str().unwrap();
+    let grant = format!("/api/v1/knowledge/bases/{base_id}/grants/{}", editor.id);
+    assert_eq!(
+        mutate(&app, &owner, "PUT", &grant, json!({"access":"editor"}))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    let document = data(
+        mutate(
+            &app,
+            &editor,
+            "POST",
+            "/api/v1/knowledge/documents",
+            json!({"knowledge_base_id":base_id,"title":"原始标题","markdown":"original"}),
+        )
+        .await,
+    )
+    .await;
+    let id = document["id"].as_str().unwrap();
+    let mut gate = pool.begin().await.unwrap();
+    sqlx::query("LOCK TABLE saas_core.audit_events IN SHARE MODE")
+        .execute(&mut *gate)
+        .await
+        .unwrap();
+    let revoke = async {
+        tokio::time::timeout(std::time::Duration::from_secs(3), async {
+            loop {
+                let waiting: i64 = sqlx::query_scalar("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE 'INSERT INTO saas_core.audit_events%'").fetch_one(&pool).await.unwrap();
+                if waiting > 0 { break; }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }).await.expect("the authorized document write reaches its audit");
+        mutate(&app, &owner, "DELETE", &grant, json!({})).await
+    };
+    let release = async {
+        tokio::time::timeout(std::time::Duration::from_secs(3), async {
+            loop {
+                let waiting: i64 = sqlx::query_scalar("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND query LIKE 'SELECT id::text FROM knowledge.knowledge_bases%FOR UPDATE%'").fetch_one(&pool).await.unwrap();
+                if waiting > 0 { break; }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        }).await.expect("revocation waits for the library write lock");
+        gate.rollback().await.unwrap();
+    };
+    let (saved, revoked, ()) = tokio::join!(
+        update(
+            &app,
+            &editor,
+            id,
+            1,
+            "先完成保存",
+            "committed before revoke"
+        ),
+        revoke,
+        release
+    );
+    assert_eq!(saved.status(), StatusCode::OK);
+    assert_eq!(revoked.status(), StatusCode::NO_CONTENT);
+    assert_eq!(
+        update(&app, &editor, id, 2, "后续拒绝", "must not save")
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    let read = data(get(&app, &owner, &format!("/api/v1/knowledge/documents/{id}")).await).await;
+    assert_eq!(read["markdown"], "committed before revoke");
+    assert_eq!(read["version"], 2);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn grant_changes_roll_back_with_audit_and_admins_share_management_authority(pool: PgPool) {
+    let app = application(pool.clone());
+    let owner = register(&app, "owner@example.com").await;
+    let admin = register(&app, "admin@example.com").await;
+    let member = register(&app, "member@example.com").await;
+    assert_eq!(
+        mutate(
+            &app,
+            &owner,
+            "PUT",
+            &format!("/api/v1/organization/members/{}", admin.id),
+            json!({"role":"admin","active":true,"version":1})
+        )
+        .await
+        .status(),
+        StatusCode::OK
+    );
+    let base = data(
+        mutate(
+            &app,
+            &admin,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"由 Admin 管理"}),
+        )
+        .await,
+    )
+    .await;
+    let path = format!("/api/v1/knowledge/bases/{}", base["id"].as_str().unwrap());
+    let grant = format!("{path}/grants/{}", member.id);
+    sqlx::query("CREATE FUNCTION reject_grant_audit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.action LIKE 'knowledge.grant.%' THEN RAISE EXCEPTION 'audit unavailable'; END IF; RETURN NEW; END $$").execute(&pool).await.unwrap();
+    sqlx::query("CREATE TRIGGER fail_grant_audit BEFORE INSERT ON saas_core.audit_events FOR EACH ROW EXECUTE FUNCTION reject_grant_audit()").execute(&pool).await.unwrap();
+    assert_eq!(
+        mutate(&app, &admin, "PUT", &grant, json!({"access":"editor"}))
+            .await
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(
+        get(&app, &member, &path).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    sqlx::query("DROP TRIGGER fail_grant_audit ON saas_core.audit_events")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        mutate(&app, &admin, "PUT", &grant, json!({"access":"reader"}))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    sqlx::query("CREATE TRIGGER fail_grant_audit BEFORE INSERT ON saas_core.audit_events FOR EACH ROW EXECUTE FUNCTION reject_grant_audit()").execute(&pool).await.unwrap();
+    assert_eq!(
+        mutate(&app, &admin, "DELETE", &grant, json!({}))
+            .await
+            .status(),
+        StatusCode::SERVICE_UNAVAILABLE
+    );
+    assert_eq!(get(&app, &member, &path).await.status(), StatusCode::OK);
+    assert_eq!(
+        data(get(&app, &owner, &path).await).await["can_manage"],
+        true
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn library_document_cursors_cannot_be_reused_for_another_visible_library(pool: PgPool) {
+    let app = application(pool);
+    let owner = register(&app, "owner@example.com").await;
+    let a = data(
+        mutate(
+            &app,
+            &owner,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"A"}),
+        )
+        .await,
+    )
+    .await;
+    let b = data(
+        mutate(
+            &app,
+            &owner,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"B"}),
+        )
+        .await,
+    )
+    .await;
+    for title in ["first", "second"] {
+        assert_eq!(
+            mutate(
+                &app,
+                &owner,
+                "POST",
+                "/api/v1/knowledge/documents",
+                json!({"knowledge_base_id":a["id"],"title":title,"markdown":"body"})
+            )
+            .await
+            .status(),
+            StatusCode::CREATED
+        );
+    }
+    let first = data(
+        get(
+            &app,
+            &owner,
+            &format!(
+                "/api/v1/knowledge/documents?knowledge_base_id={}&limit=1",
+                a["id"].as_str().unwrap()
+            ),
+        )
+        .await,
+    )
+    .await;
+    let cursor = first["next_cursor"].as_str().unwrap();
+    assert_eq!(
+        get(
+            &app,
+            &owner,
+            &format!(
+                "/api/v1/knowledge/documents?knowledge_base_id={}&cursor={cursor}",
+                b["id"].as_str().unwrap()
+            )
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn documents_inherit_library_grants_for_reads_search_and_writes(pool: PgPool) {
+    let app = application(pool);
+    let owner = register(&app, "owner@example.com").await;
+    let editor = register(&app, "editor@example.com").await;
+    let reader = register(&app, "reader@example.com").await;
+    let outsider = register(&app, "outsider@example.com").await;
+    let base = data(
+        mutate(
+            &app,
+            &owner,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"业务文档"}),
+        )
+        .await,
+    )
+    .await;
+    let base_id = base["id"].as_str().unwrap();
+    for (actor, access) in [(&editor, "editor"), (&reader, "reader")] {
+        assert_eq!(
+            mutate(
+                &app,
+                &owner,
+                "PUT",
+                &format!("/api/v1/knowledge/bases/{base_id}/grants/{}", actor.id),
+                json!({"access":access})
+            )
+            .await
+            .status(),
+            StatusCode::OK
+        );
+    }
+    let created = mutate(
+        &app,
+        &editor,
+        "POST",
+        "/api/v1/knowledge/documents",
+        json!({"knowledge_base_id":base_id,"title":"Shared 100%","markdown":"private body"}),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let document = data(created).await;
+    assert_eq!(document["knowledge_base_id"], base_id);
+    let id = document["id"].as_str().unwrap();
+    let path = format!("/api/v1/knowledge/documents/{id}");
+    let query = format!("/api/v1/knowledge/documents?knowledge_base_id={base_id}&q=100%25");
+    assert_eq!(
+        data(get(&app, &reader, &path).await).await["can_edit"],
+        false
+    );
+    assert_eq!(
+        data(get(&app, &reader, &query).await).await["data"][0]["id"],
+        id
+    );
+    assert_eq!(
+        update(&app, &reader, id, 1, "reader denied", "bad")
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        mutate(
+            &app,
+            &reader,
+            "POST",
+            "/api/v1/knowledge/documents",
+            json!({"knowledge_base_id":base_id,"title":"denied","markdown":"bad"})
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        get(&app, &outsider, &path).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&app, &outsider, &query).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        update(&app, &outsider, id, 1, "not visible", "bad")
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        update(&app, &editor, id, 1, "editor saved", "new")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(data(get(&app, &owner, &path).await).await["can_edit"], true);
+    assert_eq!(
+        mutate(
+            &app,
+            &owner,
+            "DELETE",
+            &format!("/api/v1/knowledge/bases/{base_id}/grants/{}", editor.id),
+            json!({})
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, &editor, &path).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        get(&app, &editor, &query).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        update(&app, &editor, id, 2, "revoked", "bad")
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn administrators_grant_reader_editor_and_revoke_library_access(pool: PgPool) {
+    let app = application(pool);
+    let owner = register(&app, "owner@example.com").await;
+    let member = register(&app, "member@example.com").await;
+    let base = data(
+        mutate(
+            &app,
+            &owner,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"共享资料"}),
+        )
+        .await,
+    )
+    .await;
+    let path = format!("/api/v1/knowledge/bases/{}", base["id"].as_str().unwrap());
+    let grant = format!("{path}/grants/{}", member.id);
+    assert_eq!(
+        get(&app, &member, &path).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        mutate(&app, &owner, "PUT", &grant, json!({"access":"reader"}))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    let read = data(get(&app, &member, &path).await).await;
+    assert_eq!(read["can_edit"], false);
+    assert_eq!(read["can_manage"], false);
+    assert_eq!(
+        mutate(&app, &member, "PUT", &grant, json!({"access":"editor"}))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+    assert_eq!(
+        mutate(&app, &owner, "PUT", &grant, json!({"access":"editor"}))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        data(get(&app, &member, &path).await).await["can_edit"],
+        true
+    );
+    let grants = data(get(&app, &owner, &format!("{path}/grants")).await).await;
+    assert_eq!(grants["data"][0]["access"], "editor");
+    assert_eq!(
+        mutate(&app, &owner, "DELETE", &grant, json!({}))
+            .await
+            .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        get(&app, &member, &path).await.status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        data(get(&app, &member, "/api/v1/knowledge/bases").await).await["data"],
+        json!([])
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn managers_create_shared_libraries_and_registration_does_not_open_them(pool: PgPool) {
+    let app = application(pool);
+    let owner = register(&app, "owner@example.com").await;
+    let member = register(&app, "member@example.com").await;
+    let created = mutate(
+        &app,
+        &owner,
+        "POST",
+        "/api/v1/knowledge/bases",
+        json!({"name":"团队知识库"}),
+    )
+    .await;
+    assert_eq!(created.status(), StatusCode::CREATED);
+    let base = data(created).await;
+    assert_eq!(base["can_manage"], true);
+    assert_eq!(base["can_edit"], true);
+    assert_eq!(base["personal"], false);
+    assert_eq!(
+        mutate(
+            &app,
+            &member,
+            "POST",
+            "/api/v1/knowledge/bases",
+            json!({"name":"不能创建共享库"})
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+    let visible = data(get(&app, &owner, "/api/v1/knowledge/bases").await).await;
+    assert_eq!(visible["data"].as_array().unwrap().len(), 1);
+    assert_eq!(visible["data"][0]["id"], base["id"]);
+    let hidden = data(get(&app, &member, "/api/v1/knowledge/bases").await).await;
+    assert_eq!(hidden["data"], json!([]));
+    assert_eq!(
+        create(&app, &member, "个人文档", "私人正文").await.status(),
+        StatusCode::CREATED
+    );
+    let personal = data(get(&app, &member, "/api/v1/knowledge/bases").await).await;
+    assert_eq!(personal["data"].as_array().unwrap().len(), 1);
+    assert_eq!(personal["data"][0]["personal"], true);
+    assert_eq!(personal["data"][0]["can_manage"], false);
+    assert_eq!(personal["data"][0]["can_edit"], true);
 }
 
 async fn update(
@@ -304,7 +873,11 @@ async fn updates_require_current_edit_permission_and_rollback_with_audit(pool: P
     );
     assert_eq!(
         data(get(&app, &writer, &format!("/api/v1/knowledge/documents/{id}")).await).await,
-        original
+        {
+            let mut expected = original.clone();
+            expected["can_edit"] = json!(false);
+            expected
+        }
     );
     sqlx::query("UPDATE knowledge.grants SET access = 'editor'")
         .execute(&pool)
@@ -658,7 +1231,7 @@ async fn search_cursors_are_filter_bound_stable_and_recheck_grants(pool: PgPool)
     let hidden = data(get(&app, &other, "/api/v1/knowledge/documents?q=note").await).await;
     assert_eq!(
         hidden,
-        json!({"data":[],"next_cursor":null,"has_more":false})
+        json!({"data":[],"next_cursor":null,"has_more":false,"can_create":true})
     );
     // Authorization administration is delivered by T07; revoke via fixture setup here.
     sqlx::query("DELETE FROM knowledge.grants")
@@ -668,7 +1241,7 @@ async fn search_cursors_are_filter_bound_stable_and_recheck_grants(pool: PgPool)
     let revoked = data(get(&app, &writer, &path).await).await;
     assert_eq!(
         revoked,
-        json!({"data":[],"next_cursor":null,"has_more":false})
+        json!({"data":[],"next_cursor":null,"has_more":false,"can_create":false})
     );
 }
 
@@ -712,7 +1285,7 @@ async fn personal_document_list_starts_empty_and_returns_summaries_with_bound_cu
     assert_eq!(empty.status(), StatusCode::OK);
     assert_eq!(
         data(empty).await,
-        json!({"data":[],"next_cursor":null,"has_more":false})
+        json!({"data":[],"next_cursor":null,"has_more":false,"can_create":true})
     );
     for title in ["A", "B", "C"] {
         assert_eq!(

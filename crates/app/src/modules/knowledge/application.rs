@@ -11,13 +11,14 @@ use sqlx::PgPool;
 
 const COLUMNS: &str = "id::text, knowledge_base_id::text, title, markdown, version, created_by::text, updated_by::text, created_at, updated_at";
 
-fn manager(role: MemberRole) -> bool {
+pub(super) fn manager(role: MemberRole) -> bool {
     matches!(role, MemberRole::Owner | MemberRole::Admin)
 }
 
 pub(super) async fn create(
     pool: &PgPool,
     actor: &CurrentUser,
+    base_id: Option<uuid::Uuid>,
     content: Content,
     request_id: &str,
     key: &str,
@@ -26,37 +27,53 @@ pub(super) async fn create(
     let role = organization::active_role_in(&mut tx, &actor.id)
         .await?
         .ok_or(Failure::Forbidden)?;
-    let new_base = sqlx::query_scalar::<_, String>("INSERT INTO knowledge.knowledge_bases (id, name, personal_owner, created_by) VALUES ($1::uuid, '我的知识库', $2::uuid, $2::uuid) ON CONFLICT (personal_owner) DO NOTHING RETURNING id::text")
+    let base = if let Some(id) = base_id {
+        let base: String = sqlx::query_scalar(
+            "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid FOR SHARE",
+        )
+        .bind(id.to_string())
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or(Failure::NotFound)?;
+        require_edit(&mut tx, &actor.id, role, &base).await?;
+        base
+    } else {
+        let new_base = sqlx::query_scalar::<_, String>("INSERT INTO knowledge.knowledge_bases (id, name, personal_owner, created_by) VALUES ($1::uuid, '我的知识库', $2::uuid, $2::uuid) ON CONFLICT (personal_owner) DO NOTHING RETURNING id::text")
         .bind(uuid::Uuid::now_v7().to_string()).bind(&actor.id).fetch_optional(&mut *tx).await?;
-    if let Some(base) = &new_base {
-        sqlx::query("INSERT INTO knowledge.grants (knowledge_base_id, user_id, access) VALUES ($1::uuid, $2::uuid, 'editor')").bind(base).bind(&actor.id).execute(&mut *tx).await?;
-        audit::append(
-            &mut tx,
-            &actor.id,
-            "knowledge.base.create",
-            base,
-            request_id,
-        )
-        .await?;
-        audit::append(
-            &mut tx,
-            &actor.id,
-            "knowledge.grant.assign",
-            base,
-            request_id,
-        )
-        .await?;
-    }
-    let base: String = sqlx::query_scalar(
+        if let Some(base) = &new_base {
+            sqlx::query("INSERT INTO knowledge.grants (knowledge_base_id, user_id, access) VALUES ($1::uuid, $2::uuid, 'editor')").bind(base).bind(&actor.id).execute(&mut *tx).await?;
+            audit::append(
+                &mut tx,
+                &actor.id,
+                "knowledge.base.create",
+                base,
+                request_id,
+            )
+            .await?;
+            audit::append(
+                &mut tx,
+                &actor.id,
+                "knowledge.grant.assign",
+                base,
+                request_id,
+            )
+            .await?;
+        }
+        let base: String = sqlx::query_scalar(
         "SELECT id::text FROM knowledge.knowledge_bases WHERE personal_owner = $1::uuid FOR SHARE",
     )
     .bind(&actor.id)
     .fetch_one(&mut *tx)
     .await?;
-    let can_edit: bool = sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM knowledge.grants WHERE knowledge_base_id = $1::uuid AND user_id = $2::uuid AND access = 'editor')").bind(&base).bind(&actor.id).fetch_one(&mut *tx).await?;
-    if !manager(role) && !can_edit {
-        return Err(Failure::Forbidden);
-    }
+        // Default personal-space initialization keeps its established forbidden response.
+        require_edit(&mut tx, &actor.id, role, &base)
+            .await
+            .map_err(|error| match error {
+                Failure::NotFound => Failure::Forbidden,
+                other => other,
+            })?;
+        base
+    };
     let fingerprint = idempotency::fingerprint(&(&content.title, &content.markdown))?;
     let scope = format!("POST /api/v1/knowledge/documents:{base}");
     let attempt = idempotency::Attempt {
@@ -66,11 +83,13 @@ pub(super) async fn create(
         fingerprint: &fingerprint,
     };
     if let Some(response) = idempotency::claim(&mut tx, &attempt).await? {
-        let document = serde_json::from_value(response).map_err(|_| Failure::Unavailable)?;
+        let mut document: Document =
+            serde_json::from_value(response).map_err(|_| Failure::Unavailable)?;
+        document.can_edit = true;
         tx.commit().await?;
         return Ok(document);
     }
-    let document = sqlx::query_as::<_, Document>(&format!("INSERT INTO knowledge.documents (id, knowledge_base_id, title, markdown, created_by, updated_by) VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $5::uuid) RETURNING {COLUMNS}"))
+    let document = sqlx::query_as::<_, Document>(&format!("INSERT INTO knowledge.documents (id, knowledge_base_id, title, markdown, created_by, updated_by) VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid, $5::uuid) RETURNING {COLUMNS}, true AS can_edit"))
         .bind(uuid::Uuid::now_v7().to_string()).bind(base).bind(content.title).bind(content.markdown).bind(&actor.id).fetch_one(&mut *tx).await?;
     audit::append(
         &mut tx,
@@ -95,9 +114,28 @@ pub(super) async fn read(
     actor: &CurrentUser,
     id: uuid::Uuid,
 ) -> Result<Document, Failure> {
-    let document = sqlx::query_as::<_, Document>(&format!("SELECT {COLUMNS} FROM knowledge.documents WHERE id = $1::uuid AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid))"))
+    let document = sqlx::query_as::<_, Document>(&format!("SELECT {COLUMNS}, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid AND g.access = 'editor')) AS can_edit FROM knowledge.documents WHERE id = $1::uuid AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid))"))
         .bind(id.to_string()).bind(manager(actor.role)).bind(&actor.id).fetch_optional(pool).await?;
     document.ok_or(Failure::NotFound)
+}
+
+/// Call after holding the current membership and base locks for the mutation.
+async fn require_edit(
+    connection: &mut sqlx::PgConnection,
+    actor_id: &str,
+    role: MemberRole,
+    base: &str,
+) -> Result<(), Failure> {
+    if manager(role) {
+        return Ok(());
+    }
+    let grant: Option<String> = sqlx::query_scalar("SELECT access FROM knowledge.grants WHERE knowledge_base_id = $1::uuid AND user_id = $2::uuid")
+        .bind(base).bind(actor_id).fetch_optional(connection).await?;
+    match grant.as_deref() {
+        Some("editor") => Ok(()),
+        Some(_) => Err(Failure::Forbidden),
+        None => Err(Failure::NotFound),
+    }
 }
 
 pub(super) async fn update(
@@ -114,16 +152,8 @@ pub(super) async fn update(
         .ok_or(Failure::Forbidden)?;
     let base: String = sqlx::query_scalar("SELECT b.id::text FROM knowledge.knowledge_bases b JOIN knowledge.documents d ON d.knowledge_base_id = b.id WHERE d.id = $1::uuid FOR SHARE OF b")
         .bind(id.to_string()).fetch_optional(&mut *tx).await?.ok_or(Failure::NotFound)?;
-    let grant: Option<String> = sqlx::query_scalar("SELECT access FROM knowledge.grants WHERE knowledge_base_id = $1::uuid AND user_id = $2::uuid")
-        .bind(&base).bind(&actor.id).fetch_optional(&mut *tx).await?;
-    if !manager(role) {
-        match grant.as_deref() {
-            Some("editor") => (),
-            Some(_) => return Err(Failure::Forbidden),
-            None => return Err(Failure::NotFound),
-        }
-    }
-    let document = sqlx::query_as::<_, Document>(&format!("UPDATE knowledge.documents SET title = $1, markdown = $2, version = version + 1, updated_by = $3::uuid, updated_at = clock_timestamp() WHERE id = $4::uuid AND knowledge_base_id = $5::uuid AND version = $6 RETURNING {COLUMNS}"))
+    require_edit(&mut tx, &actor.id, role, &base).await?;
+    let document = sqlx::query_as::<_, Document>(&format!("UPDATE knowledge.documents SET title = $1, markdown = $2, version = version + 1, updated_by = $3::uuid, updated_at = clock_timestamp() WHERE id = $4::uuid AND knowledge_base_id = $5::uuid AND version = $6 RETURNING {COLUMNS}, true AS can_edit"))
         .bind(content.title).bind(content.markdown).bind(&actor.id).bind(id.to_string()).bind(base).bind(version)
         .fetch_optional(&mut *tx).await?.ok_or(Failure::VersionConflict)?;
     audit::append(
@@ -152,7 +182,23 @@ pub(super) async fn list(
         return Err(Failure::InvalidSearch);
     }
     let keyword = keyword.trim();
-    let filter = idempotency::fingerprint(&keyword)?;
+    let base_id = query
+        .knowledge_base_id
+        .as_deref()
+        .map(uuid::Uuid::parse_str)
+        .transpose()
+        .map_err(|_| Failure::NotFound)?;
+    let can_create = if let Some(base) = base_id {
+        let mut connection = pool.acquire().await?;
+        super::bases::read_base(&mut connection, &actor.id, actor.role, base)
+            .await?
+            .can_edit
+    } else {
+        sqlx::query_scalar::<_, bool>("SELECT $2 OR NOT EXISTS (SELECT 1 FROM knowledge.knowledge_bases WHERE personal_owner = $1::uuid) OR EXISTS (SELECT 1 FROM knowledge.knowledge_bases b JOIN knowledge.grants g ON g.knowledge_base_id = b.id WHERE b.personal_owner = $1::uuid AND g.user_id = $1::uuid AND g.access = 'editor')")
+            .bind(&actor.id).bind(manager(actor.role)).fetch_one(pool).await?
+    };
+    let base_id = base_id.map(|base| base.to_string());
+    let filter = idempotency::fingerprint(&(&base_id, keyword))?;
     let pattern = format!(
         "%{}%",
         keyword
@@ -165,8 +211,8 @@ pub(super) async fn list(
         .as_deref()
         .map(|token| Cursor::decode(token, &actor.id, &filter))
         .transpose()?;
-    let mut data = sqlx::query_as::<_, DocumentSummary>("SELECT d.id::text, d.knowledge_base_id::text, d.title, d.version, d.created_at, d.updated_at FROM knowledge.documents d JOIN knowledge.knowledge_bases b ON b.id = d.knowledge_base_id WHERE b.personal_owner = $1::uuid AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::timestamptz IS NULL OR (d.created_at, d.id) < ($3::timestamptz, $4::uuid)) AND d.title ILIKE $6 ORDER BY d.created_at DESC, d.id DESC LIMIT $5")
-        .bind(&actor.id).bind(manager(actor.role)).bind(cursor.as_ref().map(|cursor| cursor.at)).bind(cursor.as_ref().map(|cursor| cursor.id.as_str())).bind(i64::from(limit) + 1).bind(pattern).fetch_all(pool).await?;
+    let mut data = sqlx::query_as::<_, DocumentSummary>("SELECT d.id::text, d.knowledge_base_id::text, d.title, d.version, d.created_at, d.updated_at FROM knowledge.documents d JOIN knowledge.knowledge_bases b ON b.id = d.knowledge_base_id WHERE (($7::uuid IS NULL AND b.personal_owner = $1::uuid) OR b.id = $7::uuid) AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::timestamptz IS NULL OR (d.created_at, d.id) < ($3::timestamptz, $4::uuid)) AND d.title ILIKE $6 ORDER BY d.created_at DESC, d.id DESC LIMIT $5")
+        .bind(&actor.id).bind(manager(actor.role)).bind(cursor.as_ref().map(|cursor| cursor.at)).bind(cursor.as_ref().map(|cursor| cursor.id.as_str())).bind(i64::from(limit) + 1).bind(pattern).bind(base_id).fetch_all(pool).await?;
     let has_more = data.len() > limit as usize;
     data.truncate(limit as usize);
     let next_cursor = if has_more {
@@ -177,6 +223,7 @@ pub(super) async fn list(
         None
     };
     Ok(DocumentPage {
+        can_create,
         data,
         next_cursor,
         has_more,

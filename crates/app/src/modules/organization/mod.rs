@@ -54,3 +54,20 @@ pub async fn active_role_in(
     .fetch_optional(connection)
     .await
 }
+
+#[derive(sqlx::FromRow)]
+pub struct MembershipAccess {
+    pub user_id: String,
+    pub role: MemberRole,
+    pub active: bool,
+}
+
+/// Hold all affected memberships stable in the same ID order as member administration.
+/// Acquire these before resource locks; do not acquire another membership out of order.
+pub async fn lock_memberships(
+    connection: &mut PgConnection,
+    user_ids: &[String],
+) -> Result<Vec<MembershipAccess>, sqlx::Error> {
+    sqlx::query_as("SELECT user_id::text, role, active FROM saas_core.memberships WHERE user_id = ANY($1::text[]::uuid[]) ORDER BY user_id FOR SHARE")
+        .bind(user_ids).fetch_all(connection).await
+}

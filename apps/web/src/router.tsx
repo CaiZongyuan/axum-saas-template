@@ -17,6 +17,8 @@ import {
 // example:knowledge:imports:start
 import { useDocumentNavigationGuard } from './knowledge-navigation';
 import {
+  KnowledgeBaseView,
+  KnowledgeBasesView,
   DocumentsView,
   NewDocumentView,
   DocumentView,
@@ -59,6 +61,9 @@ function HomePage() {
         企业成员
       </a>
       {/* example:knowledge:home:start */}
+      <a href="/knowledge-bases" className="text-sm underline">
+        知识库
+      </a>
       <a href="/documents" className="text-sm underline">
         我的文档
       </a>
@@ -114,6 +119,91 @@ const membersRoute = createRoute({
   component: MembersPage,
 });
 // example:knowledge:routes:start
+function KnowledgeBasePage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const { baseId } = knowledgeBaseRoute.useParams();
+  const navigate = useNavigate();
+  return (
+    <KnowledgeBaseView
+      apiClient={apiClient}
+      baseId={baseId}
+      onBack={() => {
+        void navigate({ to: '/knowledge-bases' });
+      }}
+      onLogin={() => {
+        void navigate({ to: '/login' });
+      }}
+      onNew={() => {
+        void navigate({
+          to: '/knowledge-bases/$baseId/new',
+          params: { baseId },
+        });
+      }}
+      onOpen={(documentId) => {
+        void navigate({ to: '/documents/$documentId', params: { documentId } });
+      }}
+    />
+  );
+}
+const knowledgeBaseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/knowledge-bases/$baseId',
+  component: KnowledgeBasePage,
+});
+function KnowledgeBasesPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <KnowledgeBasesView
+      apiClient={apiClient}
+      onBack={() => {
+        void navigate({ to: '/' });
+      }}
+      onLogin={() => {
+        void navigate({ to: '/login' });
+      }}
+      onOpen={(baseId) => {
+        void navigate({ to: '/knowledge-bases/$baseId', params: { baseId } });
+      }}
+    />
+  );
+}
+function NewLibraryDocumentPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const { baseId } = newLibraryDocumentRoute.useParams();
+  const navigate = useNavigate();
+  const guard = useDocumentNavigationGuard();
+  return (
+    <>
+      {guard.prompt}
+      <NewDocumentView
+        apiClient={apiClient}
+        knowledgeBaseId={baseId}
+        onDirtyChange={guard.onDirtyChange}
+        onBack={() => {
+          void navigate({ to: '/knowledge-bases/$baseId', params: { baseId } });
+        }}
+        onCreated={(documentId) => {
+          void navigate({
+            to: '/documents/$documentId',
+            params: { documentId },
+            ignoreBlocker: true,
+          });
+        }}
+      />
+    </>
+  );
+}
+const knowledgeBasesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/knowledge-bases',
+  component: KnowledgeBasesPage,
+});
+const newLibraryDocumentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/knowledge-bases/$baseId/new',
+  component: NewLibraryDocumentPage,
+});
 function DocumentsPage() {
   const { apiClient } = rootRoute.useRouteContext();
   const navigate = useNavigate();
@@ -160,6 +250,9 @@ function DocumentPage() {
   return (
     <DocumentView
       apiClient={apiClient}
+      onLibrary={(baseId) => {
+        void navigate({ to: '/knowledge-bases/$baseId', params: { baseId } });
+      }}
       documentId={documentId}
       onEdit={() => {
         void navigate({
@@ -226,6 +319,9 @@ const documentRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   // example:knowledge:route-tree:start
+  knowledgeBaseRoute,
+  knowledgeBasesRoute,
+  newLibraryDocumentRoute,
   editDocumentRoute,
   documentsRoute,
   newDocumentRoute,

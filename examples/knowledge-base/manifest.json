@@ -12,7 +12,10 @@
     "docs/tutorials/04-personal-documents.md",
     "docs/tutorials/05-search-preview.md",
     "apps/web/src/knowledge-navigation.tsx",
-    "docs/tutorials/06-edit-conflicts.md"
+    "docs/tutorials/06-edit-conflicts.md",
+    "apps/web/src/knowledge-bases.test.tsx",
+    "tests/e2e/knowledge-grants.spec.ts",
+    "docs/tutorials/07-library-grants.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

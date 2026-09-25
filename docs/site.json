@@ -52,6 +52,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/07-library-grants.md",
+      "route": "tutorials/library-grants.md",
+      "title": "共享知识库与权限继承",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/tutorials/08-members.md",
       "route": "tutorials/members.md",
       "title": "成员管理与最后 Owner",

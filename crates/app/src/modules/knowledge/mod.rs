@@ -1,5 +1,7 @@
 mod application;
+mod bases;
 mod domain;
+mod grants;
 mod pagination;
 
 use crate::{
@@ -29,6 +31,7 @@ struct Knowledge {
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CreateDocument {
+    knowledge_base_id: Option<String>,
     title: String,
     markdown: String,
 }
@@ -44,6 +47,10 @@ pub struct UpdateDocument {
 
 #[derive(Serialize, Deserialize, ToSchema, sqlx::FromRow)]
 pub struct Document {
+    #[serde(default)]
+    #[schema(required = true)]
+    #[sqlx(default)]
+    pub can_edit: bool,
     pub id: String,
     pub knowledge_base_id: String,
     pub title: String,
@@ -67,6 +74,7 @@ pub struct DocumentSummary {
 
 #[derive(Serialize, ToSchema)]
 pub struct DocumentPage {
+    pub can_create: bool,
     pub data: Vec<DocumentSummary>,
     pub next_cursor: Option<String>,
     pub has_more: bool,
@@ -75,6 +83,8 @@ pub struct DocumentPage {
 #[derive(Deserialize, utoipa::IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct DocumentsQuery {
+    /// Omit for the personal library; specify an accessible library to browse it.
+    knowledge_base_id: Option<String>,
     /// Literal, case-insensitive title keyword; surrounding whitespace is ignored.
     #[param(max_length = 200)]
     q: Option<String>,
@@ -85,6 +95,7 @@ pub struct DocumentsQuery {
 }
 
 enum Failure {
+    InvalidName,
     InvalidVersion,
     VersionConflict,
     InvalidText,
@@ -124,6 +135,11 @@ impl From<crate::modules::idempotency::Error> for Failure {
 impl Failure {
     fn response(self, id: RequestId) -> Response {
         let (status, code, message) = match self {
+            Self::InvalidName => (
+                StatusCode::BAD_REQUEST,
+                "knowledge.invalid_name",
+                "Use a knowledge base name with 1–120 characters without NUL bytes",
+            ),
             Self::InvalidVersion => (
                 StatusCode::BAD_REQUEST,
                 "document.invalid_version",
@@ -191,6 +207,8 @@ impl Failure {
 
 pub fn router(pool: PgPool, auth: AuthSettings) -> Router {
     Router::new()
+        .merge(bases::routes())
+        .merge(grants::routes())
         .route(
             "/api/v1/knowledge/documents",
             post(create_document).get(list_documents),
@@ -215,6 +233,15 @@ async fn create_document(
         Ok(session) => session.user,
         Err(response) => return response,
     };
+    let base_id = match input
+        .knowledge_base_id
+        .as_deref()
+        .map(uuid::Uuid::parse_str)
+        .transpose()
+    {
+        Ok(base) => base,
+        Err(_) => return Failure::NotFound.response(id),
+    };
     let content = match domain::Content::new(input.title, input.markdown) {
         Ok(content) => content,
         Err(error) => return Failure::from(error).response(id),
@@ -227,7 +254,7 @@ async fn create_document(
     };
     match tokio::time::timeout(
         Duration::from_secs(3),
-        application::create(&state.pool, &actor, content, &id.0, key),
+        application::create(&state.pool, &actor, base_id, content, &id.0, key),
     )
     .await
     {
@@ -269,7 +296,10 @@ async fn get_document(
 struct KnowledgeApi;
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
-    KnowledgeApi::openapi()
+    let mut document = KnowledgeApi::openapi();
+    document.merge(bases::openapi());
+    document.merge(grants::openapi());
+    document
 }
 
 #[utoipa::path(put, path = "/api/v1/knowledge/documents/{id}", operation_id = "updateDocument", tag = "Knowledge", request_body = UpdateDocument, params(("id" = String, Path), ("x-csrf-token" = String, Header)), responses((status = 200, body = Document), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 404, body = crate::http::ApiErrorResponse), (status = 408, body = crate::http::ApiErrorResponse), (status = 409, body = crate::http::ApiErrorResponse), (status = 413, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]

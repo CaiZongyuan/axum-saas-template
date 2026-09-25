@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession, type Document } from '@saas/sdk';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
@@ -85,6 +85,7 @@ test('search and pagination retain literal filters, reset on a new search, and r
         return HttpResponse.json({
           data: [],
           next_cursor: null,
+          can_create: true,
           has_more: false,
         });
       if (url.searchParams.has('cursor')) {
@@ -105,12 +106,14 @@ test('search and pagination retain literal filters, reset on a new search, and r
         return HttpResponse.json({
           data: [{ ...document, id: 'second', title: '第二页' }],
           next_cursor: null,
+          can_create: true,
           has_more: false,
         });
       }
       return HttpResponse.json({
         data: [document],
         next_cursor: 'next-filtered-page',
+        can_create: true,
         has_more: true,
       });
     }),
@@ -209,6 +212,7 @@ test('a failed initial search can be queried again through the page', async () =
       return HttpResponse.json({
         data: [],
         next_cursor: null,
+        can_create: true,
         has_more: false,
       });
     }),
@@ -398,6 +402,7 @@ const identity = {
   csrf_token: 'csrf-proof',
 } satisfies CurrentSession;
 const document = {
+  can_edit: true,
   id: '018f0000-0000-7000-8000-000000000001',
   knowledge_base_id: '018f0000-0000-7000-8000-000000000002',
   title: '团队手册',
@@ -409,7 +414,127 @@ const document = {
   updated_at: '2026-09-25T00:00:00Z',
 } satisfies Document;
 
-function open(path = '/documents') {
+test('a Reader sees the saved document without an edit action and cannot edit via a direct route', async () => {
+  server.use(
+    http.get(`http://api.test/api/v1/knowledge/documents/${document.id}`, () =>
+      HttpResponse.json({ ...document, can_edit: false }),
+    ),
+  );
+  const { router } = open(`/documents/${document.id}`);
+  await screen.findByRole('heading', { name: document.title });
+  expect(
+    screen.queryByRole('button', { name: '编辑文档' }),
+  ).not.toBeInTheDocument();
+  await act(async () => {
+    await router.navigate({
+      to: '/documents/$documentId/edit',
+      params: { documentId: document.id },
+    });
+  });
+  expect(
+    await screen.findByText('你拥有只读权限，不能保存修改。'),
+  ).toBeVisible();
+  expect(screen.getByLabelText('Markdown 正文')).toBeDisabled();
+  expect(screen.getByRole('button', { name: '保存文档' })).toBeDisabled();
+});
+
+test('a rejected save refreshes permissions and blocks further saves without discarding the draft', async () => {
+  let canEdit = true;
+  server.use(
+    http.get(`http://api.test/api/v1/knowledge/documents/${document.id}`, () =>
+      HttpResponse.json({ ...document, can_edit: canEdit }),
+    ),
+    http.put(
+      `http://api.test/api/v1/knowledge/documents/${document.id}`,
+      () => {
+        canEdit = false;
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'knowledge.forbidden',
+              message: 'Revoked',
+              details: {},
+              request_id: 'revoked-save',
+            },
+          },
+          { status: 403 },
+        );
+      },
+    ),
+  );
+  const { user } = open(`/documents/${document.id}/edit`);
+  await user.type(
+    await screen.findByLabelText('Markdown 正文'),
+    '保留这份草稿',
+  );
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('revoked-save');
+  expect(screen.getByRole('button', { name: '保存文档' })).toBeDisabled();
+  expect(
+    (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
+  ).toContain('保留这份草稿');
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '重新查询权限' })).toBeEnabled(),
+  );
+  canEdit = true;
+  await user.click(screen.getByRole('button', { name: '重新查询权限' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '保存文档' })).toBeEnabled(),
+  );
+  expect(
+    (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
+  ).toContain('保留这份草稿');
+});
+
+test('a new personal draft stays blocked after denied creation until current permission is restored', async () => {
+  let allowed = true;
+  server.use(
+    http.post('http://api.test/api/v1/knowledge/documents', () => {
+      allowed = false;
+      return HttpResponse.json(
+        {
+          error: {
+            code: 'knowledge.forbidden',
+            message: 'Revoked',
+            details: {},
+            request_id: 'revoked-create',
+          },
+        },
+        { status: 403 },
+      );
+    }),
+  );
+  const { user } = open('/documents/new', () => allowed);
+  await user.type(await screen.findByLabelText('标题'), '保留新草稿');
+  await user.type(screen.getByLabelText('Markdown 正文'), '新正文');
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('revoked-create');
+  expect(screen.getByRole('button', { name: '保存文档' })).toBeDisabled();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '重新查询权限' })).toBeEnabled(),
+  );
+  allowed = true;
+  await user.click(screen.getByRole('button', { name: '重新查询权限' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '保存文档' })).toBeEnabled(),
+  );
+  expect(screen.getByLabelText('标题')).toHaveValue('保留新草稿');
+  expect(screen.getByLabelText('Markdown 正文')).toHaveValue('新正文');
+});
+
+function open(path = '/documents', canCreate = () => true) {
+  if (path === '/documents/new')
+    server.use(
+      http.get('http://api.test/api/v1/knowledge/documents', ({ request }) => {
+        if (new URL(request.url).searchParams.get('limit') === '1')
+          return HttpResponse.json({
+            data: [],
+            next_cursor: null,
+            has_more: false,
+            can_create: canCreate(),
+          });
+      }),
+    );
   server.use(
     http.get('http://api.test/api/v1/auth/session', () =>
       HttpResponse.json(identity),
@@ -448,7 +573,12 @@ test('a save completing during an identity refresh cannot repopulate the former 
   });
   let listCalls = 0;
   const empty = () =>
-    HttpResponse.json({ data: [], next_cursor: null, has_more: false });
+    HttpResponse.json({
+      data: [],
+      next_cursor: null,
+      can_create: true,
+      has_more: false,
+    });
   server.use(
     http.post('http://api.test/api/v1/knowledge/documents', () => saved),
     http.get('http://api.test/api/v1/knowledge/documents', () => {
@@ -512,7 +642,12 @@ test('a save completing during an identity refresh cannot repopulate the former 
 test('an empty personal space leads to creation and the saved document detail', async () => {
   server.use(
     http.get('http://api.test/api/v1/knowledge/documents', () =>
-      HttpResponse.json({ data: [], next_cursor: null, has_more: false }),
+      HttpResponse.json({
+        data: [],
+        next_cursor: null,
+        can_create: true,
+        has_more: false,
+      }),
     ),
     http.post(
       'http://api.test/api/v1/knowledge/documents',

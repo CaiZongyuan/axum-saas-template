@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListPersonalDocumentsData, ListPersonalDocumentsErrors, ListPersonalDocumentsResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses, UpdateDocumentData, UpdateDocumentErrors, UpdateDocumentResponses, UpdateMemberData, UpdateMemberErrors, UpdateMemberResponses } from './types.gen';
+import type { CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, CreateKnowledgeBaseData, CreateKnowledgeBaseErrors, CreateKnowledgeBaseResponses, GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetKnowledgeBaseData, GetKnowledgeBaseErrors, GetKnowledgeBaseResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, ListKnowledgeBaseGrantsData, ListKnowledgeBaseGrantsErrors, ListKnowledgeBaseGrantsResponses, ListKnowledgeBasesData, ListKnowledgeBasesErrors, ListKnowledgeBasesResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListPersonalDocumentsData, ListPersonalDocumentsErrors, ListPersonalDocumentsResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses, RenameKnowledgeBaseData, RenameKnowledgeBaseErrors, RenameKnowledgeBaseResponses, RevokeKnowledgeBaseGrantData, RevokeKnowledgeBaseGrantErrors, RevokeKnowledgeBaseGrantResponses, SetKnowledgeBaseGrantData, SetKnowledgeBaseGrantErrors, SetKnowledgeBaseGrantResponses, UpdateDocumentData, UpdateDocumentErrors, UpdateDocumentResponses, UpdateMemberData, UpdateMemberErrors, UpdateMemberResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -39,6 +39,41 @@ export const registerUser = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 export const getCurrentSession = <ThrowOnError extends boolean = false>(options?: Options<GetCurrentSessionData, ThrowOnError>): RequestResult<GetCurrentSessionResponses, GetCurrentSessionErrors, ThrowOnError> => (options?.client ?? client).get<GetCurrentSessionResponses, GetCurrentSessionErrors, ThrowOnError>({ url: '/api/v1/auth/session', ...options });
+
+export const listKnowledgeBases = <ThrowOnError extends boolean = false>(options?: Options<ListKnowledgeBasesData, ThrowOnError>): RequestResult<ListKnowledgeBasesResponses, ListKnowledgeBasesErrors, ThrowOnError> => (options?.client ?? client).get<ListKnowledgeBasesResponses, ListKnowledgeBasesErrors, ThrowOnError>({ url: '/api/v1/knowledge/bases', ...options });
+
+export const createKnowledgeBase = <ThrowOnError extends boolean = false>(options: Options<CreateKnowledgeBaseData, ThrowOnError>): RequestResult<CreateKnowledgeBaseResponses, CreateKnowledgeBaseErrors, ThrowOnError> => (options.client ?? client).post<CreateKnowledgeBaseResponses, CreateKnowledgeBaseErrors, ThrowOnError>({
+    url: '/api/v1/knowledge/bases',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getKnowledgeBase = <ThrowOnError extends boolean = false>(options: Options<GetKnowledgeBaseData, ThrowOnError>): RequestResult<GetKnowledgeBaseResponses, GetKnowledgeBaseErrors, ThrowOnError> => (options.client ?? client).get<GetKnowledgeBaseResponses, GetKnowledgeBaseErrors, ThrowOnError>({ url: '/api/v1/knowledge/bases/{id}', ...options });
+
+export const renameKnowledgeBase = <ThrowOnError extends boolean = false>(options: Options<RenameKnowledgeBaseData, ThrowOnError>): RequestResult<RenameKnowledgeBaseResponses, RenameKnowledgeBaseErrors, ThrowOnError> => (options.client ?? client).put<RenameKnowledgeBaseResponses, RenameKnowledgeBaseErrors, ThrowOnError>({
+    url: '/api/v1/knowledge/bases/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listKnowledgeBaseGrants = <ThrowOnError extends boolean = false>(options: Options<ListKnowledgeBaseGrantsData, ThrowOnError>): RequestResult<ListKnowledgeBaseGrantsResponses, ListKnowledgeBaseGrantsErrors, ThrowOnError> => (options.client ?? client).get<ListKnowledgeBaseGrantsResponses, ListKnowledgeBaseGrantsErrors, ThrowOnError>({ url: '/api/v1/knowledge/bases/{id}/grants', ...options });
+
+export const revokeKnowledgeBaseGrant = <ThrowOnError extends boolean = false>(options: Options<RevokeKnowledgeBaseGrantData, ThrowOnError>): RequestResult<RevokeKnowledgeBaseGrantResponses, RevokeKnowledgeBaseGrantErrors, ThrowOnError> => (options.client ?? client).delete<RevokeKnowledgeBaseGrantResponses, RevokeKnowledgeBaseGrantErrors, ThrowOnError>({ url: '/api/v1/knowledge/bases/{id}/grants/{user_id}', ...options });
+
+export const setKnowledgeBaseGrant = <ThrowOnError extends boolean = false>(options: Options<SetKnowledgeBaseGrantData, ThrowOnError>): RequestResult<SetKnowledgeBaseGrantResponses, SetKnowledgeBaseGrantErrors, ThrowOnError> => (options.client ?? client).put<SetKnowledgeBaseGrantResponses, SetKnowledgeBaseGrantErrors, ThrowOnError>({
+    url: '/api/v1/knowledge/bases/{id}/grants/{user_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 export const listPersonalDocuments = <ThrowOnError extends boolean = false>(options?: Options<ListPersonalDocumentsData, ThrowOnError>): RequestResult<ListPersonalDocumentsResponses, ListPersonalDocumentsErrors, ThrowOnError> => (options?.client ?? client).get<ListPersonalDocumentsResponses, ListPersonalDocumentsErrors, ThrowOnError>({ url: '/api/v1/knowledge/documents', ...options });
 
