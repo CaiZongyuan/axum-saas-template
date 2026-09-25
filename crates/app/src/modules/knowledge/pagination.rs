@@ -23,7 +23,7 @@ impl Cursor {
             .map_err(|_| Failure::InvalidPage)?;
         let cursor: Self = serde_json::from_slice(&bytes).map_err(|_| Failure::InvalidPage)?;
         if cursor.subject != subject
-            || cursor.scope != "personal-created-desc-v1"
+            || cursor.scope != "documents-created-desc-v2"
             || cursor.filter != filter
             || uuid::Uuid::parse_str(&cursor.id).is_err()
         {
@@ -40,7 +40,7 @@ impl Cursor {
     ) -> Result<String, Failure> {
         let cursor = Self {
             subject: subject.to_owned(),
-            scope: "personal-created-desc-v1".into(),
+            scope: "documents-created-desc-v2".into(),
             filter: filter.to_owned(),
             at,
             id: id.to_owned(),

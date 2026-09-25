@@ -15,6 +15,22 @@
     "getDocument",
     "listPersonalDocuments",
     "UpdateDocument",
-    "updateDocument"
+    "updateDocument",
+    "KnowledgeBase",
+    "KnowledgeBasePage",
+    "CreateKnowledgeBase",
+    "RenameKnowledgeBase",
+    "GrantAccess",
+    "GrantAssignment",
+    "GrantPage",
+    "KnowledgeBaseGrant",
+    "SetGrant",
+    "createKnowledgeBase",
+    "getKnowledgeBase",
+    "listKnowledgeBases",
+    "renameKnowledgeBase",
+    "listKnowledgeBaseGrants",
+    "setKnowledgeBaseGrant",
+    "revokeKnowledgeBaseGrant"
   ]
 }

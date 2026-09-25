@@ -18,8 +18,13 @@ export type ApiErrorResponse = {
 };
 
 export type CreateDocument = {
+    knowledge_base_id?: string | null;
     markdown: string;
     title: string;
+};
+
+export type CreateKnowledgeBase = {
+    name: string;
 };
 
 export type CurrentSession = {
@@ -35,6 +40,7 @@ export type CurrentUser = {
 };
 
 export type Document = {
+    can_edit: boolean;
     created_at: string;
     created_by: string;
     id: string;
@@ -47,6 +53,7 @@ export type Document = {
 };
 
 export type DocumentPage = {
+    can_create: boolean;
     data: Array<DocumentSummary>;
     has_more: boolean;
     next_cursor?: string | null;
@@ -61,8 +68,43 @@ export type DocumentSummary = {
     version: number;
 };
 
+export type GrantAccess = 'reader' | 'editor';
+
+export type GrantAssignment = {
+    access: GrantAccess;
+    user_id: string;
+};
+
+export type GrantPage = {
+    data: Array<KnowledgeBaseGrant>;
+    has_more: boolean;
+    next_cursor?: string | null;
+};
+
 export type HealthResponse = {
     status: string;
+};
+
+export type KnowledgeBase = {
+    can_edit: boolean;
+    can_manage: boolean;
+    id: string;
+    name: string;
+    personal: boolean;
+};
+
+export type KnowledgeBaseGrant = {
+    access: GrantAccess;
+    display_name?: string | null;
+    email: string;
+    user_id: string;
+};
+
+export type KnowledgeBasePage = {
+    can_create: boolean;
+    data: Array<KnowledgeBase>;
+    has_more: boolean;
+    next_cursor?: string | null;
 };
 
 export type Login = {
@@ -93,6 +135,14 @@ export type Registration = {
     display_name?: string | null;
     email: string;
     password: string;
+};
+
+export type RenameKnowledgeBase = {
+    name: string;
+};
+
+export type SetGrant = {
+    access: GrantAccess;
 };
 
 export type SystemStatus = {
@@ -210,10 +260,209 @@ export type GetCurrentSessionResponses = {
 
 export type GetCurrentSessionResponse = GetCurrentSessionResponses[keyof GetCurrentSessionResponses];
 
+export type ListKnowledgeBasesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/knowledge/bases';
+};
+
+export type ListKnowledgeBasesErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListKnowledgeBasesError = ListKnowledgeBasesErrors[keyof ListKnowledgeBasesErrors];
+
+export type ListKnowledgeBasesResponses = {
+    200: KnowledgeBasePage;
+};
+
+export type ListKnowledgeBasesResponse = ListKnowledgeBasesResponses[keyof ListKnowledgeBasesResponses];
+
+export type CreateKnowledgeBaseData = {
+    body: CreateKnowledgeBase;
+    headers: {
+        'x-csrf-token': string;
+        'idempotency-key': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/knowledge/bases';
+};
+
+export type CreateKnowledgeBaseErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    408: ApiErrorResponse;
+    409: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type CreateKnowledgeBaseError = CreateKnowledgeBaseErrors[keyof CreateKnowledgeBaseErrors];
+
+export type CreateKnowledgeBaseResponses = {
+    201: KnowledgeBase;
+};
+
+export type CreateKnowledgeBaseResponse = CreateKnowledgeBaseResponses[keyof CreateKnowledgeBaseResponses];
+
+export type GetKnowledgeBaseData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/bases/{id}';
+};
+
+export type GetKnowledgeBaseErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetKnowledgeBaseError = GetKnowledgeBaseErrors[keyof GetKnowledgeBaseErrors];
+
+export type GetKnowledgeBaseResponses = {
+    200: KnowledgeBase;
+};
+
+export type GetKnowledgeBaseResponse = GetKnowledgeBaseResponses[keyof GetKnowledgeBaseResponses];
+
+export type RenameKnowledgeBaseData = {
+    body: RenameKnowledgeBase;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/bases/{id}';
+};
+
+export type RenameKnowledgeBaseErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    408: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type RenameKnowledgeBaseError = RenameKnowledgeBaseErrors[keyof RenameKnowledgeBaseErrors];
+
+export type RenameKnowledgeBaseResponses = {
+    200: KnowledgeBase;
+};
+
+export type RenameKnowledgeBaseResponse = RenameKnowledgeBaseResponses[keyof RenameKnowledgeBaseResponses];
+
+export type ListKnowledgeBaseGrantsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/knowledge/bases/{id}/grants';
+};
+
+export type ListKnowledgeBaseGrantsErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListKnowledgeBaseGrantsError = ListKnowledgeBaseGrantsErrors[keyof ListKnowledgeBaseGrantsErrors];
+
+export type ListKnowledgeBaseGrantsResponses = {
+    200: GrantPage;
+};
+
+export type ListKnowledgeBaseGrantsResponse = ListKnowledgeBaseGrantsResponses[keyof ListKnowledgeBaseGrantsResponses];
+
+export type RevokeKnowledgeBaseGrantData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/bases/{id}/grants/{user_id}';
+};
+
+export type RevokeKnowledgeBaseGrantErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type RevokeKnowledgeBaseGrantError = RevokeKnowledgeBaseGrantErrors[keyof RevokeKnowledgeBaseGrantErrors];
+
+export type RevokeKnowledgeBaseGrantResponses = {
+    204: void;
+};
+
+export type RevokeKnowledgeBaseGrantResponse = RevokeKnowledgeBaseGrantResponses[keyof RevokeKnowledgeBaseGrantResponses];
+
+export type SetKnowledgeBaseGrantData = {
+    body: SetGrant;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/bases/{id}/grants/{user_id}';
+};
+
+export type SetKnowledgeBaseGrantErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    408: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type SetKnowledgeBaseGrantError = SetKnowledgeBaseGrantErrors[keyof SetKnowledgeBaseGrantErrors];
+
+export type SetKnowledgeBaseGrantResponses = {
+    200: GrantAssignment;
+};
+
+export type SetKnowledgeBaseGrantResponse = SetKnowledgeBaseGrantResponses[keyof SetKnowledgeBaseGrantResponses];
+
 export type ListPersonalDocumentsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * Omit for the personal library; specify an accessible library to browse it.
+         */
+        knowledge_base_id?: string;
         /**
          * Literal, case-insensitive title keyword; surrounding whitespace is ignored.
          */

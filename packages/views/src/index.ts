@@ -5,6 +5,8 @@ export { LoginView } from './identity/login-view';
 export { MembersView } from './organization/members-view';
 // example:knowledge:views:start
 export {
+  KnowledgeBaseView,
+  KnowledgeBasesView,
   DocumentsView,
   NewDocumentView,
   DocumentView,

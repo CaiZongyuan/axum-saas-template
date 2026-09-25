@@ -49,6 +49,15 @@ import {
 } from '@saas/ui/components/tabs';
 import { sessionKey, sessionQuery } from '../identity';
 import { MarkdownPreview } from './markdown-preview';
+import { knowledgeBaseQuery } from './knowledge-base-query';
+
+function permissionDenied(error: unknown): boolean {
+  const code =
+    error && typeof error === 'object' && 'error' in error
+      ? (error.error as { code?: string }).code
+      : undefined;
+  return code === 'knowledge.forbidden' || code === 'knowledge.not_found';
+}
 
 function Failure({ error }: { error: unknown }) {
   const code =
@@ -141,17 +150,15 @@ export function DocumentsView({
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
   return (
-    <Page
-      title="我的文档"
-      actions={session.data ? <Button onClick={onNew}>新建文档</Button> : null}
-    >
+    <Page title="我的文档">
       <IdentityGate session={session}>
         {session.data ? (
-          <PersonalDocumentsList
+          <DocumentList
             key={session.data.user.id}
             apiClient={apiClient}
             identity={session.data}
             onOpen={onOpen}
+            onNew={onNew}
           />
         ) : null}
       </IdentityGate>
@@ -159,14 +166,20 @@ export function DocumentsView({
   );
 }
 
-function PersonalDocumentsList({
+export function DocumentList({
   apiClient,
   identity,
   onOpen,
+  knowledgeBaseId,
+  canCreate = true,
+  onNew,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
   onOpen: (id: string) => void;
+  knowledgeBaseId?: string;
+  canCreate?: boolean;
+  onNew?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [keyword, setKeyword] = useState('');
@@ -175,7 +188,7 @@ function PersonalDocumentsList({
     'knowledge',
     'documents',
     identity.user.id,
-    { scope: 'personal', q: keyword },
+    { scope: knowledgeBaseId ?? 'personal', q: keyword },
   ];
   const documents = useInfiniteQuery({
     queryKey,
@@ -184,7 +197,12 @@ function PersonalDocumentsList({
       (
         await listPersonalDocuments({
           client: apiClient,
-          query: { cursor: pageParam, limit: 50, q: keyword },
+          query: {
+            cursor: pageParam,
+            limit: 50,
+            q: keyword,
+            knowledge_base_id: knowledgeBaseId,
+          },
           signal,
           throwOnError: true,
         })
@@ -202,7 +220,7 @@ function PersonalDocumentsList({
           'knowledge',
           'documents',
           identity.user.id,
-          { scope: 'personal', q: next },
+          { scope: knowledgeBaseId ?? 'personal', q: next },
         ],
         exact: true,
       });
@@ -213,6 +231,9 @@ function PersonalDocumentsList({
   const canShowResults = !documents.isError || documents.isFetchNextPageError;
   return (
     <div className="flex flex-col gap-4">
+      {onNew && documents.data?.pages[0]?.can_create ? (
+        <Button onClick={onNew}>新建文档</Button>
+      ) : null}
       <form
         role="search"
         onSubmit={(event) => {
@@ -230,7 +251,7 @@ function PersonalDocumentsList({
               maxLength={200}
             />
             <FieldDescription>
-              最多 200 个字符，按标题字面查找。留空显示全部个人文档。
+              最多 200 个字符，按标题字面查找。留空显示当前知识库文档。
             </FieldDescription>
           </Field>
           <div className="flex gap-2">
@@ -271,7 +292,7 @@ function PersonalDocumentsList({
                   : '从一篇 Markdown 开始，记录你的知识。'}
               </EmptyDescription>
             </EmptyHeader>
-            {!keyword ? (
+            {!keyword && canCreate ? (
               <EmptyContent>
                 点击“新建文档”，填写标题和正文后保存。
               </EmptyContent>
@@ -340,6 +361,9 @@ function DocumentForm({
   onReadLatest,
   latestPending,
   onDirtyChange,
+  readOnly = false,
+  knowledgeBaseId,
+  onRefreshPermission,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
@@ -348,6 +372,9 @@ function DocumentForm({
   onReadLatest?: () => Promise<number | undefined>;
   latestPending?: boolean;
   onDirtyChange: (dirty: boolean) => void;
+  readOnly?: boolean;
+  knowledgeBaseId?: string;
+  onRefreshPermission: () => Promise<boolean>;
 }) {
   const queryClient = useQueryClient();
   const titleInput = useRef<HTMLInputElement>(null);
@@ -406,6 +433,10 @@ function DocumentForm({
     },
     retry: false,
     gcTime: 0,
+    onError: (error) => {
+      if (permissionDenied(error))
+        void onRefreshPermission().catch(() => undefined);
+    },
     onSuccess: async (document) => {
       await queryClient.invalidateQueries({
         queryKey: ['knowledge', 'documents', identity.user.id],
@@ -441,6 +472,8 @@ function DocumentForm({
       }
     },
   });
+  const denied = permissionDenied(mutation.error);
+  const cannotEdit = readOnly || document?.can_edit === false || denied;
   const conflict =
     !!mutation.error &&
     typeof mutation.error === 'object' &&
@@ -478,11 +511,12 @@ function DocumentForm({
       }
       onSubmit={(event) => {
         event.preventDefault();
-        if (mutation.isPending || conflict) return;
+        if (mutation.isPending || conflict || cannotEdit) return;
         const form = new FormData(event.currentTarget);
         const body = {
           title: String(form.get('title')).trim(),
           markdown: String(form.get('markdown')),
+          ...(knowledgeBaseId ? { knowledge_base_id: knowledgeBaseId } : {}),
         };
         const error =
           !body.title || [...body.title].length > 200
@@ -499,8 +533,30 @@ function DocumentForm({
       }}
     >
       <FieldGroup>
+        {cannotEdit ? (
+          <p role="status">
+            {denied
+              ? '保存权限已失效，草稿已保留。'
+              : '你拥有只读权限，不能保存修改。'}
+          </p>
+        ) : null}
+        {cannotEdit ? (
+          <Button
+            variant="outline"
+            disabled={latestPending}
+            onClick={() => {
+              void onRefreshPermission()
+                .then((allowed) => {
+                  if (allowed) mutation.reset();
+                })
+                .catch(() => undefined);
+            }}
+          >
+            重新查询权限
+          </Button>
+        ) : null}
         <Field
-          data-disabled={mutation.isPending}
+          data-disabled={mutation.isPending || cannotEdit}
           data-invalid={inputError === 'knowledge.invalid_title'}
         >
           <FieldLabel htmlFor="document-title">标题</FieldLabel>
@@ -512,7 +568,7 @@ function DocumentForm({
             required
             maxLength={200}
             aria-invalid={inputError === 'knowledge.invalid_title'}
-            disabled={mutation.isPending}
+            disabled={mutation.isPending || cannotEdit}
           />
         </Field>
         <Tabs
@@ -533,7 +589,7 @@ function DocumentForm({
           </TabsList>
           <TabsContent value="edit" keepMounted>
             <Field
-              data-disabled={mutation.isPending}
+              data-disabled={mutation.isPending || cannotEdit}
               data-invalid={
                 inputError === 'knowledge.too_large' ||
                 inputError === 'knowledge.invalid_text'
@@ -550,7 +606,7 @@ function DocumentForm({
                   inputError === 'knowledge.too_large' ||
                   inputError === 'knowledge.invalid_text'
                 }
-                disabled={mutation.isPending}
+                disabled={mutation.isPending || cannotEdit}
               />
               <FieldDescription>
                 显式保存，正文最多 1 MiB。切换到预览查看排版。
@@ -601,7 +657,10 @@ function DocumentForm({
             基于版本 {baseline.version} 编辑
           </p>
         ) : null}
-        <Button type="submit" disabled={mutation.isPending || conflict}>
+        <Button
+          type="submit"
+          disabled={mutation.isPending || conflict || cannotEdit}
+        >
           {mutation.isPending ? '正在保存…' : '保存文档'}
         </Button>
       </FieldGroup>
@@ -614,30 +673,74 @@ export function NewDocumentView({
   onCreated,
   onBack,
   onDirtyChange,
+  knowledgeBaseId,
 }: {
   apiClient: ApiClient;
   onCreated: (id: string) => void;
   onBack: () => void;
   onDirtyChange: (dirty: boolean) => void;
+  knowledgeBaseId?: string;
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
+  const base = useQuery(
+    knowledgeBaseQuery(apiClient, session.data?.user.id, knowledgeBaseId),
+  );
+  const personal = useQuery({
+    queryKey: [
+      'knowledge',
+      'write-permission',
+      session.data?.user.id,
+      'personal',
+    ],
+    enabled: !!session.data && !knowledgeBaseId,
+    queryFn: async ({ signal }) =>
+      (
+        await listPersonalDocuments({
+          client: apiClient,
+          query: { limit: 1 },
+          signal,
+          throwOnError: true,
+        })
+      ).data,
+    retry: false,
+  });
+  const permission = knowledgeBaseId ? base : personal;
+  const canCreate = knowledgeBaseId
+    ? !!base.data?.can_edit
+    : !!personal.data?.can_create;
   return (
     <Page
       title="新建文档"
       actions={
         <Button variant="outline" onClick={onBack}>
-          我的文档
+          {knowledgeBaseId ? '返回知识库' : '我的文档'}
         </Button>
       }
     >
       <IdentityGate session={session}>
-        {session.data ? (
+        {permission.isPending ? (
+          <p role="status">正在读取知识库权限…</p>
+        ) : permission.isError ? (
+          <Failure error={permission.error} />
+        ) : null}
+        {session.data && permission.data ? (
           <DocumentForm
-            key={session.data.user.id}
+            key={`${session.data.user.id}:${knowledgeBaseId ?? 'personal'}`}
             apiClient={apiClient}
             identity={session.data}
             onSaved={onCreated}
+            knowledgeBaseId={knowledgeBaseId}
+            readOnly={permission.isError || !canCreate}
+            latestPending={permission.isFetching}
+            onRefreshPermission={async () => {
+              if (knowledgeBaseId) {
+                const refreshed = await base.refetch();
+                return refreshed.isSuccess && refreshed.data.can_edit;
+              }
+              const refreshed = await personal.refetch();
+              return refreshed.isSuccess && refreshed.data.can_create;
+            }}
             onDirtyChange={onDirtyChange}
           />
         ) : null}
@@ -672,10 +775,12 @@ export function DocumentView({
   documentId,
   onBack,
   onEdit,
+  onLibrary,
 }: {
   apiClient: ApiClient;
   documentId: string;
   onEdit: () => void;
+  onLibrary: (id: string) => void;
   onBack: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -696,7 +801,15 @@ export function DocumentView({
         ) : (
           <article className="flex flex-col gap-6">
             <h1 className="text-3xl font-semibold">{document.data.title}</h1>
-            <Button onClick={onEdit}>编辑文档</Button>
+            <Button
+              variant="outline"
+              onClick={() => onLibrary(document.data.knowledge_base_id)}
+            >
+              所在知识库
+            </Button>
+            {document.data.can_edit ? (
+              <Button onClick={onEdit}>编辑文档</Button>
+            ) : null}
             <p className="text-sm text-muted-foreground">
               版本 {document.data.version}
             </p>
@@ -744,9 +857,14 @@ export function EditDocumentView({
             apiClient={apiClient}
             identity={session.data}
             document={document.data}
+            readOnly={document.isError}
             onSaved={onSaved}
             onDirtyChange={onDirtyChange}
             latestPending={document.isFetching}
+            onRefreshPermission={async () => {
+              const refreshed = await document.refetch();
+              return refreshed.isSuccess && refreshed.data.can_edit;
+            }}
             onReadLatest={async () => {
               const result = await document.refetch();
               return result.isSuccess ? result.data.version : undefined;

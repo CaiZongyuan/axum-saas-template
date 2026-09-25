@@ -31,6 +31,8 @@ Owner/Admin 从首页“企业成员”管理角色和启用状态；最后一�
 
 支持新建、安全预览、标题搜索、分页、访问隔离和可靠重试；支持[编辑与冲突处理](../tutorials/06-edit-conflicts.md)，附件按后续章节交付。跟做步骤见[第一篇 Markdown 文档](../tutorials/04-personal-documents.md)和[搜索与预览](../tutorials/05-search-preview.md)。
 
+Owner/Admin 可从首页“知识库”创建共享库、修改名称、授予或撤销 Reader/Editor；获授权成员在库内浏览与写作。参见[共享知识库与权限](../tutorials/07-library-grants.md)。
+
 <!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：
