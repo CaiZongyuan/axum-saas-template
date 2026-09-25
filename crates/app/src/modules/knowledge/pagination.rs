@@ -8,12 +8,13 @@ use serde::{Deserialize, Serialize};
 pub(super) struct Cursor {
     subject: String,
     scope: String,
+    filter: Vec<u8>,
     pub at: DateTime<Utc>,
     pub id: String,
 }
 
 impl Cursor {
-    pub fn decode(token: &str, subject: &str) -> Result<Self, Failure> {
+    pub fn decode(token: &str, subject: &str, filter: &[u8]) -> Result<Self, Failure> {
         if token.len() > 1024 {
             return Err(Failure::InvalidPage);
         }
@@ -23,6 +24,7 @@ impl Cursor {
         let cursor: Self = serde_json::from_slice(&bytes).map_err(|_| Failure::InvalidPage)?;
         if cursor.subject != subject
             || cursor.scope != "personal-created-desc-v1"
+            || cursor.filter != filter
             || uuid::Uuid::parse_str(&cursor.id).is_err()
         {
             return Err(Failure::InvalidPage);
@@ -30,10 +32,16 @@ impl Cursor {
         Ok(cursor)
     }
 
-    pub fn encode(subject: &str, at: DateTime<Utc>, id: &str) -> Result<String, Failure> {
+    pub fn encode(
+        subject: &str,
+        filter: &[u8],
+        at: DateTime<Utc>,
+        id: &str,
+    ) -> Result<String, Failure> {
         let cursor = Self {
             subject: subject.to_owned(),
             scope: "personal-created-desc-v1".into(),
+            filter: filter.to_owned(),
             at,
             id: id.to_owned(),
         };

@@ -7,11 +7,14 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@saas/contracts": "workspace:*",
+    "@saas/core": "workspace:*",
     "@saas/sdk": "workspace:*",
     "@saas/ui": "workspace:*",
-    "@saas/contracts": "workspace:*",
     "@tanstack/react-query": "5.103.2",
-    "@saas/core": "workspace:*"
+    "react-markdown": "10.1.0",
+    "rehype-sanitize": "6.0.0",
+    "remark-gfm": "4.0.1"
   },
   "peerDependencies": {
     "react": "19.3.0",

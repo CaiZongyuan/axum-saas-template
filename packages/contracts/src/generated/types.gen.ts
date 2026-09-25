@@ -185,6 +185,10 @@ export type ListPersonalDocumentsData = {
     body?: never;
     path?: never;
     query?: {
+        /**
+         * Literal, case-insensitive title keyword; surrounding whitespace is ignored.
+         */
+        q?: string;
         limit?: number;
         cursor?: string;
     };

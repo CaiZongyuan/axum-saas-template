@@ -2,7 +2,7 @@
 
 运行 `just dev`，注册或登录后点击“我的文档”。新账号先看到空状态，点击“新建文档”，输入标题与 Markdown，再点击“保存文档”。刷新详情页，内容仍从 PostgreSQL 读取。
 
-普通 Member 不用等待管理员建库。第一次成功保存会在同一事务准备个人 Knowledge Base、Editor Grant、Document 和对应审计。当前章节展示新建、列表和原文读取；安全预览、搜索和并发编辑由后续章节交付。
+普通 Member 不用等待管理员建库。第一次成功保存会在同一事务准备个人 Knowledge Base、Editor Grant、Document 和对应审计。当前章节展示新建、列表和原文读取；[下一章](05-search-preview.md)加入安全预览和搜索，并发编辑由后续章节交付。
 
 ## 1. 把业务放进自己的模块
 
@@ -39,7 +39,7 @@ pnpm contracts:check
 
 [Knowledge Views](../../packages/views/src/knowledge/documents-view.tsx)复用 Core 会话、生成 SDK 和通用 UI。列表仅返回摘要，采用默认 50、最多 100 条的 cursor 分页；cursor 绑定当前身份与排序，不能换账号沿用。查询每次仍独立授权，cursor 不是访问凭据。
 
-详情页当前显示 Markdown 原文，React 按文本处理它；下一章再接安全预览。保存失败会保留输入和请求编号；切换账号后上一身份的保存响应不能更新新身份的界面。
+本章最初通过原文详情接通读取；当前版本已按[下一章](05-search-preview.md)显示安全预览。保存失败会保留输入和请求编号；切换账号后上一身份的保存响应不能更新新身份的界面。
 
 ## 5. 验证行为和可移除性
 

@@ -1,12 +1,37 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession, type Document } from '@saas/sdk';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter } from './router';
+
+test('keyboard preview renders Markdown safely and preserves the draft when returning to editing', async () => {
+  const { user } = open('/documents/new');
+  await user.click(await screen.findByLabelText('Markdown 正文'));
+  await user.paste(
+    '# 安全标题\n\n**重点** [文档](https://example.com) [危险](javascript:alert%281%29)\n\n<script>alert(1)</script>\n\n<img src=x onerror=alert(1)>',
+  );
+  await user.click(screen.getByRole('tab', { name: '编辑' }));
+  await user.keyboard('{ArrowRight}{Enter}');
+  const preview = await screen.findByRole('tabpanel', { name: '预览' });
+  expect(
+    await within(preview).findByRole('heading', { name: '安全标题' }),
+  ).toBeVisible();
+  expect(within(preview).getByRole('link', { name: '文档' })).toHaveAttribute(
+    'href',
+    'https://example.com',
+  );
+  expect(within(preview).getByText('重点').tagName).toBe('STRONG');
+  expect(preview.querySelector('script, img, iframe, [onerror]')).toBeNull();
+  expect(within(preview).queryByRole('link', { name: '危险' })).toBeNull();
+  await user.keyboard('{ArrowLeft}{Enter}');
+  expect(
+    (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
+  ).toContain('# 安全标题');
+});
 
 test('failed saves retain input and retry the same payload with the same idempotency key', async () => {
   const keys: string[] = [];
@@ -48,6 +73,74 @@ test('failed saves retain input and retry the same payload with the same idempot
   expect(keys[1]).toBe(keys[0]);
 });
 
+test('search and pagination retain literal filters, reset on a new search, and recover from a page failure', async () => {
+  const requests: URL[] = [];
+  let failPage = true;
+  server.use(
+    http.get('http://api.test/api/v1/knowledge/documents', ({ request }) => {
+      const url = new URL(request.url);
+      requests.push(url);
+      const q = url.searchParams.get('q');
+      if (!q || q === 'missing')
+        return HttpResponse.json({
+          data: [],
+          next_cursor: null,
+          has_more: false,
+        });
+      if (url.searchParams.has('cursor')) {
+        if (failPage) {
+          failPage = false;
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'knowledge.unavailable',
+                message: 'Retry',
+                details: {},
+                request_id: 'page-failed',
+              },
+            },
+            { status: 503 },
+          );
+        }
+        return HttpResponse.json({
+          data: [{ ...document, id: 'second', title: '第二页' }],
+          next_cursor: null,
+          has_more: false,
+        });
+      }
+      return HttpResponse.json({
+        data: [document],
+        next_cursor: 'next-filtered-page',
+        has_more: true,
+      });
+    }),
+  );
+  const { user } = open();
+  await screen.findByText('暂无可访问的文档');
+  await user.type(screen.getByLabelText('标题关键词'), '100%_notes{Enter}');
+  expect(
+    await screen.findByRole('button', { name: document.title }),
+  ).toBeVisible();
+  await user.click(screen.getByRole('button', { name: '加载更多' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('page-failed');
+  expect(screen.getByRole('button', { name: document.title })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: '重试加载更多' }));
+  expect(await screen.findByRole('button', { name: '第二页' })).toBeVisible();
+  expect(requests.at(-1)?.searchParams.get('q')).toBe('100%_notes');
+  expect(requests.at(-1)?.searchParams.get('cursor')).toBe(
+    'next-filtered-page',
+  );
+  await user.clear(screen.getByLabelText('标题关键词'));
+  await user.type(screen.getByLabelText('标题关键词'), 'missing{Enter}');
+  expect(await screen.findByText('没有匹配的文档')).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: '第二页' }),
+  ).not.toBeInTheDocument();
+  expect(requests.at(-1)?.searchParams.has('cursor')).toBe(false);
+  await user.click(screen.getByRole('button', { name: '清除搜索' }));
+  expect(await screen.findByText('暂无可访问的文档')).toBeVisible();
+});
+
 test('a denied document displays a safe error without the document body', async () => {
   server.use(
     http.get(`http://api.test/api/v1/knowledge/documents/${document.id}`, () =>
@@ -67,6 +160,86 @@ test('a denied document displays a safe error without the document body', async 
   open(`/documents/${document.id}`);
   expect(await screen.findByRole('alert')).toHaveTextContent('文档不存在');
   expect(screen.queryByText(/# 欢迎/)).not.toBeInTheDocument();
+});
+
+test('reading saved Markdown filters unsafe URLs and renders images as text without loading them', async () => {
+  server.use(
+    http.get(`http://api.test/api/v1/knowledge/documents/${document.id}`, () =>
+      HttpResponse.json({
+        ...document,
+        markdown:
+          '# 阅读\n\n[安全](https://example.com) [脚本](JaVaScRiPt:alert%281%29) [数据](data:text/html,hello) [实体](jav&#x61;script:alert%281%29)\n\n![私密图](https://tracker.test/pixel)\n\n<iframe src="https://tracker.test"></iframe>',
+      }),
+    ),
+  );
+  open(`/documents/${document.id}`);
+  expect(await screen.findByRole('heading', { name: '阅读' })).toBeVisible();
+  expect(screen.getByRole('link', { name: '安全' })).toHaveAttribute(
+    'rel',
+    'noopener noreferrer',
+  );
+  for (const name of ['脚本', '数据', '实体']) {
+    expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+    expect(screen.getByText(name)).toBeVisible();
+  }
+  expect(screen.getByText('图片：私密图')).toBeVisible();
+  expect(
+    window.document.querySelector('article img, article iframe'),
+  ).toBeNull();
+});
+
+test('a failed initial search can be queried again through the page', async () => {
+  let failed = false;
+  server.use(
+    http.get('http://api.test/api/v1/knowledge/documents', () => {
+      if (!failed) {
+        failed = true;
+        return HttpResponse.json(
+          {
+            error: {
+              code: 'knowledge.unavailable',
+              message: 'Try again',
+              details: {},
+              request_id: 'search-failed',
+            },
+          },
+          { status: 503 },
+        );
+      }
+      return HttpResponse.json({
+        data: [],
+        next_cursor: null,
+        has_more: false,
+      });
+    }),
+  );
+  const { user } = open();
+  expect(await screen.findByRole('alert')).toHaveTextContent('search-failed');
+  await user.click(screen.getByRole('button', { name: '重新查询' }));
+  expect(await screen.findByText('暂无可访问的文档')).toBeVisible();
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+});
+
+test('invalid drafts show bounds without discarding text or requesting a save', async () => {
+  const { user } = open('/documents/new');
+  await user.type(await screen.findByLabelText('标题'), '   ');
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '请填写不超过 200 个字符的标题',
+  );
+  await user.clear(screen.getByLabelText('标题'));
+  await user.type(screen.getByLabelText('标题'), '正文边界');
+  const oversized = '字'.repeat(350_000);
+  await user.click(screen.getByLabelText('Markdown 正文'));
+  await user.paste(oversized);
+  await user.click(screen.getByRole('tab', { name: '预览' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '正文超过大小上限',
+  );
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(screen.getByRole('alert')).toHaveTextContent('正文超过大小上限');
+  await user.click(screen.getByRole('tab', { name: '编辑' }));
+  expect(screen.getByLabelText('Markdown 正文')).toHaveValue(oversized);
 });
 
 const identity = {
@@ -219,6 +392,7 @@ test('an empty personal space leads to creation and the saved document detail', 
   expect(
     await screen.findByRole('heading', { name: document.title }),
   ).toBeVisible();
-  expect(screen.getByText(/# 欢迎\s+第一篇正文/)).toBeVisible();
+  expect(await screen.findByRole('heading', { name: '欢迎' })).toBeVisible();
+  expect(screen.getByText('第一篇正文')).toBeVisible();
   expect(router.state.location.pathname).toBe(`/documents/${document.id}`);
 });

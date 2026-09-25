@@ -446,6 +446,112 @@ async fn failed_document_audit_rolls_back_library_grant_document_and_idempotency
 }
 
 #[sqlx::test(migrations = "../../migrations")]
+async fn search_rejects_overlong_and_nul_keywords_with_a_public_error(pool: PgPool) {
+    let app = application(pool);
+    let writer = register(&app, "writer@example.com").await;
+    for keyword in ["x".repeat(201), "%00".into()] {
+        let response = get(
+            &app,
+            &writer,
+            &format!("/api/v1/knowledge/documents?q={keyword}"),
+        )
+        .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+        let error = data(response).await;
+        assert_eq!(error["error"]["code"], "knowledge.invalid_search");
+        assert!(error["error"]["request_id"].is_string());
+    }
+    assert_eq!(
+        get(&app, &writer, "/api/v1/knowledge/documents?q=%20%20")
+            .await
+            .status(),
+        StatusCode::OK
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn search_cursors_are_filter_bound_stable_and_recheck_grants(pool: PgPool) {
+    let app = application(pool.clone());
+    register(&app, "owner@example.com").await;
+    let writer = register(&app, "writer@example.com").await;
+    let other = register(&app, "other@example.com").await;
+    for title in ["note A", "note B", "other title", "note C"] {
+        assert_eq!(
+            create(&app, &writer, title, "body").await.status(),
+            StatusCode::CREATED
+        );
+    }
+    let page = data(get(&app, &writer, "/api/v1/knowledge/documents?q=note&limit=2").await).await;
+    assert_eq!(page["data"][0]["title"], "note C");
+    assert_eq!(page["data"][1]["title"], "note B");
+    let cursor = page["next_cursor"].as_str().unwrap();
+    let path = format!("/api/v1/knowledge/documents?q=note&cursor={cursor}");
+    assert_eq!(
+        get(
+            &app,
+            &writer,
+            &format!("/api/v1/knowledge/documents?q=other&cursor={cursor}")
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST
+    );
+    assert_eq!(
+        create(&app, &writer, "note D", "newer").await.status(),
+        StatusCode::CREATED
+    );
+    let next = data(get(&app, &writer, &path).await).await;
+    assert_eq!(next["data"].as_array().unwrap().len(), 1);
+    assert_eq!(next["data"][0]["title"], "note A");
+    assert_eq!(next["has_more"], false);
+    let hidden = data(get(&app, &other, "/api/v1/knowledge/documents?q=note").await).await;
+    assert_eq!(
+        hidden,
+        json!({"data":[],"next_cursor":null,"has_more":false})
+    );
+    // Authorization administration is delivered by T07; revoke via fixture setup here.
+    sqlx::query("DELETE FROM knowledge.grants")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let revoked = data(get(&app, &writer, &path).await).await;
+    assert_eq!(
+        revoked,
+        json!({"data":[],"next_cursor":null,"has_more":false})
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn title_search_treats_wildcards_as_literal_text_and_omits_bodies(pool: PgPool) {
+    let app = application(pool);
+    let writer = register(&app, "writer@example.com").await;
+    for title in [
+        "Release 100%_done\\notes",
+        "Release 100XXdone-notes",
+        "Other",
+    ] {
+        assert_eq!(
+            create(&app, &writer, title, "private body").await.status(),
+            StatusCode::CREATED
+        );
+    }
+    let response = get(
+        &app,
+        &writer,
+        "/api/v1/knowledge/documents?q=100%25_done%5Cnotes",
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let page = data(response).await;
+    assert_eq!(page["data"].as_array().unwrap().len(), 1);
+    assert_eq!(page["data"][0]["title"], "Release 100%_done\\notes");
+    assert!(page["data"][0].get("markdown").is_none());
+    assert_eq!(page["has_more"], false);
+    let insensitive = data(get(&app, &writer, "/api/v1/knowledge/documents?q=release").await).await;
+    assert_eq!(insensitive["data"].as_array().unwrap().len(), 2);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
 async fn personal_document_list_starts_empty_and_returns_summaries_with_bound_cursors(
     pool: PgPool,
 ) {

@@ -66,6 +66,9 @@ pub struct DocumentPage {
 #[derive(Deserialize, utoipa::IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct DocumentsQuery {
+    /// Literal, case-insensitive title keyword; surrounding whitespace is ignored.
+    #[param(max_length = 200)]
+    q: Option<String>,
     #[param(minimum = 1, maximum = 100, default = 50)]
     limit: Option<u32>,
     #[param(max_length = 1024)]
@@ -75,6 +78,7 @@ pub struct DocumentsQuery {
 enum Failure {
     InvalidText,
     InvalidPage,
+    InvalidSearch,
     InvalidKey,
     KeyConflict,
     InvalidTitle,
@@ -108,7 +112,12 @@ impl Failure {
             Self::InvalidPage => (
                 StatusCode::BAD_REQUEST,
                 "knowledge.invalid_page",
-                "Use a valid cursor for this identity and a limit from 1 to 100",
+                "Use a valid cursor for this identity and filter, and a limit from 1 to 100",
+            ),
+            Self::InvalidSearch => (
+                StatusCode::BAD_REQUEST,
+                "knowledge.invalid_search",
+                "Use a search keyword of at most 200 characters without NUL bytes",
             ),
             Self::InvalidKey => (
                 StatusCode::BAD_REQUEST,

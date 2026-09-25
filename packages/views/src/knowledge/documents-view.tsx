@@ -1,4 +1,4 @@
-import { useRef, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
@@ -38,7 +38,14 @@ import {
 } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
 import { Textarea } from '@saas/ui/components/textarea';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@saas/ui/components/tabs';
 import { sessionKey, sessionQuery } from '../identity';
+import { MarkdownPreview } from './markdown-preview';
 
 function Failure({ error }: { error: unknown }) {
   const code =
@@ -48,6 +55,8 @@ function Failure({ error }: { error: unknown }) {
   const messages: Record<string, string> = {
     'knowledge.forbidden': '没有写入权限，请联系企业管理员。',
     'knowledge.not_found': '文档不存在，或你已失去访问权限。',
+    'knowledge.invalid_search': '搜索词最多 200 个字符，且不能包含无效字符。',
+    'knowledge.invalid_page': '分页已失效，请重新查询。',
     'knowledge.invalid_title': '请填写不超过 200 个字符的标题。',
     'knowledge.too_large': '正文超过大小上限，请缩减后重试。',
     'knowledge.invalid_text': '粘贴的内容包含无效字符，请清理后重试。',
@@ -126,15 +135,51 @@ export function DocumentsView({
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
+  return (
+    <Page
+      title="我的文档"
+      actions={session.data ? <Button onClick={onNew}>新建文档</Button> : null}
+    >
+      <IdentityGate session={session}>
+        {session.data ? (
+          <PersonalDocumentsList
+            key={session.data.user.id}
+            apiClient={apiClient}
+            identity={session.data}
+            onOpen={onOpen}
+          />
+        ) : null}
+      </IdentityGate>
+    </Page>
+  );
+}
+
+function PersonalDocumentsList({
+  apiClient,
+  identity,
+  onOpen,
+}: {
+  apiClient: ApiClient;
+  identity: CurrentSession;
+  onOpen: (id: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [keyword, setKeyword] = useState('');
+  const searchInput = useRef<HTMLInputElement>(null);
+  const queryKey = [
+    'knowledge',
+    'documents',
+    identity.user.id,
+    { scope: 'personal', q: keyword },
+  ];
   const documents = useInfiniteQuery({
-    queryKey: ['knowledge', 'documents', session.data?.user.id],
-    enabled: !!session.data,
+    queryKey,
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam, signal }) =>
       (
         await listPersonalDocuments({
           client: apiClient,
-          query: { cursor: pageParam, limit: 50 },
+          query: { cursor: pageParam, limit: 50, q: keyword },
           signal,
           throwOnError: true,
         })
@@ -143,75 +188,143 @@ export function DocumentsView({
     maxPages: 10,
     retry: false,
   });
+  function search(next: string) {
+    if (next === keyword) {
+      void queryClient.resetQueries({ queryKey, exact: true });
+    } else {
+      queryClient.removeQueries({
+        queryKey: [
+          'knowledge',
+          'documents',
+          identity.user.id,
+          { scope: 'personal', q: next },
+        ],
+        exact: true,
+      });
+      setKeyword(next);
+    }
+  }
   const items = documents.data?.pages.flatMap((page) => page.data) ?? [];
+  const canShowResults = !documents.isError || documents.isFetchNextPageError;
   return (
-    <Page
-      title="我的文档"
-      actions={session.data ? <Button onClick={onNew}>新建文档</Button> : null}
-    >
-      <IdentityGate session={session}>
-        {documents.isPending ? (
-          <p role="status">正在读取文档…</p>
-        ) : documents.isError ? (
-          <>
-            <Failure error={documents.error} />
+    <div className="flex flex-col gap-4">
+      <form
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          search(searchInput.current?.value.trim() ?? '');
+        }}
+      >
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="document-search">标题关键词</FieldLabel>
+            <Input
+              ref={searchInput}
+              id="document-search"
+              name="q"
+              maxLength={200}
+            />
+            <FieldDescription>
+              最多 200 个字符，按标题字面查找。留空显示全部个人文档。
+            </FieldDescription>
+          </Field>
+          <div className="flex gap-2">
+            <Button type="submit" disabled={documents.isFetching}>
+              搜索
+            </Button>
             <Button
               variant="outline"
               onClick={() => {
-                void documents.refetch();
+                if (searchInput.current) searchInput.current.value = '';
+                search('');
               }}
             >
-              重试
+              清除搜索
             </Button>
-          </>
-        ) : items.length === 0 ? (
+          </div>
+        </FieldGroup>
+      </form>
+      {documents.isFetching && !documents.isFetchingNextPage ? (
+        <p role="status">正在查询文档…</p>
+      ) : null}
+      {documents.isError ? <Failure error={documents.error} /> : null}
+      {documents.isError && !documents.isFetchNextPageError ? (
+        <Button variant="outline" onClick={() => search(keyword)}>
+          重新查询
+        </Button>
+      ) : null}
+      {!documents.isPending && canShowResults ? (
+        items.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
-              <EmptyTitle>暂无可访问的文档</EmptyTitle>
+              <EmptyTitle>
+                {keyword ? '没有匹配的文档' : '暂无可访问的文档'}
+              </EmptyTitle>
               <EmptyDescription>
-                从一篇 Markdown 开始，记录你的知识。
+                {keyword
+                  ? '换一个标题关键词，或清除搜索后重试。'
+                  : '从一篇 Markdown 开始，记录你的知识。'}
               </EmptyDescription>
             </EmptyHeader>
-            <EmptyContent>点击“新建文档”，填写标题和正文后保存。</EmptyContent>
+            {!keyword ? (
+              <EmptyContent>
+                点击“新建文档”，填写标题和正文后保存。
+              </EmptyContent>
+            ) : null}
           </Empty>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {items.map((document) => (
-              <li key={document.id}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>
-                      <Button
-                        variant="link"
-                        onClick={() => onOpen(document.id)}
-                      >
-                        {document.title}
-                      </Button>
-                    </CardTitle>
-                    <CardDescription>
-                      更新于 {new Date(document.updated_at).toLocaleString()}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </li>
-            ))}
-          </ul>
-        )}
-        {documents.hasNextPage ? (
-          <Button
-            className="mt-4"
-            variant="outline"
-            disabled={documents.isFetchingNextPage}
-            onClick={() => {
-              void documents.fetchNextPage();
-            }}
-          >
-            {documents.isFetchingNextPage ? '正在加载…' : '加载更多'}
-          </Button>
-        ) : null}
-      </IdentityGate>
-    </Page>
+          <>
+            <p role="status">
+              已显示 {items.length} 篇文档
+              {keyword ? `，关键词：${keyword}` : ''}。
+            </p>
+            <ul className="flex flex-col gap-3">
+              {items.map((document) => (
+                <li key={document.id}>
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        <Button
+                          variant="link"
+                          onClick={() => onOpen(document.id)}
+                        >
+                          {document.title}
+                        </Button>
+                      </CardTitle>
+                      <CardDescription>
+                        更新于 {new Date(document.updated_at).toLocaleString()}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      ) : null}
+      {documents.hasNextPage && canShowResults ? (
+        <Button
+          variant="outline"
+          disabled={documents.isFetching}
+          onClick={() => {
+            void documents.fetchNextPage();
+          }}
+        >
+          {documents.isFetchingNextPage
+            ? '正在加载…'
+            : documents.isFetchNextPageError
+              ? '重试加载更多'
+              : '加载更多'}
+        </Button>
+      ) : null}
+    </div>
   );
+}
+
+function markdownError(markdown: string): string | undefined {
+  if (markdown.includes('\0')) return 'knowledge.invalid_text';
+  if (new TextEncoder().encode(markdown).length > 1024 * 1024)
+    return 'knowledge.too_large';
 }
 
 function NewDocumentForm({
@@ -224,6 +337,9 @@ function NewDocumentForm({
   onCreated: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const markdownInput = useRef<HTMLTextAreaElement>(null);
+  const [preview, setPreview] = useState('');
+  const [inputError, setInputError] = useState<string>();
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
   const mutation = useMutation({
     mutationFn: async ({ body, key }: { body: CreateDocument; key: string }) =>
@@ -276,6 +392,14 @@ function NewDocumentForm({
           title: String(form.get('title')).trim(),
           markdown: String(form.get('markdown')),
         };
+        const error =
+          !body.title || [...body.title].length > 200
+            ? 'knowledge.invalid_title'
+            : body.title.includes('\0')
+              ? 'knowledge.invalid_text'
+              : markdownError(body.markdown);
+        setInputError(error);
+        if (error) return;
         const fingerprint = JSON.stringify(body);
         if (attempt.current?.fingerprint !== fingerprint)
           attempt.current = { fingerprint, key: crypto.randomUUID() };
@@ -283,27 +407,70 @@ function NewDocumentForm({
       }}
     >
       <FieldGroup>
-        <Field data-disabled={mutation.isPending}>
+        <Field
+          data-disabled={mutation.isPending}
+          data-invalid={inputError === 'knowledge.invalid_title'}
+        >
           <FieldLabel htmlFor="document-title">标题</FieldLabel>
           <Input
             id="document-title"
             name="title"
             required
             maxLength={200}
+            aria-invalid={inputError === 'knowledge.invalid_title'}
             disabled={mutation.isPending}
           />
         </Field>
-        <Field data-disabled={mutation.isPending}>
-          <FieldLabel htmlFor="document-markdown">Markdown 正文</FieldLabel>
-          <Textarea
-            id="document-markdown"
-            name="markdown"
-            rows={16}
-            disabled={mutation.isPending}
-          />
-          <FieldDescription>显式保存，正文最多 1 MiB。</FieldDescription>
-        </Field>
-        {mutation.isError ? <Failure error={mutation.error} /> : null}
+        <Tabs
+          defaultValue="edit"
+          onValueChange={(value, event) => {
+            if (value === 'preview') {
+              const markdown = markdownInput.current?.value ?? '';
+              const error = markdownError(markdown);
+              setInputError(error);
+              if (error) event.cancel();
+              else setPreview(markdown);
+            }
+          }}
+        >
+          <TabsList aria-label="Markdown 模式">
+            <TabsTrigger value="edit">编辑</TabsTrigger>
+            <TabsTrigger value="preview">预览</TabsTrigger>
+          </TabsList>
+          <TabsContent value="edit" keepMounted>
+            <Field
+              data-disabled={mutation.isPending}
+              data-invalid={
+                inputError === 'knowledge.too_large' ||
+                inputError === 'knowledge.invalid_text'
+              }
+            >
+              <FieldLabel htmlFor="document-markdown">Markdown 正文</FieldLabel>
+              <Textarea
+                ref={markdownInput}
+                id="document-markdown"
+                name="markdown"
+                rows={16}
+                aria-invalid={
+                  inputError === 'knowledge.too_large' ||
+                  inputError === 'knowledge.invalid_text'
+                }
+                disabled={mutation.isPending}
+              />
+              <FieldDescription>
+                显式保存，正文最多 1 MiB。切换到预览查看排版。
+              </FieldDescription>
+            </Field>
+          </TabsContent>
+          <TabsContent value="preview">
+            <MarkdownPreview markdown={preview} />
+          </TabsContent>
+        </Tabs>
+        {inputError ? (
+          <Failure error={{ error: { code: inputError } }} />
+        ) : mutation.isError ? (
+          <Failure error={mutation.error} />
+        ) : null}
         <Button type="submit" disabled={mutation.isPending}>
           {mutation.isPending ? '正在保存…' : '保存文档'}
         </Button>
@@ -387,9 +554,7 @@ export function DocumentView({
             <p className="text-sm text-muted-foreground">
               版本 {document.data.version}
             </p>
-            <pre className="whitespace-pre-wrap break-words rounded-lg border p-6 font-mono text-sm">
-              {document.data.markdown}
-            </pre>
+            <MarkdownPreview markdown={document.data.markdown} />
           </article>
         )}
       </IdentityGate>

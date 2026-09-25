@@ -27,7 +27,7 @@ just dev
 
 登录后点击“我的文档”→“新建文档”，填写标题和 Markdown，再点击“保存文档”。普通成员也可以直接开始；个人库与 Editor 授权在首次保存时自动准备。刷新详情页后正文仍在，返回列表可以重新打开。
 
-当前示例支持新建、列表、原文详情、访问隔离和可靠重试；Markdown 预览、编辑与附件按后续章节交付。跟做步骤见[第一篇 Markdown 文档](../tutorials/04-personal-documents.md)。
+支持新建、安全预览、标题搜索、分页、访问隔离和可靠重试；编辑与附件按后续章节交付。跟做步骤见[第一篇 Markdown 文档](../tutorials/04-personal-documents.md)和[搜索与预览](../tutorials/05-search-preview.md)。
 
 <!-- example:knowledge:quickstart:end -->
 

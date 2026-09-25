@@ -40,6 +40,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/05-search-preview.md",
+      "route": "tutorials/search-preview.md",
+      "title": "标题搜索与安全预览",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
@@ -53,7 +59,15 @@
     }
   ],
   "references": [
-    { "route": "reference/api.md", "title": "API 合同", "group": "生成参考" },
-    { "route": "reference/config.md", "title": "API 配置", "group": "生成参考" }
+    {
+      "route": "reference/api.md",
+      "title": "API 合同",
+      "group": "生成参考"
+    },
+    {
+      "route": "reference/config.md",
+      "title": "API 配置",
+      "group": "生成参考"
+    }
   ]
 }

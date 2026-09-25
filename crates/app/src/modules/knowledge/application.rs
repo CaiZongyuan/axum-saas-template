@@ -109,18 +109,31 @@ pub(super) async fn list(
     if !(1..=100).contains(&limit) {
         return Err(Failure::InvalidPage);
     }
+    let keyword = query.q.as_deref().unwrap_or("");
+    if keyword.chars().count() > 200 || keyword.contains('\0') {
+        return Err(Failure::InvalidSearch);
+    }
+    let keyword = keyword.trim();
+    let filter = idempotency::fingerprint(&keyword)?;
+    let pattern = format!(
+        "%{}%",
+        keyword
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    );
     let cursor = query
         .cursor
         .as_deref()
-        .map(|token| Cursor::decode(token, &actor.id))
+        .map(|token| Cursor::decode(token, &actor.id, &filter))
         .transpose()?;
-    let mut data = sqlx::query_as::<_, DocumentSummary>("SELECT d.id::text, d.knowledge_base_id::text, d.title, d.version, d.created_at, d.updated_at FROM knowledge.documents d JOIN knowledge.knowledge_bases b ON b.id = d.knowledge_base_id WHERE b.personal_owner = $1::uuid AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::timestamptz IS NULL OR (d.created_at, d.id) < ($3::timestamptz, $4::uuid)) ORDER BY d.created_at DESC, d.id DESC LIMIT $5")
-        .bind(&actor.id).bind(manager(actor.role)).bind(cursor.as_ref().map(|cursor| cursor.at)).bind(cursor.as_ref().map(|cursor| cursor.id.as_str())).bind(i64::from(limit) + 1).fetch_all(pool).await?;
+    let mut data = sqlx::query_as::<_, DocumentSummary>("SELECT d.id::text, d.knowledge_base_id::text, d.title, d.version, d.created_at, d.updated_at FROM knowledge.documents d JOIN knowledge.knowledge_bases b ON b.id = d.knowledge_base_id WHERE b.personal_owner = $1::uuid AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::timestamptz IS NULL OR (d.created_at, d.id) < ($3::timestamptz, $4::uuid)) AND d.title ILIKE $6 ORDER BY d.created_at DESC, d.id DESC LIMIT $5")
+        .bind(&actor.id).bind(manager(actor.role)).bind(cursor.as_ref().map(|cursor| cursor.at)).bind(cursor.as_ref().map(|cursor| cursor.id.as_str())).bind(i64::from(limit) + 1).bind(pattern).fetch_all(pool).await?;
     let has_more = data.len() > limit as usize;
     data.truncate(limit as usize);
     let next_cursor = if has_more {
         data.last()
-            .map(|last| Cursor::encode(&actor.id, last.created_at, &last.id))
+            .map(|last| Cursor::encode(&actor.id, &filter, last.created_at, &last.id))
             .transpose()?
     } else {
         None

@@ -291,6 +291,16 @@
         "operationId": "listPersonalDocuments",
         "parameters": [
           {
+            "name": "q",
+            "in": "query",
+            "description": "Literal, case-insensitive title keyword; surrounding whitespace is ignored.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
