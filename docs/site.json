@@ -1,0 +1,41 @@
+{
+  "title": "Axum SaaS Template",
+  "description": "从真实请求开始，学习、验证并替换自己的业务。",
+  "repository": "CaiZongyuan/axum-saas-template",
+  "pages": [
+    {
+      "source": "docs/getting-started/quickstart.md",
+      "route": "index.md",
+      "title": "快速开始",
+      "group": "开始"
+    },
+    {
+      "source": "docs/getting-started/publish-docs.md",
+      "route": "getting-started/publish-docs.md",
+      "title": "发布教程站点",
+      "group": "开始"
+    },
+    {
+      "source": "docs/tutorials/01-full-stack-request.md",
+      "route": "tutorials/first-request.md",
+      "title": "第一条全栈请求",
+      "group": "跟做教程"
+    },
+    {
+      "source": "docs/architecture/module-boundaries.md",
+      "route": "architecture/boundaries.md",
+      "title": "Core 与示例边界",
+      "group": "理解模板"
+    },
+    {
+      "source": "docs/testing/t01-feedback-loop.md",
+      "route": "testing/feedback-loop.md",
+      "title": "运行测试与检查",
+      "group": "验证"
+    }
+  ],
+  "references": [
+    { "route": "reference/api.md", "title": "API 合同", "group": "生成参考" },
+    { "route": "reference/config.md", "title": "API 配置", "group": "生成参考" }
+  ]
+}

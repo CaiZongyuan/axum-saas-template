@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "name": "@saas/sdk",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@saas/contracts": "workspace:*"
+  }
+}
