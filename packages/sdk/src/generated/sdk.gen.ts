@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, ListPersonalDocumentsData, ListPersonalDocumentsErrors, ListPersonalDocumentsResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses, UpdateDocumentData, UpdateDocumentErrors, UpdateDocumentResponses } from './types.gen';
+import type { CreateDocumentData, CreateDocumentErrors, CreateDocumentResponses, GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetDocumentData, GetDocumentErrors, GetDocumentResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, ListMembersData, ListMembersErrors, ListMembersResponses, ListPersonalDocumentsData, ListPersonalDocumentsErrors, ListPersonalDocumentsResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses, UpdateDocumentData, UpdateDocumentErrors, UpdateDocumentResponses, UpdateMemberData, UpdateMemberErrors, UpdateMemberResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -55,6 +55,17 @@ export const getDocument = <ThrowOnError extends boolean = false>(options: Optio
 
 export const updateDocument = <ThrowOnError extends boolean = false>(options: Options<UpdateDocumentData, ThrowOnError>): RequestResult<UpdateDocumentResponses, UpdateDocumentErrors, ThrowOnError> => (options.client ?? client).put<UpdateDocumentResponses, UpdateDocumentErrors, ThrowOnError>({
     url: '/api/v1/knowledge/documents/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const listMembers = <ThrowOnError extends boolean = false>(options?: Options<ListMembersData, ThrowOnError>): RequestResult<ListMembersResponses, ListMembersErrors, ThrowOnError> => (options?.client ?? client).get<ListMembersResponses, ListMembersErrors, ThrowOnError>({ url: '/api/v1/organization/members', ...options });
+
+export const updateMember = <ThrowOnError extends boolean = false>(options: Options<UpdateMemberData, ThrowOnError>): RequestResult<UpdateMemberResponses, UpdateMemberErrors, ThrowOnError> => (options.client ?? client).put<UpdateMemberResponses, UpdateMemberErrors, ThrowOnError>({
+    url: '/api/v1/organization/members/{user_id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

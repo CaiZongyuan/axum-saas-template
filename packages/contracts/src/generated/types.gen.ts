@@ -70,6 +70,23 @@ export type Login = {
     password: string;
 };
 
+export type Member = {
+    active: boolean;
+    can_edit: boolean;
+    display_name?: string | null;
+    email: string;
+    role: MemberRole;
+    user_id: string;
+    version: number;
+};
+
+export type MemberPage = {
+    assignable_roles: Array<MemberRole>;
+    data: Array<Member>;
+    has_more: boolean;
+    next_cursor?: string | null;
+};
+
 export type MemberRole = 'owner' | 'admin' | 'member';
 
 export type Registration = {
@@ -89,6 +106,12 @@ export type SystemStatus = {
 export type UpdateDocument = {
     markdown: string;
     title: string;
+    version: number;
+};
+
+export type UpdateMember = {
+    active: boolean;
+    role: MemberRole;
     version: number;
 };
 
@@ -298,6 +321,63 @@ export type UpdateDocumentResponses = {
 };
 
 export type UpdateDocumentResponse = UpdateDocumentResponses[keyof UpdateDocumentResponses];
+
+export type ListMembersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/organization/members';
+};
+
+export type ListMembersErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListMembersError = ListMembersErrors[keyof ListMembersErrors];
+
+export type ListMembersResponses = {
+    200: MemberPage;
+};
+
+export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
+
+export type UpdateMemberData = {
+    body: UpdateMember;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        user_id: string;
+    };
+    query?: never;
+    url: '/api/v1/organization/members/{user_id}';
+};
+
+export type UpdateMemberErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    408: ApiErrorResponse;
+    409: ApiErrorResponse;
+    413: ApiErrorResponse;
+    422: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type UpdateMemberError = UpdateMemberErrors[keyof UpdateMemberErrors];
+
+export type UpdateMemberResponses = {
+    200: Member;
+};
+
+export type UpdateMemberResponse = UpdateMemberResponses[keyof UpdateMemberResponses];
 
 export type GetSystemStatusData = {
     body?: never;

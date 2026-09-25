@@ -22,6 +22,36 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::Semaphore;
 use utoipa::ToSchema;
 
+#[derive(sqlx::FromRow)]
+pub struct UserProfile {
+    pub id: String,
+    pub email: String,
+    pub display_name: Option<String>,
+}
+
+/// Batch projection for Core member administration; callers never read Identity tables.
+pub async fn profiles(
+    connection: &mut sqlx::PgConnection,
+    ids: &[String],
+) -> Result<Vec<UserProfile>, sqlx::Error> {
+    sqlx::query_as("SELECT id::text, email, display_name FROM saas_core.users WHERE id = ANY($1::text[]::uuid[])")
+        .bind(ids).fetch_all(connection).await
+}
+
+/// The caller holds this user's membership lock until revocation commits.
+pub async fn revoke_user_sessions(
+    connection: &mut sqlx::PgConnection,
+    user_id: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        "UPDATE saas_core.sessions SET revoked = true WHERE user_id = $1::uuid AND NOT revoked",
+    )
+    .bind(user_id)
+    .execute(connection)
+    .await?;
+    Ok(())
+}
+
 #[derive(Clone)]
 struct Identity {
     pool: PgPool,
@@ -363,12 +393,18 @@ async fn logout(
 
 async fn issue_session(
     state: &Identity,
-    user: CurrentUser,
+    mut user: CurrentUser,
 ) -> Result<(String, CurrentSession), ()> {
     let secret = crypto::secret()?;
+    let mut tx = state.pool.begin().await.map_err(|_| ())?;
+    user.role = organization::active_role_in(&mut tx, &user.id)
+        .await
+        .map_err(|_| ())?
+        .ok_or(())?;
     sqlx::query("INSERT INTO saas_core.sessions (id, secret_hash, user_id, expires_at) VALUES ($1::uuid, $2, $3::uuid, now() + make_interval(secs => $4))")
         .bind(uuid::Uuid::now_v7().to_string()).bind(crypto::secret_hash(&secret)).bind(&user.id)
-        .bind(f64::from(state.settings.absolute_secs)).execute(&state.pool).await.map_err(|_| ())?;
+        .bind(f64::from(state.settings.absolute_secs)).execute(&mut *tx).await.map_err(|_| ())?;
+    tx.commit().await.map_err(|_| ())?;
     let cookie = format!(
         "{}={}; HttpOnly; SameSite=Lax; Path=/; Max-Age={}{}",
         cookie_name(&state.settings),

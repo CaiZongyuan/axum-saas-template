@@ -1,6 +1,6 @@
 # 快速开始
 
-Core 提供邮箱密码注册、登录/退出、会话失效与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。
+Core 提供邮箱密码注册、登录/退出、成员管理、会话失效与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。
 
 ## 准备工具
 
@@ -20,6 +20,8 @@ just dev
 [服务状态页](http://127.0.0.1:5173/system)会显示“服务已就绪”“PostgreSQL 已连接”和当前迁移版本；迁移历史必须与当前源码匹配。
 
 已有账号可以打开[登录页面](http://127.0.0.1:5173/login)。首页可退出登录，随后旧会话失效；详见[登录与会话教程](../tutorials/03-sessions.md)。
+
+Owner/Admin 从首页“企业成员”管理角色和启用状态；最后一位有效 Owner 不能被停用或降级。详见[成员管理教程](../tutorials/08-members.md)。
 
 <!-- example:knowledge:quickstart:start -->
 
