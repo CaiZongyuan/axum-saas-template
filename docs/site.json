@@ -46,6 +46,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/06-edit-conflicts.md",
+      "route": "tutorials/edit-conflicts.md",
+      "title": "编辑、保存与版本冲突",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

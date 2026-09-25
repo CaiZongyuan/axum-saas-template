@@ -33,6 +33,15 @@ pub struct CreateDocument {
     markdown: String,
 }
 
+#[derive(Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateDocument {
+    title: String,
+    markdown: String,
+    #[schema(minimum = 1)]
+    version: i64,
+}
+
 #[derive(Serialize, Deserialize, ToSchema, sqlx::FromRow)]
 pub struct Document {
     pub id: String,
@@ -76,6 +85,8 @@ pub struct DocumentsQuery {
 }
 
 enum Failure {
+    InvalidVersion,
+    VersionConflict,
     InvalidText,
     InvalidPage,
     InvalidSearch,
@@ -86,6 +97,15 @@ enum Failure {
     Forbidden,
     NotFound,
     Unavailable,
+}
+impl From<domain::ContentError> for Failure {
+    fn from(error: domain::ContentError) -> Self {
+        match error {
+            domain::ContentError::InvalidTitle => Self::InvalidTitle,
+            domain::ContentError::TooLarge => Self::TooLarge,
+            domain::ContentError::InvalidText => Self::InvalidText,
+        }
+    }
 }
 impl From<sqlx::Error> for Failure {
     fn from(_: sqlx::Error) -> Self {
@@ -104,6 +124,16 @@ impl From<crate::modules::idempotency::Error> for Failure {
 impl Failure {
     fn response(self, id: RequestId) -> Response {
         let (status, code, message) = match self {
+            Self::InvalidVersion => (
+                StatusCode::BAD_REQUEST,
+                "document.invalid_version",
+                "Use a positive document version",
+            ),
+            Self::VersionConflict => (
+                StatusCode::CONFLICT,
+                "document.version_conflict",
+                "Document has changed; read its latest version before saving again",
+            ),
             Self::InvalidText => (
                 StatusCode::BAD_REQUEST,
                 "knowledge.invalid_text",
@@ -165,7 +195,10 @@ pub fn router(pool: PgPool, auth: AuthSettings) -> Router {
             "/api/v1/knowledge/documents",
             post(create_document).get(list_documents),
         )
-        .route("/api/v1/knowledge/documents/{id}", get(get_document))
+        .route(
+            "/api/v1/knowledge/documents/{id}",
+            get(get_document).put(update_document),
+        )
         .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
         .with_state(Knowledge { pool, auth })
 }
@@ -184,9 +217,7 @@ async fn create_document(
     };
     let content = match domain::Content::new(input.title, input.markdown) {
         Ok(content) => content,
-        Err(domain::ContentError::InvalidTitle) => return Failure::InvalidTitle.response(id),
-        Err(domain::ContentError::TooLarge) => return Failure::TooLarge.response(id),
-        Err(domain::ContentError::InvalidText) => return Failure::InvalidText.response(id),
+        Err(error) => return Failure::from(error).response(id),
     };
     let Some(key) = headers
         .get("idempotency-key")
@@ -234,11 +265,53 @@ async fn get_document(
 }
 
 #[derive(OpenApi)]
-#[openapi(paths(create_document, get_document, list_documents))]
+#[openapi(paths(create_document, get_document, list_documents, update_document))]
 struct KnowledgeApi;
 
 pub fn openapi() -> utoipa::openapi::OpenApi {
     KnowledgeApi::openapi()
+}
+
+#[utoipa::path(put, path = "/api/v1/knowledge/documents/{id}", operation_id = "updateDocument", tag = "Knowledge", request_body = UpdateDocument, params(("id" = String, Path), ("x-csrf-token" = String, Header)), responses((status = 200, body = Document), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 404, body = crate::http::ApiErrorResponse), (status = 408, body = crate::http::ApiErrorResponse), (status = 409, body = crate::http::ApiErrorResponse), (status = 413, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
+async fn update_document(
+    State(state): State<Knowledge>,
+    Extension(id): Extension<RequestId>,
+    headers: HeaderMap,
+    ApiPath(document_id): ApiPath<String>,
+    BoundedJson(input): BoundedJson<UpdateDocument>,
+) -> Response {
+    let actor = match identity::require_session(&state.pool, &state.auth, &headers, &id, true).await
+    {
+        Ok(session) => session.user,
+        Err(response) => return response,
+    };
+    let Ok(document_id) = uuid::Uuid::parse_str(&document_id) else {
+        return Failure::NotFound.response(id);
+    };
+    if input.version < 1 {
+        return Failure::InvalidVersion.response(id);
+    }
+    let content = match domain::Content::new(input.title, input.markdown) {
+        Ok(content) => content,
+        Err(error) => return Failure::from(error).response(id),
+    };
+    match tokio::time::timeout(
+        Duration::from_secs(3),
+        application::update(
+            &state.pool,
+            &actor,
+            document_id,
+            input.version,
+            content,
+            &id.0,
+        ),
+    )
+    .await
+    {
+        Ok(Ok(document)) => Json(document).into_response(),
+        Ok(Err(error)) => error.response(id),
+        Err(_) => Failure::Unavailable.response(id),
+    }
 }
 
 #[utoipa::path(get, path = "/api/v1/knowledge/documents", operation_id = "listPersonalDocuments", tag = "Knowledge", params(DocumentsQuery), responses((status = 200, body = DocumentPage), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]

@@ -1,1 +1,6 @@
-export { DocumentsView, NewDocumentView, DocumentView } from './documents-view';
+export {
+  DocumentsView,
+  NewDocumentView,
+  DocumentView,
+  EditDocumentView,
+} from './documents-view';

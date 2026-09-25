@@ -9,7 +9,13 @@ import {
 import type { ApiClient } from '@saas/sdk';
 import { StatusView, RegisterView, HomeView, LoginView } from '@saas/views';
 // example:knowledge:imports:start
-import { DocumentsView, NewDocumentView, DocumentView } from '@saas/views';
+import { useDocumentNavigationGuard } from './knowledge-navigation';
+import {
+  DocumentsView,
+  NewDocumentView,
+  DocumentView,
+  EditDocumentView,
+} from '@saas/views';
 // example:knowledge:imports:end
 
 type AppContext = { apiClient: ApiClient; docsUrl: string };
@@ -97,16 +103,25 @@ function DocumentsPage() {
 function NewDocumentPage() {
   const { apiClient } = rootRoute.useRouteContext();
   const navigate = useNavigate();
+  const guard = useDocumentNavigationGuard();
   return (
-    <NewDocumentView
-      apiClient={apiClient}
-      onBack={() => {
-        void navigate({ to: '/documents' });
-      }}
-      onCreated={(documentId) => {
-        void navigate({ to: '/documents/$documentId', params: { documentId } });
-      }}
-    />
+    <>
+      {guard.prompt}
+      <NewDocumentView
+        apiClient={apiClient}
+        onDirtyChange={guard.onDirtyChange}
+        onBack={() => {
+          void navigate({ to: '/documents' });
+        }}
+        onCreated={(documentId) => {
+          void navigate({
+            to: '/documents/$documentId',
+            params: { documentId },
+            ignoreBlocker: true,
+          });
+        }}
+      />
+    </>
   );
 }
 function DocumentPage() {
@@ -117,12 +132,52 @@ function DocumentPage() {
     <DocumentView
       apiClient={apiClient}
       documentId={documentId}
+      onEdit={() => {
+        void navigate({
+          to: '/documents/$documentId/edit',
+          params: { documentId },
+        });
+      }}
       onBack={() => {
         void navigate({ to: '/documents' });
       }}
     />
   );
 }
+function EditDocumentPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const { documentId } = editDocumentRoute.useParams();
+  const navigate = useNavigate();
+  const guard = useDocumentNavigationGuard();
+  return (
+    <>
+      {guard.prompt}
+      <EditDocumentView
+        apiClient={apiClient}
+        documentId={documentId}
+        onDirtyChange={guard.onDirtyChange}
+        onBack={() => {
+          void navigate({
+            to: '/documents/$documentId',
+            params: { documentId },
+          });
+        }}
+        onSaved={(id) => {
+          void navigate({
+            to: '/documents/$documentId',
+            params: { documentId: id },
+            ignoreBlocker: true,
+          });
+        }}
+      />
+    </>
+  );
+}
+const editDocumentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/documents/$documentId/edit',
+  component: EditDocumentPage,
+});
 const documentsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/documents',
@@ -142,6 +197,7 @@ const documentRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   // example:knowledge:route-tree:start
+  editDocumentRoute,
   documentsRoute,
   newDocumentRoute,
   documentRoute,

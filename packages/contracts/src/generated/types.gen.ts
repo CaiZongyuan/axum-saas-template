@@ -86,6 +86,12 @@ export type SystemStatus = {
     version: string;
 };
 
+export type UpdateDocument = {
+    markdown: string;
+    title: string;
+    version: number;
+};
+
 export type LoginUserData = {
     body: Login;
     path?: never;
@@ -261,6 +267,37 @@ export type GetDocumentResponses = {
 };
 
 export type GetDocumentResponse = GetDocumentResponses[keyof GetDocumentResponses];
+
+export type UpdateDocumentData = {
+    body: UpdateDocument;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}';
+};
+
+export type UpdateDocumentErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    408: ApiErrorResponse;
+    409: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type UpdateDocumentError = UpdateDocumentErrors[keyof UpdateDocumentErrors];
+
+export type UpdateDocumentResponses = {
+    200: Document;
+};
+
+export type UpdateDocumentResponse = UpdateDocumentResponses[keyof UpdateDocumentResponses];
 
 export type GetSystemStatusData = {
     body?: never;

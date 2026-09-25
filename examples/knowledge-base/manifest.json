@@ -10,7 +10,9 @@
     "apps/web/src/knowledge.test.tsx",
     "tests/e2e/knowledge.spec.ts",
     "docs/tutorials/04-personal-documents.md",
-    "docs/tutorials/05-search-preview.md"
+    "docs/tutorials/05-search-preview.md",
+    "apps/web/src/knowledge-navigation.tsx",
+    "docs/tutorials/06-edit-conflicts.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

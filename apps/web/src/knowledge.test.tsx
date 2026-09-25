@@ -242,6 +242,152 @@ test('invalid drafts show bounds without discarding text or requesting a save', 
   expect(screen.getByLabelText('Markdown 正文')).toHaveValue(oversized);
 });
 
+test('a stale edit keeps its draft until the user reads and explicitly reconciles the latest version', async () => {
+  let current = document;
+  const submitted: unknown[] = [];
+  server.use(
+    http.get(`http://api.test/api/v1/knowledge/documents/${document.id}`, () =>
+      HttpResponse.json(current),
+    ),
+    http.put(
+      `http://api.test/api/v1/knowledge/documents/${document.id}`,
+      async ({ request }) => {
+        const body = (await request.json()) as {
+          version: number;
+          title: string;
+          markdown: string;
+        };
+        submitted.push(body);
+        if (body.version === 1) {
+          current = {
+            ...document,
+            version: 2,
+            title: '同事已保存的标题',
+            markdown: '同事的正文',
+          };
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'document.version_conflict',
+                message: 'Changed',
+                details: {},
+                request_id: 'stale-save',
+              },
+            },
+            { status: 409 },
+          );
+        }
+        current = { ...current, ...body, version: 3 };
+        return HttpResponse.json(current);
+      },
+    ),
+  );
+  const { user, router } = open(`/documents/${document.id}/edit`);
+  await user.clear(await screen.findByLabelText('Markdown 正文'));
+  await user.type(screen.getByLabelText('Markdown 正文'), '我的未保存草稿');
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('stale-save');
+  expect(screen.getByLabelText('Markdown 正文')).toHaveValue('我的未保存草稿');
+  await user.click(screen.getByRole('button', { name: '读取最新版本' }));
+  expect(await screen.findByText('同事的正文')).toBeVisible();
+  expect(screen.getByLabelText('Markdown 正文')).toHaveValue('我的未保存草稿');
+  expect(screen.getByRole('button', { name: '保存文档' })).toBeDisabled();
+  await user.click(
+    screen.getByRole('button', { name: '已核对，保留草稿并继续' }),
+  );
+  await user.type(screen.getByLabelText('Markdown 正文'), '，已合并');
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(await screen.findByText('我的未保存草稿，已合并')).toBeVisible();
+  expect(router.state.location.pathname).toBe(`/documents/${document.id}`);
+  expect(submitted).toEqual([
+    { version: 1, title: document.title, markdown: '我的未保存草稿' },
+    { version: 2, title: document.title, markdown: '我的未保存草稿，已合并' },
+  ]);
+});
+
+test('unsaved edits require an explicit choice before leaving and a cancelled exit retains the draft', async () => {
+  server.use(
+    http.get(`http://api.test/api/v1/knowledge/documents/${document.id}`, () =>
+      HttpResponse.json(document),
+    ),
+  );
+  const { user, router } = open(`/documents/${document.id}/edit`);
+  await user.type(
+    await screen.findByLabelText('Markdown 正文'),
+    '未保存的内容',
+  );
+  await user.click(screen.getByRole('button', { name: '返回文档' }));
+  expect(await screen.findByRole('alertdialog')).toHaveTextContent(
+    '内容尚未保存',
+  );
+  await user.click(screen.getByRole('button', { name: '继续编辑' }));
+  expect(router.state.location.pathname).toBe(`/documents/${document.id}/edit`);
+  expect(
+    (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
+  ).toContain('未保存的内容');
+  await user.click(screen.getByRole('button', { name: '返回文档' }));
+  await user.click(await screen.findByRole('button', { name: '确认离开' }));
+  expect(
+    await screen.findByRole('heading', { name: document.title }),
+  ).toBeVisible();
+  expect(router.state.location.pathname).toBe(`/documents/${document.id}`);
+});
+
+test('background reads and a failed save keep the edit draft and its original version', async () => {
+  let current = document;
+  let release!: (response: Response) => void;
+  const pending = new Promise<Response>((resolve) => {
+    release = resolve;
+  });
+  server.use(
+    http.get(`http://api.test/api/v1/knowledge/documents/${document.id}`, () =>
+      HttpResponse.json(current),
+    ),
+    http.put(
+      `http://api.test/api/v1/knowledge/documents/${document.id}`,
+      async ({ request }) => {
+        expect(await request.json()).toMatchObject({
+          version: 1,
+          markdown: '本地修改',
+        });
+        return pending;
+      },
+    ),
+  );
+  const { user, queryClient } = open(`/documents/${document.id}/edit`);
+  await user.clear(await screen.findByLabelText('Markdown 正文'));
+  await user.type(screen.getByLabelText('Markdown 正文'), '本地修改');
+  current = { ...document, version: 2, markdown: '远端修改' };
+  await act(async () => {
+    await queryClient.invalidateQueries({
+      queryKey: ['knowledge', 'document'],
+    });
+  });
+  expect(screen.getByLabelText('Markdown 正文')).toHaveValue('本地修改');
+  expect(screen.getByText('基于版本 1 编辑')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(screen.getByRole('button', { name: '正在保存…' })).toBeDisabled();
+  expect(screen.getByLabelText('Markdown 正文')).toBeDisabled();
+  await act(async () => {
+    release(
+      HttpResponse.json(
+        {
+          error: {
+            code: 'knowledge.unavailable',
+            message: 'Try later',
+            details: {},
+            request_id: 'edit-failed',
+          },
+        },
+        { status: 503 },
+      ),
+    );
+  });
+  expect(await screen.findByRole('alert')).toHaveTextContent('edit-failed');
+  expect(screen.getByLabelText('Markdown 正文')).toHaveValue('本地修改');
+  expect(screen.getByRole('button', { name: '保存文档' })).toBeEnabled();
+});
+
 const identity = {
   user: {
     id: 'member-one',
@@ -331,6 +477,7 @@ test('a save completing during an identity refresh cannot repopulate the former 
   await user.type(await screen.findByLabelText('标题'), document.title);
   await user.click(screen.getByRole('button', { name: '保存文档' }));
   await user.click(screen.getByRole('button', { name: '我的文档' }));
+  await user.click(await screen.findByRole('button', { name: '确认离开' }));
   await screen.findByText('暂无可访问的文档');
   try {
     await act(async () => {
