@@ -1,1 +1,0 @@
-import{_ as a,o as s,c as t,a2 as i}from"./chunks/framework.BvlN9b-o.js";const k=JSON.parse('{"title":"快速开始","description":"","frontmatter":{},"headers":[],"relativePath":"index.md","filePath":"index.md"}'),n={name:"index.md"};function o(d,e,l,p,h,r){return s(),t("div",null,[...e[0]||(e[0]=[i("",28)])])}const g=a(n,[["render",o]]);export{k as __pageData,g as default};
