@@ -34,6 +34,10 @@ url = "2.5.8"
 futures-util = "0.3.32"
 chrono = { version = "0.4.44", default-features = false, features = ["serde"] }
 base64 = "0.22.1"
+async-trait = "0.1.89"
+aws-sdk-s3 = { version = "=1.149.0", default-features = false, features = ["rt-tokio", "rustls", "default-https-client"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls", "json"] }
+percent-encoding = "2.3.2"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
