@@ -3,10 +3,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-fn rejects_configuration(database_url: &str, bind: &str, field: &str) {
+fn rejects_configuration(database_url: &str, bind: &str, field: &str, overrides: &[(&str, &str)]) {
     let mut child = Command::new(env!("CARGO_BIN_EXE_saas-api"))
         .env("DATABASE_URL", database_url)
         .env("APP_BIND", bind)
+        .envs(overrides.iter().copied())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -40,6 +41,7 @@ fn invalid_bind_configuration_fails_before_serving_and_redacts_credentials() {
         "postgres://user:should-never-appear-in-logs@127.0.0.1:9/missing",
         "not-an-address",
         "APP_BIND",
+        &[],
     );
 }
 
@@ -49,5 +51,23 @@ fn a_non_postgres_url_is_rejected_without_logging_its_credentials() {
         "http://user:should-never-appear-in-logs@127.0.0.1:9/missing",
         "127.0.0.1:0",
         "DATABASE_URL",
+        &[],
     );
+}
+
+#[test]
+fn non_loopback_http_origins_and_invalid_session_lifetimes_fail_before_serving() {
+    for (field, value) in [
+        ("APP_ORIGIN", "http://public.example.com"),
+        ("APP_ORIGIN", "https://example.com/untrusted-path"),
+        ("SESSION_ABSOLUTE_SECS", "0"),
+        ("SESSION_IDLE_SECS", "9999999"),
+    ] {
+        rejects_configuration(
+            "postgres://user:should-never-appear-in-logs@127.0.0.1:9/missing",
+            "127.0.0.1:0",
+            field,
+            &[(field, value)],
+        );
+    }
 }

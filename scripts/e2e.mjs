@@ -18,6 +18,7 @@ await withTestPostgres(async ({ name, url }) => {
     WEB_PORT: String(webPort),
     E2E_API_URL: `http://127.0.0.1:${apiPort}`,
     E2E_WEB_URL: `http://127.0.0.1:${webPort}`,
+    APP_ORIGIN: `http://127.0.0.1:${webPort}`,
     TEST_PG_CONTAINER: name,
   };
   run(resolve(root, 'target/debug/migrate'), [], env);

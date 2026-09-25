@@ -43,7 +43,18 @@ pub(crate) async fn schema_version(pool: &PgPool) -> Option<i64> {
     )
     .fetch_one(pool);
     match tokio::time::timeout(std::time::Duration::from_secs(2), query).await {
-        Ok(Ok(version)) => Some(version),
+        Ok(Ok(version)) => {
+            let expected = saas_platform::postgres::MIGRATOR
+                .iter()
+                .last()
+                .map(|migration| migration.version);
+            if expected == Some(version) {
+                Some(version)
+            } else {
+                tracing::warn!("database migration version does not match this application");
+                None
+            }
+        }
         Ok(Err(error)) => {
             let sqlstate = error
                 .as_database_error()

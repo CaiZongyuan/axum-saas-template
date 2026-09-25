@@ -25,6 +25,13 @@ utoipa = { version = "5.4.0", features = ["axum_extras"] }
 
 tracing-subscriber = { version = "0.3.22", features = ["env-filter", "json"] }
 thiserror = "2.0.18"
+argon2 = { version = "0.5.3", features = ["std"] }
+sha2 = "0.10.9"
+hmac = "0.12.1"
+hex = "0.4.3"
+email_address = { version = "0.2.9", default-features = false }
+url = "2.5.8"
+futures-util = "0.3.32"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

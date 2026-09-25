@@ -4,6 +4,8 @@ export {
   getLiveness,
   getReadiness,
   getSystemStatus,
+  registerUser,
+  getCurrentSession,
 } from './generated/sdk.gen';
 export type { Client as ApiClient } from './generated/client';
 export type * from '@saas/contracts';

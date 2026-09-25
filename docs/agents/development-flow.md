@@ -18,9 +18,9 @@ The reviewed v1 spec and 28 implementation issues are published on GitHub. Their
 2. Claim only an implementation ticket whose blockers are complete. Keep unrelated repository/user changes intact.
 3. Run implement: one behavior test goes red, the minimal end-to-end change turns it green, then take the next behavior. Use tdd at the agreed public interfaces rather than private implementation details.
 4. Run focused tests/type checks during development. Update the actual example, online tutorial, generated references and example ownership manifest with the feature.
-5. Run the ticket's full required checks once the behavior is complete; broaden only for changes, failures or unresolved risk.
+5. Use focused HTTP/View tests and type checks during development. Run `just check` before delivery; it excludes browser E2E. Run E2E once when a new critical user journey is complete, for a browser-specific regression, or at milestone integration. Record the tested revision; avoid repeating the same browser suite locally, on every push and after merge.
 6. Run code-review against a fixed point using Standards and Spec reviews, fix actionable findings, then commit. The review skill controls its own parallel review agents.
-7. Open a reviewable PR linked to the ticket. Report what changed, evidence, and limitations. Integrate and close according to the repository's normal GitHub workflow.
+7. Commit and push each reviewed slice promptly. Open a PR linked to the ticket and include behavior, evidence and limitations. For the approved v1 build, the user has authorized autonomous Issue/PR management and merging after required checks pass; continue to the next unblocked ticket until v1 is complete.
 
 Do not save tests, documentation or example removability for a final cleanup ticket. The release ticket checks that already-delivered chapters form a coherent learning path.
 

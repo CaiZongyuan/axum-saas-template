@@ -1,6 +1,6 @@
 use axum::{
     Extension, Json,
-    extract::{MatchedPath, Request},
+    extract::{FromRequest, MatchedPath, Request},
     http::{HeaderValue, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
@@ -9,6 +9,51 @@ use serde::Serialize;
 use std::collections::BTreeMap;
 use tracing::Instrument;
 use utoipa::ToSchema;
+
+/// Bound incoming JSON before the handler starts its database/CPU budgets.
+pub struct BoundedJson<T>(pub T);
+
+impl<S, T> FromRequest<S> for BoundedJson<T>
+where
+    S: Send + Sync,
+    T: serde::de::DeserializeOwned + Send,
+{
+    type Rejection = Response;
+
+    async fn from_request(request: Request, state: &S) -> Result<Self, Self::Rejection> {
+        let id = request
+            .extensions()
+            .get::<RequestId>()
+            .expect("request_context wraps application routes")
+            .clone();
+        match tokio::time::timeout(
+            std::time::Duration::from_secs(3),
+            Json::<T>::from_request(request, state),
+        )
+        .await
+        {
+            Ok(Ok(Json(value))) => Ok(Self(value)),
+            Ok(Err(error)) if error.status() == StatusCode::PAYLOAD_TOO_LARGE => Err(public_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "http.payload_too_large",
+                "Request body exceeds the allowed size",
+                id,
+            )),
+            Ok(Err(_)) => Err(public_error(
+                StatusCode::BAD_REQUEST,
+                "http.invalid_json",
+                "Provide a valid JSON request",
+                id,
+            )),
+            Err(_) => Err(public_error(
+                StatusCode::REQUEST_TIMEOUT,
+                "http.body_timeout",
+                "Request body was not received in time",
+                id,
+            )),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct RequestId(pub String);

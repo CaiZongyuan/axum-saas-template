@@ -13,11 +13,18 @@ uuid.workspace = true
 sqlx.workspace = true
 utoipa.workspace = true
 tokio.workspace = true
+saas-platform = { path = "../platform" }
+argon2.workspace = true
+sha2.workspace = true
+hmac.workspace = true
+hex.workspace = true
+email_address.workspace = true
 
 [dev-dependencies]
 http-body-util.workspace = true
 serde_json.workspace = true
 tower.workspace = true
+futures-util.workspace = true
 
 [lints]
 workspace = true

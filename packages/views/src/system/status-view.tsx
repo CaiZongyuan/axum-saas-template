@@ -46,7 +46,7 @@ export function StatusView({
             SaaS Template
           </a>
           <nav aria-label="主导航" className="flex items-center gap-6 text-sm">
-            <a href="/" aria-current="page">
+            <a href="/system" aria-current="page">
               服务状态
             </a>
             <a

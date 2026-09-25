@@ -1,7 +1,7 @@
 {
   "id": "knowledge-base",
   "status": "planned",
-  "description": "The knowledge reference domain is delivered by later tickets; T01 status capabilities belong to Core.",
+  "description": "The knowledge reference domain starts at T04; system status, self-registration, identity, membership and audit capabilities belong to Core.",
   "ownedPaths": [],
   "compositionPoints": {
     "api": "apps/api/src/main.rs",

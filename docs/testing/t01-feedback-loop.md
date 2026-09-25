@@ -45,7 +45,7 @@ E2E 创建独立数据库和动态端口，编译并运行真实 API，启动 We
 just check
 ```
 
-包括 Rust fmt/clippy、前端格式/lint/typecheck、合同漂移、边界检查、进程清理与后端/View 测试、文档检查、Web/文档构建和浏览器链路。尚未交付的 Mobile、长测与业务功能不伪装成已通过的检查。
+包括 Rust fmt/clippy、前端格式/lint/typecheck、合同漂移、边界检查、进程清理与后端/View 测试、文档检查及 Web/文档构建。日常检查不启动浏览器；关键旅程完成后运行 `just e2e`，里程碑完整验收运行 `just check-full`。CI 的手动入口可勾选 `run_e2e`，普通 push/PR 保留快速检查。尚未交付的 Mobile、长测与业务功能不伪装成已通过的检查。
 
 ## 实施过程中的 red → green
 

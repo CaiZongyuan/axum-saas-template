@@ -29,6 +29,9 @@ check:
     pnpm docs:check
     pnpm build
     pnpm docs:build
+
+# Complete milestone validation, including real Chromium.
+check-full: check
     just e2e
 
 test:
