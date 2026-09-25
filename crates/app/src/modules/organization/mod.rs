@@ -1,8 +1,12 @@
-use serde::Serialize;
+pub mod domain;
+mod management;
+pub use management::{openapi, router};
+
+use serde::{Deserialize, Serialize};
 use sqlx::{PgConnection, PgPool};
 use utoipa::ToSchema;
 
-#[derive(Clone, Copy, Serialize, ToSchema, sqlx::Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize, ToSchema, sqlx::Type)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(type_name = "text", rename_all = "lowercase")]
 pub enum MemberRole {

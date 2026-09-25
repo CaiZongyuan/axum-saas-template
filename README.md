@@ -2,7 +2,7 @@
 
 Rust/Axum + React 的模块化全栈模板，以可移除的知识库 example 作为可运行教程。
 
-**Core：全栈状态链路与邮箱密码认证。** 打开 `/register` 创建账号并自动登录，首个成功注册者成为 Owner，其余为 Member；已有账号从 `/login` 登录，首页可退出。
+**Core：全栈状态链路与邮箱密码认证。** 打开 `/register` 创建账号并自动登录，首个成功注册者成为 Owner，其余为 Member；已有账号从 `/login` 登录，首页可退出。Owner/Admin 可管理企业成员，停用撤销会话，并发操作保护最后一位 Owner。
 
 <!-- example:knowledge:readme:start -->
 

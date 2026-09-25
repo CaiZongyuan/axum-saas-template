@@ -7,7 +7,13 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
-import { StatusView, RegisterView, HomeView, LoginView } from '@saas/views';
+import {
+  StatusView,
+  RegisterView,
+  HomeView,
+  LoginView,
+  MembersView,
+} from '@saas/views';
 // example:knowledge:imports:start
 import { useDocumentNavigationGuard } from './knowledge-navigation';
 import {
@@ -49,6 +55,9 @@ function HomePage() {
   const { apiClient, docsUrl } = rootRoute.useRouteContext();
   return (
     <HomeView apiClient={apiClient} docsUrl={docsUrl}>
+      <a href="/members" className="text-sm underline">
+        企业成员
+      </a>
       {/* example:knowledge:home:start */}
       <a href="/documents" className="text-sm underline">
         我的文档
@@ -83,6 +92,26 @@ const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: HomePage,
+});
+function MembersPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <MembersView
+      apiClient={apiClient}
+      onBack={() => {
+        void navigate({ to: '/' });
+      }}
+      onLogin={() => {
+        void navigate({ to: '/login' });
+      }}
+    />
+  );
+}
+const membersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/members',
+  component: MembersPage,
 });
 // example:knowledge:routes:start
 function DocumentsPage() {
@@ -203,6 +232,7 @@ const routeTree = rootRoute.addChildren([
   documentRoute,
   // example:knowledge:route-tree:end
   loginRoute,
+  membersRoute,
   homeRoute,
   registrationRoute,
   statusRoute,

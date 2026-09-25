@@ -52,6 +52,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/08-members.md",
+      "route": "tutorials/members.md",
+      "title": "成员管理与最后 Owner",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
