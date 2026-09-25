@@ -60,6 +60,17 @@ export type Document = {
     version: number;
 };
 
+export type DocumentExport = {
+    can_download: boolean;
+    created_at: string;
+    document_id: string;
+    document_version: number;
+    expires_at: string;
+    id: string;
+    last_error?: string | null;
+    status: string;
+};
+
 export type DocumentPage = {
     can_create: boolean;
     data: Array<DocumentSummary>;
@@ -78,6 +89,12 @@ export type DocumentSummary = {
 
 export type DownloadCapability = ObjectCapability & {
     file: FileInfo;
+};
+
+export type ExportPage = {
+    data: Array<DocumentExport>;
+    has_more: boolean;
+    next_cursor?: string | null;
 };
 
 export type FileInfo = {
@@ -668,6 +685,119 @@ export type GetAttachmentDownloadResponses = {
 };
 
 export type GetAttachmentDownloadResponse = GetAttachmentDownloadResponses[keyof GetAttachmentDownloadResponses];
+
+export type ListDocumentExportsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/knowledge/documents/{id}/exports';
+};
+
+export type ListDocumentExportsErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListDocumentExportsError = ListDocumentExportsErrors[keyof ListDocumentExportsErrors];
+
+export type ListDocumentExportsResponses = {
+    200: ExportPage;
+};
+
+export type ListDocumentExportsResponse = ListDocumentExportsResponses[keyof ListDocumentExportsResponses];
+
+export type RequestDocumentExportData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}/exports';
+};
+
+export type RequestDocumentExportErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    409: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type RequestDocumentExportError = RequestDocumentExportErrors[keyof RequestDocumentExportErrors];
+
+export type RequestDocumentExportResponses = {
+    202: DocumentExport;
+};
+
+export type RequestDocumentExportResponse = RequestDocumentExportResponses[keyof RequestDocumentExportResponses];
+
+export type GetDocumentExportData = {
+    body?: never;
+    path: {
+        id: string;
+        export_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}/exports/{export_id}';
+};
+
+export type GetDocumentExportErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetDocumentExportError = GetDocumentExportErrors[keyof GetDocumentExportErrors];
+
+export type GetDocumentExportResponses = {
+    200: DocumentExport;
+};
+
+export type GetDocumentExportResponse = GetDocumentExportResponses[keyof GetDocumentExportResponses];
+
+export type DownloadDocumentExportData = {
+    body?: never;
+    path: {
+        id: string;
+        export_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}/exports/{export_id}/download';
+};
+
+export type DownloadDocumentExportErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    409: ApiErrorResponse;
+    410: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type DownloadDocumentExportError = DownloadDocumentExportErrors[keyof DownloadDocumentExportErrors];
+
+export type DownloadDocumentExportResponses = {
+    200: DownloadCapability;
+};
+
+export type DownloadDocumentExportResponse = DownloadDocumentExportResponses[keyof DownloadDocumentExportResponses];
 
 export type StartAttachmentUploadData = {
     body: UploadInput;

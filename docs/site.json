@@ -70,6 +70,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/10-document-exports.md",
+      "route": "tutorials/document-exports.md",
+      "title": "文档导出与 PostgreSQL Jobs",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

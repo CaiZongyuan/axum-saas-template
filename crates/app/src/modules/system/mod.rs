@@ -37,7 +37,7 @@ pub async fn status(
 }
 
 /// Includes pool acquisition and the query in one bounded readiness budget.
-pub(crate) async fn schema_version(pool: &PgPool) -> Option<i64> {
+pub async fn schema_version(pool: &PgPool) -> Option<i64> {
     let query = sqlx::query_as::<_, (i64, bool, Vec<u8>)>(
         "SELECT version, success, checksum FROM _sqlx_migrations",
     )

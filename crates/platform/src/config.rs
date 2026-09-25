@@ -164,7 +164,7 @@ pub struct FileLimits {
 
 #[derive(Debug, thiserror::Error)]
 #[error("Invalid or missing {0}; check the configuration reference")]
-pub struct ConfigError(&'static str);
+pub struct ConfigError(pub &'static str);
 
 impl Settings {
     pub fn from_env() -> Result<Self, ConfigError> {
@@ -307,4 +307,18 @@ fn storage_endpoint(value: &str, public: bool, name: &'static str) -> Result<Str
         return Err(ConfigError(name));
     }
     Ok(endpoint.origin().ascii_serialization())
+}
+
+pub fn bounded_u32(setting: &Setting, min: u32, max: u32) -> Result<u32, ConfigError> {
+    let value = std::env::var(setting.name)
+        .ok()
+        .or_else(|| setting.default.map(str::to_owned))
+        .ok_or(ConfigError(setting.name))?;
+    let value = value
+        .parse::<u32>()
+        .map_err(|_| ConfigError(setting.name))?;
+    if !(min..=max).contains(&value) {
+        return Err(ConfigError(setting.name));
+    }
+    Ok(value)
 }

@@ -182,3 +182,62 @@ async fn presigned_upload_is_copied_without_overwriting_an_existing_final_object
         Err(StorageError::NotFound)
     ));
 }
+
+#[tokio::test]
+async fn generated_files_stream_without_overwriting_an_existing_candidate() {
+    let settings = StorageSettings {
+        endpoint: std::env::var("S3_ENDPOINT").expect("use scripts/test-storage.mjs"),
+        public_endpoint: std::env::var("S3_PUBLIC_ENDPOINT").unwrap(),
+        region: "us-east-1".into(),
+        bucket: format!("stream-{}", uuid::Uuid::now_v7()),
+        access_key: std::env::var("S3_ACCESS_KEY").unwrap(),
+        secret_key: std::env::var("S3_SECRET_KEY").unwrap(),
+    };
+    let storage = S3ObjectStorage::new(&settings);
+    storage
+        .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+        .await
+        .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let source = directory.path().join("source");
+    let copied = directory.path().join("copied");
+    let bytes: Vec<u8> = (0..200_000).map(|i| (i % 251) as u8).collect();
+    std::fs::write(&source, &bytes).unwrap();
+    let location = ObjectLocation {
+        bucket: settings.bucket,
+        key: "objects/generated/candidate".into(),
+    };
+    let mut headers = UploadHeaders {
+        content_type: "application/octet-stream".into(),
+        upload_id: "server-generated".into(),
+        checksum_sha256: STANDARD.encode(Sha256::digest(&bytes)),
+    };
+    storage
+        .put_file_if_absent(&location, &source, &headers)
+        .await
+        .unwrap();
+    let digest = storage
+        .download_to(&location, &copied, bytes.len() as u64)
+        .await
+        .unwrap();
+    assert_eq!(digest.size, 200_000);
+    assert_eq!(digest.sha256, hex::encode(Sha256::digest(&bytes)));
+    assert_eq!(std::fs::read(&copied).unwrap(), bytes);
+    std::fs::write(&source, b"replacement").unwrap();
+    headers.checksum_sha256 = STANDARD.encode(Sha256::digest(b"replacement"));
+    assert!(matches!(
+        storage
+            .put_file_if_absent(&location, &source, &headers)
+            .await,
+        Err(StorageError::PreconditionFailed)
+    ));
+    assert!(matches!(
+        storage.download_to(&location, &copied, 199_999).await,
+        Err(StorageError::TooLarge)
+    ));
+    storage
+        .download_to(&location, &copied, 200_000)
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read(&copied).unwrap(), bytes);
+}

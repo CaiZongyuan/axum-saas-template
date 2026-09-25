@@ -51,6 +51,7 @@ import { sessionKey, sessionQuery } from '../identity';
 import { MarkdownPreview } from './markdown-preview';
 import { knowledgeBaseQuery } from './knowledge-base-query';
 import { AttachmentsPanel } from './attachments-panel';
+import { ExportsPanel } from './exports-panel';
 import type { FileTransfer } from './file-transfer';
 
 function permissionDenied(error: unknown): boolean {
@@ -862,6 +863,15 @@ export function DocumentView({
                   : undefined
               }
             />
+            {session.data ? (
+              <ExportsPanel
+                key={`exports:${session.data.user.id}:${documentId}`}
+                apiClient={apiClient}
+                identity={session.data}
+                documentId={documentId}
+                transfer={fileTransfer}
+              />
+            ) : null}
             {session.data ? (
               <AttachmentsPanel
                 key={`${session.data.user.id}:${documentId}`}

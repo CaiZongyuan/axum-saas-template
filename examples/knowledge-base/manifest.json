@@ -21,7 +21,13 @@
     "apps/web/src/attachments.test.tsx",
     "apps/web/src/knowledge-files.ts",
     "tests/e2e/attachments.spec.ts",
-    "docs/tutorials/09-attachments.md"
+    "docs/tutorials/09-attachments.md",
+    "migrations/0009_exports.sql",
+    "apps/api/tests/exports.rs",
+    "docs/research/document-export-streaming.md",
+    "apps/web/src/exports.test.tsx",
+    "tests/e2e/exports.spec.ts",
+    "docs/tutorials/10-document-exports.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
@@ -30,21 +36,38 @@
     "views": "packages/views/src/index.ts",
     "docs": "docs/site.json",
     "quickstart": "docs/getting-started/quickstart.md",
-    "readme": "README.md"
+    "readme": "README.md",
+    "worker": "apps/worker/src/main.rs",
+    "configuration": "apps/api/src/bin/config-reference.rs",
+    "environment": ".env.example"
   },
   "registrationMarkers": {
-    "apps/api/src/lib.rs": ["routes", "openapi"],
+    "apps/api/src/lib.rs": ["routes", "openapi", "configured-routes"],
     "crates/app/src/modules/mod.rs": ["module"],
     "apps/web/src/router.tsx": ["imports", "home", "routes", "route-tree"],
     "packages/views/src/index.ts": ["views"],
     "docs/getting-started/quickstart.md": ["quickstart"],
-    "README.md": ["readme"]
+    "README.md": ["readme"],
+    "apps/worker/src/main.rs": ["worker"],
+    "apps/api/src/bin/config-reference.rs": ["config-reference"],
+    ".env.example": ["export-config"]
   },
   "ownedDependencies": {
     "packages/views/package.json": [
       "react-markdown",
       "remark-gfm",
       "rehype-sanitize"
-    ]
+    ],
+    "package.json": ["fflate"]
+  },
+  "ownedCargoDependencies": {
+    "crates/app/Cargo.toml": [
+      "zip",
+      "tempfile",
+      "pulldown-cmark",
+      "pulldown-cmark-to-cmark"
+    ],
+    "apps/api/Cargo.toml": ["zip"],
+    "Cargo.toml": ["zip", "pulldown-cmark", "pulldown-cmark-to-cmark"]
   }
 }
