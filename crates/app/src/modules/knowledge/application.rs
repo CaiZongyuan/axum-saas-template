@@ -15,6 +15,54 @@ pub(super) fn manager(role: MemberRole) -> bool {
     matches!(role, MemberRole::Owner | MemberRole::Admin)
 }
 
+/// Lock membership, base, then source document; return the current write capability.
+pub(super) async fn lock_document(
+    connection: &mut sqlx::PgConnection,
+    actor_id: &str,
+    document_id: uuid::Uuid,
+    write: bool,
+) -> Result<bool, Failure> {
+    let role = organization::active_role_in(connection, actor_id)
+        .await?
+        .ok_or(Failure::Forbidden)?;
+    let base: String = sqlx::query_scalar(
+        "SELECT knowledge_base_id::text FROM knowledge.documents WHERE id = $1::uuid",
+    )
+    .bind(document_id.to_string())
+    .fetch_optional(&mut *connection)
+    .await?
+    .ok_or(Failure::NotFound)?;
+    let exists: Option<String> = sqlx::query_scalar(
+        "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid FOR SHARE",
+    )
+    .bind(&base)
+    .fetch_optional(&mut *connection)
+    .await?;
+    if exists.is_none() {
+        return Err(Failure::NotFound);
+    }
+    let exists: Option<String> = sqlx::query_scalar("SELECT id::text FROM knowledge.documents WHERE id = $1::uuid AND knowledge_base_id = $2::uuid FOR SHARE")
+        .bind(document_id.to_string()).bind(&base).fetch_optional(&mut *connection).await?;
+    if exists.is_none() {
+        return Err(Failure::NotFound);
+    }
+    let can_edit = if manager(role) {
+        true
+    } else {
+        let grant: Option<String> = sqlx::query_scalar("SELECT access FROM knowledge.grants WHERE knowledge_base_id = $1::uuid AND user_id = $2::uuid")
+            .bind(&base).bind(actor_id).fetch_optional(connection).await?;
+        match grant.as_deref() {
+            Some("editor") => true,
+            Some(_) => false,
+            None => return Err(Failure::NotFound),
+        }
+    };
+    if write && !can_edit {
+        return Err(Failure::Forbidden);
+    }
+    Ok(can_edit)
+}
+
 pub(super) async fn create(
     pool: &PgPool,
     actor: &CurrentUser,

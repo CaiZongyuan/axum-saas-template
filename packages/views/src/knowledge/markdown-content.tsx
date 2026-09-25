@@ -1,18 +1,38 @@
-import Markdown, { type Components } from 'react-markdown';
+import Markdown, { defaultUrlTransform, type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import {
+  AttachmentImage,
+  AttachmentLink,
+  attachmentId,
+} from './attachment-markdown';
+
+const schema = {
+  ...defaultSchema,
+  protocols: {
+    ...defaultSchema.protocols,
+    href: [...(defaultSchema.protocols?.href ?? []), 'attachment'],
+    src: [...(defaultSchema.protocols?.src ?? []), 'attachment'],
+  },
+};
 
 const components: Components = {
   a: ({ href, children }) =>
-    href ? (
+    attachmentId(href) ? (
+      <AttachmentLink id={attachmentId(href)!}>{children}</AttachmentLink>
+    ) : href ? (
       <a href={href} target="_blank" rel="noopener noreferrer">
         {children}
       </a>
     ) : (
       <span>{children}</span>
     ),
-  // Files will resolve protected attachment references; never auto-load arbitrary images.
-  img: ({ alt }) => <span>图片：{alt || '未命名图片'}</span>,
+  img: ({ src, alt }) =>
+    attachmentId(src) ? (
+      <AttachmentImage id={attachmentId(src)!} alt={alt || '未命名图片'} />
+    ) : (
+      <span>图片：{alt || '未命名图片'}</span>
+    ),
 };
 
 export default function MarkdownContent({ markdown }: { markdown: string }) {
@@ -21,7 +41,14 @@ export default function MarkdownContent({ markdown }: { markdown: string }) {
       <Markdown
         skipHtml
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[[rehypeSanitize, schema]]}
+        urlTransform={(url, key, node) =>
+          ((key === 'src' && node.tagName === 'img') ||
+            (key === 'href' && node.tagName === 'a')) &&
+          attachmentId(url)
+            ? url
+            : defaultUrlTransform(url)
+        }
         components={components}
       >
         {markdown}

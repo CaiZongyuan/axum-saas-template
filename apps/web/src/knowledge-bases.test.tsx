@@ -40,6 +40,17 @@ const member = {
 } satisfies Member;
 function open(path: string) {
   server.use(
+    http.get('http://api.test/api/v1/knowledge/documents/:id/attachments', () =>
+      HttpResponse.json({
+        data: [],
+        can_upload: true,
+        max_upload_bytes: 20971520,
+        next_cursor: null,
+        has_more: false,
+      }),
+    ),
+  );
+  server.use(
     http.get('http://api.test/api/v1/auth/session', () =>
       HttpResponse.json(identity),
     ),

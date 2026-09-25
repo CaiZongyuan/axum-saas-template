@@ -12,6 +12,36 @@ async fn send(request: reqwest::RequestBuilder) -> reqwest::Response {
         .unwrap_or_else(|_| panic!("Signed request transport failed"))
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 8)]
+async fn concurrent_bucket_bootstrap_is_ready_for_every_caller() {
+    let mut tasks = tokio::task::JoinSet::new();
+    for _ in 0..9 {
+        tasks.spawn(async {
+            let settings = StorageSettings {
+                endpoint: std::env::var("S3_ENDPOINT").unwrap(),
+                public_endpoint: std::env::var("S3_PUBLIC_ENDPOINT").unwrap(),
+                region: "us-east-1".into(),
+                bucket: format!("bootstrap-{}", uuid::Uuid::now_v7()),
+                access_key: std::env::var("S3_ACCESS_KEY").unwrap(),
+                secret_key: std::env::var("S3_SECRET_KEY").unwrap(),
+            };
+            S3ObjectStorage::new(&settings)
+                .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+                .await
+        });
+    }
+    let mut failed = 0;
+    while let Some(result) = tasks.join_next().await {
+        if result.unwrap().is_err() {
+            failed += 1;
+        }
+    }
+    assert_eq!(
+        failed, 0,
+        "every independently created bucket must be ready"
+    );
+}
+
 #[tokio::test]
 async fn presigned_upload_is_copied_without_overwriting_an_existing_final_object() {
     let settings = StorageSettings {
@@ -72,6 +102,7 @@ async fn presigned_upload_is_copied_without_overwriting_an_existing_final_object
         .collect();
     for name in [
         "content-type",
+        "content-encoding",
         "x-amz-meta-upload-id",
         "x-amz-checksum-sha256",
     ] {

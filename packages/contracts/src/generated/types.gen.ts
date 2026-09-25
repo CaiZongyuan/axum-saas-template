@@ -17,6 +17,14 @@ export type ApiErrorResponse = {
     error: ApiError;
 };
 
+export type AttachmentPage = {
+    can_upload: boolean;
+    data: Array<FileInfo>;
+    has_more: boolean;
+    max_upload_bytes: number;
+    next_cursor?: string | null;
+};
+
 export type CreateDocument = {
     knowledge_base_id?: string | null;
     markdown: string;
@@ -66,6 +74,20 @@ export type DocumentSummary = {
     title: string;
     updated_at: string;
     version: number;
+};
+
+export type DownloadCapability = ObjectCapability & {
+    file: FileInfo;
+};
+
+export type FileInfo = {
+    content_type: string;
+    created_at: string;
+    file_name: string;
+    id: string;
+    previewable: boolean;
+    sha256: string;
+    size: number;
 };
 
 export type GrantAccess = 'reader' | 'editor';
@@ -131,6 +153,15 @@ export type MemberPage = {
 
 export type MemberRole = 'owner' | 'admin' | 'member';
 
+export type ObjectCapability = {
+    expires_at: string;
+    headers: {
+        [key: string]: string;
+    };
+    method: string;
+    url: string;
+};
+
 export type Registration = {
     display_name?: string | null;
     email: string;
@@ -163,6 +194,19 @@ export type UpdateMember = {
     active: boolean;
     role: MemberRole;
     version: number;
+};
+
+export type UploadCapability = {
+    state: string;
+    upload?: null | ObjectCapability;
+    upload_id: string;
+};
+
+export type UploadInput = {
+    content_type: string;
+    file_name: string;
+    sha256: string;
+    size: number;
 };
 
 export type LoginUserData = {
@@ -570,6 +614,126 @@ export type UpdateDocumentResponses = {
 };
 
 export type UpdateDocumentResponse = UpdateDocumentResponses[keyof UpdateDocumentResponses];
+
+export type ListAttachmentsData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/knowledge/documents/{id}/attachments';
+};
+
+export type ListAttachmentsErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListAttachmentsError = ListAttachmentsErrors[keyof ListAttachmentsErrors];
+
+export type ListAttachmentsResponses = {
+    200: AttachmentPage;
+};
+
+export type ListAttachmentsResponse = ListAttachmentsResponses[keyof ListAttachmentsResponses];
+
+export type GetAttachmentDownloadData = {
+    body?: never;
+    path: {
+        id: string;
+        file_id: string;
+    };
+    query?: {
+        inline?: boolean;
+    };
+    url: '/api/v1/knowledge/documents/{id}/attachments/{file_id}/download';
+};
+
+export type GetAttachmentDownloadErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetAttachmentDownloadError = GetAttachmentDownloadErrors[keyof GetAttachmentDownloadErrors];
+
+export type GetAttachmentDownloadResponses = {
+    200: DownloadCapability;
+};
+
+export type GetAttachmentDownloadResponse = GetAttachmentDownloadResponses[keyof GetAttachmentDownloadResponses];
+
+export type StartAttachmentUploadData = {
+    body: UploadInput;
+    headers: {
+        'x-csrf-token': string;
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}/uploads';
+};
+
+export type StartAttachmentUploadErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    409: ApiErrorResponse;
+    410: ApiErrorResponse;
+    413: ApiErrorResponse;
+    422: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type StartAttachmentUploadError = StartAttachmentUploadErrors[keyof StartAttachmentUploadErrors];
+
+export type StartAttachmentUploadResponses = {
+    201: UploadCapability;
+};
+
+export type StartAttachmentUploadResponse = StartAttachmentUploadResponses[keyof StartAttachmentUploadResponses];
+
+export type CompleteAttachmentUploadData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+        upload_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}/uploads/{upload_id}/complete';
+};
+
+export type CompleteAttachmentUploadErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    409: ApiErrorResponse;
+    410: ApiErrorResponse;
+    413: ApiErrorResponse;
+    422: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type CompleteAttachmentUploadError = CompleteAttachmentUploadErrors[keyof CompleteAttachmentUploadErrors];
+
+export type CompleteAttachmentUploadResponses = {
+    200: FileInfo;
+};
+
+export type CompleteAttachmentUploadResponse = CompleteAttachmentUploadResponses[keyof CompleteAttachmentUploadResponses];
 
 export type ListMembersData = {
     body?: never;

@@ -12,4 +12,5 @@ export {
   DocumentView,
   EditDocumentView,
 } from './knowledge';
+export type { FileTransfer } from './knowledge';
 // example:knowledge:views:end

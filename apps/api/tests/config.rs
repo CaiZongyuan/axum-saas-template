@@ -71,3 +71,35 @@ fn non_loopback_http_origins_and_invalid_session_lifetimes_fail_before_serving()
         );
     }
 }
+
+#[test]
+fn storage_endpoints_and_file_limits_are_validated_without_exposing_credentials() {
+    for (field, value) in [
+        ("S3_PUBLIC_ENDPOINT", "http://public.example.com"),
+        (
+            "S3_PUBLIC_ENDPOINT",
+            "https://s3.example.com/rewritten-prefix",
+        ),
+        (
+            "S3_ENDPOINT",
+            "http://user:should-never-appear-in-logs@localhost:9000",
+        ),
+        ("S3_BUCKET", "../outside"),
+        ("FILE_MAX_BYTES", "-1"),
+        ("UPLOAD_SESSION_SECS", "0"),
+        ("DOWNLOAD_URL_SECS", "99999"),
+    ] {
+        rejects_configuration(
+            "postgres://user:should-never-appear-in-logs@127.0.0.1:9/missing",
+            "127.0.0.1:0",
+            field,
+            &[
+                ("S3_ENDPOINT", "http://127.0.0.1:9000"),
+                ("S3_PUBLIC_ENDPOINT", "http://127.0.0.1:9000"),
+                ("S3_ACCESS_KEY", "test-access"),
+                ("S3_SECRET_KEY", "should-never-appear-in-logs"),
+                (field, value),
+            ],
+        );
+    }
+}

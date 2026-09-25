@@ -64,6 +64,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/09-attachments.md",
+      "route": "tutorials/attachments.md",
+      "title": "RustFS 附件、校验与发布",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

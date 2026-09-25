@@ -15,7 +15,13 @@
     "docs/tutorials/06-edit-conflicts.md",
     "apps/web/src/knowledge-bases.test.tsx",
     "tests/e2e/knowledge-grants.spec.ts",
-    "docs/tutorials/07-library-grants.md"
+    "docs/tutorials/07-library-grants.md",
+    "migrations/0007_attachments.sql",
+    "apps/api/tests/attachments.rs",
+    "apps/web/src/attachments.test.tsx",
+    "apps/web/src/knowledge-files.ts",
+    "tests/e2e/attachments.spec.ts",
+    "docs/tutorials/09-attachments.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

@@ -134,18 +134,27 @@ impl S3ObjectStorage {
 
     /// Initialize only the dedicated application bucket; credentials and other failures are not absence.
     pub async fn bootstrap(&self, bucket: &str, origin: &str) -> Result<(), StorageError> {
-        if let Err(error) = self.internal.head_bucket().bucket(bucket).send().await {
+        // Bootstrap operations are idempotent. S3 can throttle parallel bucket creation.
+        // Keep object copy's one-attempt policy on the separate internal client.
+        let client = Client::from_conf(
+            self.internal
+                .config()
+                .to_builder()
+                .retry_config(RetryConfig::standard().with_max_attempts(5))
+                .build(),
+        );
+        if let Err(error) = client.head_bucket().bucket(bucket).send().await {
             if error.raw_response().map(|r| r.status().as_u16()) != Some(404) {
                 return Err(StorageError::Unavailable);
             }
-            if let Err(error) = self.internal.create_bucket().bucket(bucket).send().await
+            if let Err(error) = client.create_bucket().bucket(bucket).send().await
                 && !error
                     .as_service_error()
                     .is_some_and(|error| error.is_bucket_already_owned_by_you())
             {
                 return Err(StorageError::Unavailable);
             }
-            self.internal
+            client
                 .head_bucket()
                 .bucket(bucket)
                 .send()
@@ -158,6 +167,7 @@ impl S3ObjectStorage {
             .allowed_methods("GET")
             .allowed_methods("HEAD")
             .allowed_headers("content-type")
+            .allowed_headers("content-encoding")
             .allowed_headers("x-amz-meta-upload-id")
             .allowed_headers("x-amz-checksum-sha256")
             .expose_headers("ETag")
@@ -171,7 +181,7 @@ impl S3ObjectStorage {
             .cors_rules(rule)
             .build()
             .map_err(|_| StorageError::InvalidResponse)?;
-        self.internal
+        client
             .put_bucket_cors()
             .bucket(bucket)
             .cors_configuration(cors)
@@ -220,6 +230,7 @@ impl ObjectStorage for S3ObjectStorage {
             .bucket(&location.bucket)
             .key(&location.key)
             .content_type(&headers.content_type)
+            .content_encoding("identity")
             .metadata("upload-id", &headers.upload_id)
             .checksum_sha256(&headers.checksum_sha256)
             .presigned(config)
@@ -325,6 +336,7 @@ impl ObjectStorage for S3ObjectStorage {
             .key(&location.key)
             .response_content_disposition(disposition)
             .response_content_type(content_type)
+            .response_content_encoding("identity")
             .response_cache_control("no-store")
             .presigned(config)
             .await
