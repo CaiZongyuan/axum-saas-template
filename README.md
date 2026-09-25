@@ -2,7 +2,7 @@
 
 Rust/Axum + React 的模块化全栈模板，以可移除的知识库 example 作为可运行教程。
 
-**当前实现：全栈状态链路与邮箱密码注册。** 打开 `/register` 创建账号并自动登录，首个成功注册者成为 Owner，其余为 Member。登录/退出、Markdown 业务和附件按后续实施票继续交付。
+**当前实现：全栈状态链路与邮箱密码认证。** 打开 `/register` 创建账号并自动登录，首个成功注册者成为 Owner，其余为 Member；已有账号从 `/login` 登录，首页可退出。Markdown 业务和附件按后续实施票继续交付。
 
 [在线教程](https://caizongyuan.github.io/axum-saas-template/) · [实施计划](docs/plans/template-v1.md) · [架构规范](docs/saas-template-architecture-spec.md)
 

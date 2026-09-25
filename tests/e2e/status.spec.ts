@@ -1,6 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
 
+// These public endpoints use fresh contexts and never handle credentials.
+test.use({ trace: 'retain-on-failure', screenshot: 'only-on-failure' });
+
 test('page, generated SDK, API and migrated PostgreSQL form one real request', async ({
   page,
 }) => {

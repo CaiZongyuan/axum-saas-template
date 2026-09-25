@@ -33,6 +33,11 @@ export type HealthResponse = {
     status: string;
 };
 
+export type Login = {
+    email: string;
+    password: string;
+};
+
 export type MemberRole = 'owner' | 'admin' | 'member';
 
 export type Registration = {
@@ -48,6 +53,57 @@ export type SystemStatus = {
     status: string;
     version: string;
 };
+
+export type LoginUserData = {
+    body: Login;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/login';
+};
+
+export type LoginUserErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    408: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type LoginUserError = LoginUserErrors[keyof LoginUserErrors];
+
+export type LoginUserResponses = {
+    200: CurrentSession;
+};
+
+export type LoginUserResponse = LoginUserResponses[keyof LoginUserResponses];
+
+export type LogoutUserData = {
+    body?: never;
+    headers: {
+        /**
+         * CSRF token from the current session
+         */
+        'x-csrf-token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/logout';
+};
+
+export type LogoutUserErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type LogoutUserError = LogoutUserErrors[keyof LogoutUserErrors];
+
+export type LogoutUserResponses = {
+    204: void;
+};
+
+export type LogoutUserResponse = LogoutUserResponses[keyof LogoutUserResponses];
 
 export type RegisterUserData = {
     body: Registration;

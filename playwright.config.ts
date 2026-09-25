@@ -8,9 +8,9 @@ export default defineConfig({
   timeout: 30_000,
   use: {
     baseURL: process.env.E2E_WEB_URL,
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
+    trace: 'off',
+    screenshot: 'off',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['./scripts/safe-browser-reporter.mjs']],
 });

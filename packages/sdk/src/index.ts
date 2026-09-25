@@ -6,6 +6,8 @@ export {
   getSystemStatus,
   registerUser,
   getCurrentSession,
+  loginUser,
+  logoutUser,
 } from './generated/sdk.gen';
 export type { Client as ApiClient } from './generated/client';
 export type * from '@saas/contracts';

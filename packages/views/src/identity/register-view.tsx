@@ -18,7 +18,7 @@ import {
   FieldLabel,
 } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
-import { sessionKey } from './session';
+import { replaceSession } from './session';
 
 function registrationError(error: unknown) {
   const code =
@@ -47,9 +47,8 @@ export function RegisterView({
         .data,
     retry: false,
     gcTime: 0,
-    onSuccess: (session) => {
-      queryClient.removeQueries();
-      queryClient.setQueryData(sessionKey(apiClient), session);
+    onSuccess: async (session) => {
+      await replaceSession(queryClient, apiClient, session);
       onRegistered();
     },
   });
@@ -130,7 +129,10 @@ export function RegisterView({
             </FieldGroup>
           </form>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex gap-6">
+          <a className="text-sm underline" href="/login">
+            已有账号？登录
+          </a>
           <a className="text-sm text-muted-foreground underline" href="/">
             返回首页
           </a>

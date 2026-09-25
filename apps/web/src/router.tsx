@@ -7,7 +7,7 @@ import {
   type RouterHistory,
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
-import { StatusView, RegisterView, HomeView } from '@saas/views';
+import { StatusView, RegisterView, HomeView, LoginView } from '@saas/views';
 
 type AppContext = { apiClient: ApiClient; docsUrl: string };
 const rootRoute = createRootRouteWithContext<AppContext>()({
@@ -40,6 +40,23 @@ function HomePage() {
   const { apiClient, docsUrl } = rootRoute.useRouteContext();
   return <HomeView apiClient={apiClient} docsUrl={docsUrl} />;
 }
+function LoginPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <LoginView
+      apiClient={apiClient}
+      onLoggedIn={() => {
+        void navigate({ to: '/' });
+      }}
+    />
+  );
+}
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/login',
+  component: LoginPage,
+});
 const registrationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/register',
@@ -51,6 +68,7 @@ const homeRoute = createRoute({
   component: HomePage,
 });
 const routeTree = rootRoute.addChildren([
+  loginRoute,
   homeRoute,
   registrationRoute,
   statusRoute,

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('two independent browsers register, keep separate sessions and initialize one Owner', async ({
+test('two browsers register, refresh, log out and sign in with isolated sessions', async ({
   browser,
 }) => {
   const first = await browser.newContext();
@@ -33,6 +33,31 @@ test('two independent browsers register, keep separate sessions and initialize o
       expect(await page.evaluate(() => document.cookie)).not.toContain(
         'saas_session',
       );
+      await page.getByRole('button', { name: '退出登录' }).click();
+      await expect(
+        page.getByRole('link', { name: '登录', exact: true }),
+      ).toBeVisible();
+      const oldSession = await context.request.get('/api/v1/auth/session', {
+        headers: { cookie: `saas_session=${cookie!.value}` },
+      });
+      expect(oldSession.status()).toBe(401);
+      await page.getByRole('link', { name: '登录', exact: true }).click();
+      await page.getByLabel('邮箱', { exact: true }).fill(email);
+      await page
+        .getByLabel('密码', { exact: true })
+        .fill('browser-test-password');
+      await page.getByRole('button', { name: '登录', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { name: `你好，${email}` }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(() =>
+          JSON.stringify({
+            local: { ...localStorage },
+            session: { ...sessionStorage },
+          }),
+        ),
+      ).not.toContain('browser-test-password');
     }
     expect((await first.cookies())[0]?.value).not.toEqual(
       (await second.cookies())[0]?.value,

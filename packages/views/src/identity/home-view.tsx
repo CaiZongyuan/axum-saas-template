@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import type { ApiClient } from '@saas/sdk';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { logoutUser, type ApiClient } from '@saas/sdk';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Badge } from '@saas/ui/components/badge';
-import { Button } from '@saas/ui/components/button';
+import { Button, buttonVariants } from '@saas/ui/components/button';
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@saas/ui/components/card';
-import { sessionQuery } from './session';
+import { replaceSession, sessionQuery } from './session';
 
 export function HomeView({
   apiClient,
@@ -20,7 +20,24 @@ export function HomeView({
   apiClient: ApiClient;
   docsUrl: string;
 }) {
-  const session = useQuery(sessionQuery(apiClient));
+  const queryClient = useQueryClient();
+  const session = useQuery(sessionQuery(apiClient, queryClient));
+  const logout = useMutation({
+    mutationFn: async () => {
+      if (!session.data) return;
+      const result = await logoutUser({
+        client: apiClient,
+        headers: { 'x-csrf-token': session.data.csrf_token },
+      });
+      if (result.response?.status === 401) return;
+      if (result.error) throw result.error;
+    },
+    retry: false,
+    gcTime: 0,
+    onSuccess: async () => {
+      await replaceSession(queryClient, apiClient, null);
+    },
+  });
   if (session.isPending)
     return (
       <main className="p-8" role="status">
@@ -59,7 +76,7 @@ export function HomeView({
           <CardDescription>
             {user
               ? '你已登录，可以开始使用企业空间。'
-              : '创建账号，开始你的第一步。'}
+              : '当前没有有效会话，请登录或创建账号。'}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -73,11 +90,32 @@ export function HomeView({
                   ]
                 }
               </Badge>
+              {logout.isError ? (
+                <Alert variant="destructive">
+                  <AlertTitle>退出失败</AlertTitle>
+                  <AlertDescription>请检查网络后重试。</AlertDescription>
+                </Alert>
+              ) : null}
+              <Button
+                variant="outline"
+                disabled={logout.isPending}
+                onClick={() => logout.mutate()}
+              >
+                {logout.isPending ? '正在退出…' : '退出登录'}
+              </Button>
             </>
           ) : (
-            <Button render={<a href="/register" />} nativeButton={false}>
-              创建账号
-            </Button>
+            <>
+              <a href="/login" className={buttonVariants()}>
+                登录
+              </a>
+              <a
+                href="/register"
+                className={buttonVariants({ variant: 'outline' })}
+              >
+                创建账号
+              </a>
+            </>
           )}
         </CardContent>
         <CardFooter className="flex gap-6">

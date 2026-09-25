@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses } from './types.gen';
+import type { GetCurrentSessionData, GetCurrentSessionErrors, GetCurrentSessionResponses, GetLivenessData, GetLivenessResponses, GetReadinessData, GetReadinessErrors, GetReadinessResponses, GetSystemStatusData, GetSystemStatusErrors, GetSystemStatusResponses, LoginUserData, LoginUserErrors, LoginUserResponses, LogoutUserData, LogoutUserErrors, LogoutUserResponses, RegisterUserData, RegisterUserErrors, RegisterUserResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,17 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+export const loginUser = <ThrowOnError extends boolean = false>(options: Options<LoginUserData, ThrowOnError>): RequestResult<LoginUserResponses, LoginUserErrors, ThrowOnError> => (options.client ?? client).post<LoginUserResponses, LoginUserErrors, ThrowOnError>({
+    url: '/api/v1/auth/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const logoutUser = <ThrowOnError extends boolean = false>(options: Options<LogoutUserData, ThrowOnError>): RequestResult<LogoutUserResponses, LogoutUserErrors, ThrowOnError> => (options.client ?? client).post<LogoutUserResponses, LogoutUserErrors, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
 
 export const registerUser = <ThrowOnError extends boolean = false>(options: Options<RegisterUserData, ThrowOnError>): RequestResult<RegisterUserResponses, RegisterUserErrors, ThrowOnError> => (options.client ?? client).post<RegisterUserResponses, RegisterUserErrors, ThrowOnError>({
     url: '/api/v1/auth/register',
