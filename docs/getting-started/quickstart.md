@@ -1,6 +1,6 @@
 # 快速开始
 
-当前版本完成了 T01：**Web → 生成 SDK → Axum → 真实 PostgreSQL**，以及与源码同步的在线教程。注册、Markdown 业务与附件属于后续实施票；当前页面会真实显示服务连接状态。
+当前版本支持邮箱密码自助注册、自动登录与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。登录/退出、Markdown 业务与附件按后续实施票交付。
 
 ## 准备工具
 
@@ -15,7 +15,9 @@ just dev
 
 `just dev` 启动 Docker 中的 PostgreSQL，显式运行迁移，再启动宿主机 API 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
 
-打开 [http://127.0.0.1:5173/](http://127.0.0.1:5173/)。正常情况下会看到“服务已就绪”“PostgreSQL 已连接”和迁移版本 `1`。
+打开[注册页面](http://127.0.0.1:5173/register)，填写邮箱、12–128 字符的密码及可选显示名，成功后自动进入已登录首页。首个成功注册的账号成为企业 Owner，后续账号为 Member。部署人员应先注册自己的 Owner 账号，再交给普通使用者；不需要邀请或等待邮件。
+
+[服务状态页](http://127.0.0.1:5173/system)会显示“服务已就绪”“PostgreSQL 已连接”和迁移版本 `2`。
 
 API 默认监听 `127.0.0.1:3000`：
 
@@ -35,7 +37,7 @@ curl -i http://127.0.0.1:3000/api/v1/system/status
 just db-down
 ```
 
-再次点击页面的“重新检查”。页面显示失败提示和请求编号；`/health/ready` 返回 `503`，`/health/live` 仍返回 `200`。
+再次点击服务状态页的“重新检查”。页面显示失败提示和请求编号；`/health/ready` 返回 `503`，`/health/live` 仍返回 `200`。
 
 恢复数据库后重新检查即可：
 
@@ -59,7 +61,7 @@ just docs
 
 ## 常见问题
 
-- **数据库能连接但 ready 仍失败**：运行 `just migrate`；API 进程本身不自动迁移。
+- **数据库能连接但 ready 仍失败**：运行 `just migrate`；API 不自动迁移，已应用的最新迁移必须匹配当前源码要求的版本。
 - **端口已占用**：修改 `.env` 中的 `APP_BIND` / `VITE_API_PROXY`；更改数据库端口时同时调整 `POSTGRES_PORT` 与 `DATABASE_URL`，然后重启开发入口。
 - **Rust 配置报错**：检查[生成的配置参考](site:reference/config.md)。错误不会打印数据库凭据。
 - **浏览器请求失败**：用 request_id 对照 API 的 JSON 日志；页面通过 Vite 同源代理访问 API，数据库 URL 不进入浏览器。

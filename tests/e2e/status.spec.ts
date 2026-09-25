@@ -7,13 +7,13 @@ test('page, generated SDK, API and migrated PostgreSQL form one real request', a
   const response = page.waitForResponse((candidate) =>
     candidate.url().endsWith('/api/v1/system/status'),
   );
-  await page.goto('/');
+  await page.goto('/system');
   const api = await response;
   expect(api.status()).toBe(200);
   expect(api.headers()['x-request-id']).toBeTruthy();
   expect(await api.json()).toMatchObject({
     database: 'connected',
-    schema_version: 1,
+    schema_version: 2,
     status: 'ok',
   });
   await expect(page.getByRole('heading', { name: '服务已就绪' })).toBeVisible();
@@ -35,7 +35,7 @@ test('a paused database makes readiness fail while the process remains alive, th
   const api = process.env.E2E_API_URL;
   if (!container?.startsWith('saas-test-') || !api)
     throw new Error('Run via just e2e to provide isolated services');
-  await page.goto('/');
+  await page.goto('/system');
   await expect(page.getByRole('heading', { name: '服务已就绪' })).toBeVisible();
   execFileSync('docker', ['pause', container], { stdio: 'ignore' });
   try {

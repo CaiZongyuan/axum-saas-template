@@ -1,0 +1,39 @@
+use serde::Serialize;
+use sqlx::{PgConnection, PgPool};
+use utoipa::ToSchema;
+
+#[derive(Clone, Copy, Serialize, ToSchema, sqlx::Type)]
+#[serde(rename_all = "lowercase")]
+#[sqlx(type_name = "text", rename_all = "lowercase")]
+pub enum MemberRole {
+    Owner,
+    Admin,
+    Member,
+}
+
+/// The singleton organization row serializes initialization in the caller's transaction.
+pub async fn enroll(
+    connection: &mut PgConnection,
+    user_id: &str,
+) -> Result<MemberRole, sqlx::Error> {
+    let initialized: bool = sqlx::query_scalar("INSERT INTO saas_core.organizations (id, name) VALUES (1, 'My Organization') ON CONFLICT (id) DO UPDATE SET id = 1 RETURNING owner_initialized")
+        .fetch_one(&mut *connection).await?;
+    let role = if initialized {
+        MemberRole::Member
+    } else {
+        MemberRole::Owner
+    };
+    sqlx::query("INSERT INTO saas_core.memberships (user_id, organization_id, role) VALUES ($1::uuid, 1, $2)")
+        .bind(user_id).bind(role).execute(&mut *connection).await?;
+    sqlx::query("UPDATE saas_core.organizations SET owner_initialized = true WHERE id = 1")
+        .execute(connection)
+        .await?;
+    Ok(role)
+}
+
+pub async fn active_role(pool: &PgPool, user_id: &str) -> Result<Option<MemberRole>, sqlx::Error> {
+    sqlx::query_scalar("SELECT role FROM saas_core.memberships WHERE user_id = $1::uuid AND active")
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await
+}

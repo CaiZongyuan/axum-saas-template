@@ -89,8 +89,22 @@ async fn status_reports_a_real_migrated_database(pool: sqlx::PgPool) {
     let body = response.into_body().collect().await.unwrap().to_bytes();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["database"], "connected");
-    assert_eq!(json["schema_version"], 1);
+    assert_eq!(json["schema_version"], 2);
     assert_eq!(json["status"], "ok");
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn database_with_pending_migrations_is_not_ready(pool: sqlx::PgPool) {
+    // Reproduce the migration history of the preceding release.
+    sqlx::query("DELETE FROM _sqlx_migrations WHERE version = 2")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let response = saas_app::router(pool)
+        .oneshot(Request::get("/health/ready").body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
 #[sqlx::test(migrations = false)]

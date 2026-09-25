@@ -17,8 +17,28 @@ export type ApiErrorResponse = {
     error: ApiError;
 };
 
+export type CurrentSession = {
+    csrf_token: string;
+    user: CurrentUser;
+};
+
+export type CurrentUser = {
+    display_name?: string | null;
+    email: string;
+    id: string;
+    role: MemberRole;
+};
+
 export type HealthResponse = {
     status: string;
+};
+
+export type MemberRole = 'owner' | 'admin' | 'member';
+
+export type Registration = {
+    display_name?: string | null;
+    email: string;
+    password: string;
 };
 
 export type SystemStatus = {
@@ -28,6 +48,50 @@ export type SystemStatus = {
     status: string;
     version: string;
 };
+
+export type RegisterUserData = {
+    body: Registration;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/register';
+};
+
+export type RegisterUserErrors = {
+    400: ApiErrorResponse;
+    403: ApiErrorResponse;
+    408: ApiErrorResponse;
+    409: ApiErrorResponse;
+    413: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type RegisterUserError = RegisterUserErrors[keyof RegisterUserErrors];
+
+export type RegisterUserResponses = {
+    201: CurrentSession;
+};
+
+export type RegisterUserResponse = RegisterUserResponses[keyof RegisterUserResponses];
+
+export type GetCurrentSessionData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/session';
+};
+
+export type GetCurrentSessionErrors = {
+    401: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetCurrentSessionError = GetCurrentSessionErrors[keyof GetCurrentSessionErrors];
+
+export type GetCurrentSessionResponses = {
+    200: CurrentSession;
+};
+
+export type GetCurrentSessionResponse = GetCurrentSessionResponses[keyof GetCurrentSessionResponses];
 
 export type GetSystemStatusData = {
     body?: never;

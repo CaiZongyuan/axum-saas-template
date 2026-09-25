@@ -22,6 +22,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/02-registration.md",
+      "route": "tutorials/registration.md",
+      "title": "注册、事务与会话",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

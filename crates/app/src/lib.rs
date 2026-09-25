@@ -38,21 +38,32 @@ async fn ready(
 }
 
 pub fn router(pool: PgPool) -> Router {
+    router_with_auth(pool, saas_platform::config::AuthSettings::default())
+}
+
+pub fn router_with_auth(pool: PgPool, auth: saas_platform::config::AuthSettings) -> Router {
     Router::new()
         .route("/health/live", get(live))
         .route("/health/ready", get(ready))
         .route("/api/v1/system/status", get(modules::system::status))
         .route("/api/openapi.json", get(|| async { Json(openapi()) }))
+        .with_state(pool.clone())
+        .merge(modules::identity::router(pool, auth))
         .fallback(http::not_found)
         .method_not_allowed_fallback(http::method_not_allowed)
         .layer(middleware::from_fn(http::request_context))
-        .with_state(pool)
 }
 
 #[derive(OpenApi)]
 #[openapi(
     info(title = "SaaS Template API", version = "0.1.0"),
-    paths(live, ready, modules::system::status),
+    paths(
+        live,
+        ready,
+        modules::system::status,
+        modules::identity::register,
+        modules::identity::current_session
+    ),
     components(schemas(
         HealthResponse,
         http::ApiErrorResponse,
