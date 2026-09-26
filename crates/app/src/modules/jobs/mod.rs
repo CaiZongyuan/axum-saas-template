@@ -24,8 +24,12 @@ pub async fn enqueue(
     job: NewJob<'_>,
 ) -> Result<String, sqlx::Error> {
     let id = uuid::Uuid::now_v7().to_string();
-    sqlx::query("INSERT INTO saas_core.jobs (id, kind, schema_version, payload, correlation_id, max_attempts) VALUES ($1::uuid, $2, $3, $4, $5, $6)")
-        .bind(&id).bind(job.kind).bind(job.schema_version).bind(job.payload).bind(job.correlation_id).bind(job.max_attempts).execute(&mut *connection).await?;
+    let context = saas_platform::telemetry::correlation();
+    let parent = saas_platform::telemetry::current_traceparent();
+    let causation = context.job_id.as_ref().or(context.request_id.as_ref());
+    sqlx::query("INSERT INTO saas_core.jobs (id, kind, schema_version, payload, correlation_id, max_attempts, request_id, actor_id, traceparent, causation_id) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, $9, $10)")
+        .bind(&id).bind(job.kind).bind(job.schema_version).bind(job.payload).bind(job.correlation_id).bind(job.max_attempts)
+        .bind(&context.request_id).bind(&context.actor_id).bind(parent).bind(causation).execute(&mut *connection).await?;
     sqlx::query("INSERT INTO saas_core.job_batches (job_id, number, max_attempts, status) SELECT id, 1, max_attempts, 'queued' FROM saas_core.jobs WHERE id = $1::uuid").bind(&id).execute(connection).await?;
     Ok(id)
 }
@@ -53,6 +57,10 @@ pub struct Lease {
     pub payload: Value,
     pub lease_token: String,
     pub correlation_id: String,
+    pub causation_id: Option<String>,
+    pub request_id: Option<String>,
+    pub actor_id: Option<String>,
+    pub traceparent: Option<String>,
     pub batch: i32,
     pub attempt: i32,
 }
@@ -83,7 +91,7 @@ pub async fn claim(
         sqlx::query("UPDATE saas_core.job_batches b SET status = 'failed', last_error = 'jobs.attempts_exhausted', ended_at = clock_timestamp() FROM saas_core.jobs j WHERE j.id = $1::uuid AND b.job_id = j.id AND b.number = j.batch").bind(&id).execute(&mut *tx).await?;
         notifications::publish_job_outcome(&mut tx, &id, Outcome::Failed).await?;
     }
-    let lease: Option<Lease> = sqlx::query_as("WITH candidate AS (SELECT id FROM saas_core.jobs WHERE kind = ANY($1) AND attempts < max_attempts AND ((status IN ('queued', 'retry_wait') AND scheduled_at <= clock_timestamp()) OR (status = 'running' AND lease_expires_at <= clock_timestamp())) ORDER BY scheduled_at, id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE saas_core.jobs j SET status = 'running', lease_token = $2::uuid, locked_by = $3, lease_expires_at = clock_timestamp() + make_interval(secs => $4), attempts = attempts + 1, updated_at = now() FROM candidate c WHERE j.id = c.id RETURNING j.id::text, j.kind, j.schema_version, j.payload, j.lease_token::text, j.correlation_id, j.batch, j.attempts AS attempt")
+    let lease: Option<Lease> = sqlx::query_as("WITH candidate AS (SELECT id FROM saas_core.jobs WHERE kind = ANY($1) AND attempts < max_attempts AND ((status IN ('queued', 'retry_wait') AND scheduled_at <= clock_timestamp()) OR (status = 'running' AND lease_expires_at <= clock_timestamp())) ORDER BY scheduled_at, id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE saas_core.jobs j SET status = 'running', lease_token = $2::uuid, locked_by = $3, lease_expires_at = clock_timestamp() + make_interval(secs => $4), attempts = attempts + 1, updated_at = now() FROM candidate c WHERE j.id = c.id RETURNING j.id::text, j.kind, j.schema_version, j.payload, j.lease_token::text, j.correlation_id, j.causation_id, j.request_id, j.actor_id::text, j.traceparent, j.batch, j.attempts AS attempt")
         .bind(kinds).bind(uuid::Uuid::now_v7().to_string()).bind(worker).bind(f64::from(lease_secs)).fetch_optional(&mut *tx).await?;
     if let Some(lease) = &lease {
         sqlx::query("UPDATE saas_core.job_attempts SET status = 'lease_expired', last_error = 'jobs.lease_expired', ended_at = clock_timestamp() WHERE job_id = $1::uuid AND status = 'running'").bind(&lease.id).execute(&mut *tx).await?;

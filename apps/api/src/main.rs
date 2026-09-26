@@ -7,7 +7,7 @@ use std::{future::IntoFuture, time::Duration};
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = Settings::from_env()?;
-    telemetry::init(settings.log_filter);
+    let telemetry = telemetry::init(settings.log_filter, "saas-api").await?;
     let pool = postgres::connect_lazy(settings.database);
     let files = settings.storage.as_ref().map(|storage| {
         FileService::new(
@@ -47,6 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     drop(server);
     let _ = tokio::time::timeout(Duration::from_secs(1), pool.close()).await;
+    let _ = tokio::task::spawn_blocking(move || telemetry.shutdown()).await;
     Ok(())
 }
 

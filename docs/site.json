@@ -124,6 +124,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/19-observability.md",
+      "route": "tutorials/observability.md",
+      "title": "从导出追踪到任务与存储",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

@@ -91,13 +91,17 @@ export async function freePort() {
   return port;
 }
 
-export async function waitFor(url, child, timeoutMs = 30_000) {
+export async function waitFor(url, child, timeoutMs = 30_000, request = {}) {
   const deadline = performance.now() + timeoutMs;
   while (performance.now() < deadline) {
     if (child && (child.exitCode !== null || child.signalCode !== null))
       throw new Error('Service exited before becoming ready');
     try {
-      if ((await fetch(url, { signal: AbortSignal.timeout(1_000) })).ok) return;
+      if (
+        (await fetch(url, { ...request, signal: AbortSignal.timeout(1_000) }))
+          .ok
+      )
+        return;
     } catch {
       /* retry only during bounded startup */
     }

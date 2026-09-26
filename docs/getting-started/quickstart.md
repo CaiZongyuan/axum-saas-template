@@ -49,6 +49,8 @@ Owner/Admin 可以从“审计记录”按文档 ID、动作和请求 ID 追溯�
 
 文档详情使用实际 Redis 正文缓存，每次读取仍由 PostgreSQL 验证可见性和版本；参见[版本缓存与回源](../tutorials/16-versioned-cache.md)。
 
+需要定位导出问题时，运行 `just dev-observability`，从请求追踪到 Worker、RustFS、日志与指标；参见[可观测性教程](../tutorials/19-observability.md)。
+
 <!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：

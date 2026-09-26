@@ -65,3 +65,16 @@ docs-check:
 
 docs-build:
     pnpm docs:build
+
+# Optional local logs, traces, and metrics with the normal runnable application.
+dev-observability:
+    node scripts/dev.mjs --observability
+
+observability-up:
+    node scripts/observability.mjs up
+
+observability-down:
+    node scripts/observability.mjs down
+
+observability-validate:
+    node scripts/observability.mjs validate

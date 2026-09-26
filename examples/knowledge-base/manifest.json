@@ -44,7 +44,9 @@
     "docs/tutorials/15-api-keys.md",
     "apps/api/tests/cached_documents.rs",
     "docs/tutorials/16-versioned-cache.md",
-    "docs/research/redis-cache-runtime.md"
+    "docs/research/redis-cache-runtime.md",
+    "scripts/knowledge-observability-smoke.mjs",
+    "docs/tutorials/19-observability.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
@@ -88,7 +90,6 @@
   "ownedCargoDependencies": {
     "crates/app/Cargo.toml": [
       "zip",
-      "tempfile",
       "pulldown-cmark",
       "pulldown-cmark-to-cmark"
     ],

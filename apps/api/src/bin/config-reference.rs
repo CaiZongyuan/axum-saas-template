@@ -1,6 +1,7 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let fields = saas_platform::config::FIELDS
         .iter()
+        .chain(saas_platform::telemetry::FIELDS)
         .chain(saas_app::modules::jobs::FIELDS)
         .chain(saas_platform::cache::FIELDS)
         .chain(saas_app::modules::rate_limit::FIELDS)

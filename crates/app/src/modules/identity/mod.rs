@@ -474,6 +474,7 @@ async fn issue_session(
             ""
         }
     );
+    saas_platform::telemetry::record_actor(&user.id);
     Ok(Some((
         cookie,
         CurrentSession {
@@ -533,7 +534,10 @@ pub async fn require_session(
         Ok::<_, sqlx::Error>(role.map(|role| CurrentSession { user: CurrentUser { id: user_id, email, display_name, role }, csrf_token: crypto::csrf_token(secret) }))
     }).await;
     match result {
-        Ok(Ok(Some(session))) => Ok(session),
+        Ok(Ok(Some(session))) => {
+            saas_platform::telemetry::record_actor(&session.user.id);
+            Ok(session)
+        }
         Ok(Ok(None)) => Err(unauthorized(id.clone())),
         _ => Err(failure(id)),
     }

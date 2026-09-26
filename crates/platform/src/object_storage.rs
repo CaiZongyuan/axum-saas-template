@@ -242,68 +242,77 @@ impl ObjectStorage for S3ObjectStorage {
         headers: &UploadHeaders,
         deadline: SystemTime,
     ) -> Result<SignedRequest, StorageError> {
-        let (config, expires_at) = signing_config(deadline)?;
-        let request = self
-            .public
-            .put_object()
-            .bucket(&location.bucket)
-            .key(&location.key)
-            .content_type(&headers.content_type)
-            .content_encoding("identity")
-            .metadata("upload-id", &headers.upload_id)
-            .checksum_sha256(&headers.checksum_sha256)
-            .presigned(config)
-            .await
-            .map_err(|_| StorageError::Unavailable)?;
-        signed(request, expires_at)
+        crate::telemetry::observe_storage("presign_upload", async {
+            let (config, expires_at) = signing_config(deadline)?;
+            let request = self
+                .public
+                .put_object()
+                .bucket(&location.bucket)
+                .key(&location.key)
+                .content_type(&headers.content_type)
+                .content_encoding("identity")
+                .metadata("upload-id", &headers.upload_id)
+                .checksum_sha256(&headers.checksum_sha256)
+                .presigned(config)
+                .await
+                .map_err(|_| StorageError::Unavailable)?;
+            signed(request, expires_at)
+        })
+        .await
     }
 
     async fn delete(&self, location: &ObjectLocation) -> Result<(), StorageError> {
-        match self
-            .internal
-            .delete_object()
-            .bucket(&location.bucket)
-            .key(&location.key)
-            .send()
-            .await
-        {
-            Ok(_) => Ok(()),
-            Err(error) => match failure(error.raw_response().map(|r| r.status().as_u16())) {
-                StorageError::NotFound => Ok(()),
-                other => Err(other),
-            },
-        }
+        crate::telemetry::observe_storage("delete", async {
+            match self
+                .internal
+                .delete_object()
+                .bucket(&location.bucket)
+                .key(&location.key)
+                .send()
+                .await
+            {
+                Ok(_) => Ok(()),
+                Err(error) => match failure(error.raw_response().map(|r| r.status().as_u16())) {
+                    StorageError::NotFound => Ok(()),
+                    other => Err(other),
+                },
+            }
+        })
+        .await
     }
 
     async fn head(&self, location: &ObjectLocation) -> Result<ObjectInfo, StorageError> {
-        let object = self
-            .internal
-            .head_object()
-            .bucket(&location.bucket)
-            .key(&location.key)
-            .send()
-            .await
-            .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
-        Ok(ObjectInfo {
-            size: object
-                .content_length()
-                .and_then(|size| u64::try_from(size).ok())
-                .ok_or(StorageError::InvalidResponse)?,
-            content_type: object
-                .content_type()
-                .unwrap_or("application/octet-stream")
-                .to_owned(),
-            etag: object
-                .e_tag()
-                .ok_or(StorageError::InvalidResponse)?
-                .to_owned(),
-            metadata: object
-                .metadata()
-                .cloned()
-                .unwrap_or_default()
-                .into_iter()
-                .collect(),
+        crate::telemetry::observe_storage("head", async {
+            let object = self
+                .internal
+                .head_object()
+                .bucket(&location.bucket)
+                .key(&location.key)
+                .send()
+                .await
+                .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
+            Ok(ObjectInfo {
+                size: object
+                    .content_length()
+                    .and_then(|size| u64::try_from(size).ok())
+                    .ok_or(StorageError::InvalidResponse)?,
+                content_type: object
+                    .content_type()
+                    .unwrap_or("application/octet-stream")
+                    .to_owned(),
+                etag: object
+                    .e_tag()
+                    .ok_or(StorageError::InvalidResponse)?
+                    .to_owned(),
+                metadata: object
+                    .metadata()
+                    .cloned()
+                    .unwrap_or_default()
+                    .into_iter()
+                    .collect(),
+            })
         })
+        .await
     }
 
     async fn copy_if_absent(
@@ -312,60 +321,28 @@ impl ObjectStorage for S3ObjectStorage {
         source_etag: &str,
         target: &ObjectLocation,
     ) -> Result<(), StorageError> {
-        let key =
-            percent_encoding::utf8_percent_encode(&source.key, percent_encoding::NON_ALPHANUMERIC);
-        self.internal
-            .copy_object()
-            .bucket(&target.bucket)
-            .key(&target.key)
-            .copy_source(format!("{}/{key}", source.bucket))
-            .copy_source_if_match(source_etag)
-            .if_none_match("*")
-            .send()
-            .await
-            .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
-        Ok(())
+        crate::telemetry::observe_storage("copy_if_absent", async {
+            let key = percent_encoding::utf8_percent_encode(
+                &source.key,
+                percent_encoding::NON_ALPHANUMERIC,
+            );
+            self.internal
+                .copy_object()
+                .bucket(&target.bucket)
+                .key(&target.key)
+                .copy_source(format!("{}/{key}", source.bucket))
+                .copy_source_if_match(source_etag)
+                .if_none_match("*")
+                .send()
+                .await
+                .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
+            Ok(())
+        })
+        .await
     }
 
     async fn read(&self, location: &ObjectLocation, limit: u64) -> Result<Vec<u8>, StorageError> {
-        let mut object = self
-            .internal
-            .get_object()
-            .bucket(&location.bucket)
-            .key(&location.key)
-            .send()
-            .await
-            .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
-        if object
-            .content_length()
-            .is_some_and(|length| length < 0 || length as u64 > limit)
-        {
-            return Err(StorageError::TooLarge);
-        }
-        let mut bytes = Vec::new();
-        while let Some(chunk) = object
-            .body
-            .try_next()
-            .await
-            .map_err(|_| StorageError::Unavailable)?
-        {
-            if bytes.len() as u64 + chunk.len() as u64 > limit {
-                return Err(StorageError::TooLarge);
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        Ok(bytes)
-    }
-
-    async fn download_to(
-        &self,
-        location: &ObjectLocation,
-        path: &Path,
-        limit: u64,
-    ) -> Result<FileDigest, StorageError> {
-        use sha2::{Digest, Sha256};
-        use tokio::io::AsyncWriteExt;
-        let transfer = async {
+        crate::telemetry::observe_storage("read", async {
             let mut object = self
                 .internal
                 .get_object()
@@ -380,35 +357,78 @@ impl ObjectStorage for S3ObjectStorage {
             {
                 return Err(StorageError::TooLarge);
             }
-            let mut file = tokio::fs::File::create(path)
-                .await
-                .map_err(|_| StorageError::Unavailable)?;
-            let mut received = 0u64;
-            let mut hash = Sha256::new();
+            let mut bytes = Vec::new();
             while let Some(chunk) = object
                 .body
                 .try_next()
                 .await
                 .map_err(|_| StorageError::Unavailable)?
             {
-                received = received
-                    .checked_add(chunk.len() as u64)
-                    .filter(|size| *size <= limit)
-                    .ok_or(StorageError::TooLarge)?;
-                hash.update(&chunk);
-                file.write_all(&chunk)
+                if bytes.len() as u64 + chunk.len() as u64 > limit {
+                    return Err(StorageError::TooLarge);
+                }
+                bytes.extend_from_slice(&chunk);
+            }
+            Ok(bytes)
+        })
+        .await
+    }
+
+    async fn download_to(
+        &self,
+        location: &ObjectLocation,
+        path: &Path,
+        limit: u64,
+    ) -> Result<FileDigest, StorageError> {
+        crate::telemetry::observe_storage("download_to", async {
+            use sha2::{Digest, Sha256};
+            use tokio::io::AsyncWriteExt;
+            let transfer = async {
+                let mut object = self
+                    .internal
+                    .get_object()
+                    .bucket(&location.bucket)
+                    .key(&location.key)
+                    .send()
+                    .await
+                    .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
+                if object
+                    .content_length()
+                    .is_some_and(|length| length < 0 || length as u64 > limit)
+                {
+                    return Err(StorageError::TooLarge);
+                }
+                let mut file = tokio::fs::File::create(path)
                     .await
                     .map_err(|_| StorageError::Unavailable)?;
-            }
-            file.flush().await.map_err(|_| StorageError::Unavailable)?;
-            Ok(FileDigest {
-                size: received,
-                sha256: hex::encode(hash.finalize()),
-            })
-        };
-        tokio::time::timeout(Duration::from_secs(120), transfer)
-            .await
-            .map_err(|_| StorageError::Unavailable)?
+                let mut received = 0u64;
+                let mut hash = Sha256::new();
+                while let Some(chunk) = object
+                    .body
+                    .try_next()
+                    .await
+                    .map_err(|_| StorageError::Unavailable)?
+                {
+                    received = received
+                        .checked_add(chunk.len() as u64)
+                        .filter(|size| *size <= limit)
+                        .ok_or(StorageError::TooLarge)?;
+                    hash.update(&chunk);
+                    file.write_all(&chunk)
+                        .await
+                        .map_err(|_| StorageError::Unavailable)?;
+                }
+                file.flush().await.map_err(|_| StorageError::Unavailable)?;
+                Ok(FileDigest {
+                    size: received,
+                    sha256: hex::encode(hash.finalize()),
+                })
+            };
+            tokio::time::timeout(Duration::from_secs(120), transfer)
+                .await
+                .map_err(|_| StorageError::Unavailable)?
+        })
+        .await
     }
 
     async fn put_file_if_absent(
@@ -417,26 +437,29 @@ impl ObjectStorage for S3ObjectStorage {
         path: &Path,
         headers: &UploadHeaders,
     ) -> Result<(), StorageError> {
-        let body = aws_sdk_s3::primitives::ByteStream::read_from()
-            .path(path)
-            .buffer_size(64 * 1024)
-            .build()
-            .await
-            .map_err(|_| StorageError::Unavailable)?;
-        self.internal
-            .put_object()
-            .bucket(&location.bucket)
-            .key(&location.key)
-            .if_none_match("*")
-            .content_type(&headers.content_type)
-            .content_encoding("identity")
-            .checksum_sha256(&headers.checksum_sha256)
-            .metadata("upload-id", &headers.upload_id)
-            .body(body)
-            .send()
-            .await
-            .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
-        Ok(())
+        crate::telemetry::observe_storage("put_file_if_absent", async {
+            let body = aws_sdk_s3::primitives::ByteStream::read_from()
+                .path(path)
+                .buffer_size(64 * 1024)
+                .build()
+                .await
+                .map_err(|_| StorageError::Unavailable)?;
+            self.internal
+                .put_object()
+                .bucket(&location.bucket)
+                .key(&location.key)
+                .if_none_match("*")
+                .content_type(&headers.content_type)
+                .content_encoding("identity")
+                .checksum_sha256(&headers.checksum_sha256)
+                .metadata("upload-id", &headers.upload_id)
+                .body(body)
+                .send()
+                .await
+                .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
+            Ok(())
+        })
+        .await
     }
 
     async fn presign_download(
@@ -446,20 +469,23 @@ impl ObjectStorage for S3ObjectStorage {
         content_type: &str,
         ttl: Duration,
     ) -> Result<SignedRequest, StorageError> {
-        let (config, expires_at) = signing_config(SystemTime::now() + ttl)?;
-        let request = self
-            .public
-            .get_object()
-            .bucket(&location.bucket)
-            .key(&location.key)
-            .response_content_disposition(disposition)
-            .response_content_type(content_type)
-            .response_content_encoding("identity")
-            .response_cache_control("no-store")
-            .presigned(config)
-            .await
-            .map_err(|_| StorageError::Unavailable)?;
-        signed(request, expires_at)
+        crate::telemetry::observe_storage("presign_download", async {
+            let (config, expires_at) = signing_config(SystemTime::now() + ttl)?;
+            let request = self
+                .public
+                .get_object()
+                .bucket(&location.bucket)
+                .key(&location.key)
+                .response_content_disposition(disposition)
+                .response_content_type(content_type)
+                .response_content_encoding("identity")
+                .response_cache_control("no-store")
+                .presigned(config)
+                .await
+                .map_err(|_| StorageError::Unavailable)?;
+            signed(request, expires_at)
+        })
+        .await
     }
 }
 
