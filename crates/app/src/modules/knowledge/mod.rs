@@ -33,6 +33,7 @@ use utoipa::{OpenApi, ToSchema};
 struct Knowledge {
     pool: PgPool,
     auth: AuthSettings,
+    cache: saas_platform::cache::Cache,
     export_policy: ExportPolicy,
     files: Option<crate::modules::files::FileService>,
 }
@@ -269,6 +270,15 @@ pub fn router_with_policy(
     files: Option<crate::modules::files::FileService>,
     export_policy: ExportPolicy,
 ) -> Router {
+    router_with_cache(pool, auth, files, export_policy, Default::default())
+}
+pub fn router_with_cache(
+    pool: PgPool,
+    auth: AuthSettings,
+    files: Option<crate::modules::files::FileService>,
+    export_policy: ExportPolicy,
+    cache: saas_platform::cache::Cache,
+) -> Router {
     Router::new()
         .merge(attachments::routes())
         .merge(exports::routes())
@@ -288,6 +298,7 @@ pub fn router_with_policy(
         .with_state(Knowledge {
             pool,
             auth,
+            cache,
             files,
             export_policy,
         })
@@ -360,7 +371,7 @@ async fn get_document(
     };
     match tokio::time::timeout(
         Duration::from_secs(3),
-        application::read(&state.pool, &actor.user, document_id),
+        application::read(&state.pool, &actor.user, document_id, &state.cache),
     )
     .await
     {
@@ -425,7 +436,11 @@ async fn update_document(
     )
     .await
     {
-        Ok(Ok(document)) => Json(document).into_response(),
+        Ok(Ok(document)) => {
+            let key = application::body_cache_key(&document.id, input.version);
+            let _ = state.cache.remove(&key, state.cache.deadline()).await;
+            Json(document).into_response()
+        }
         Ok(Err(error)) => error.response(id),
         Err(_) => Failure::Unavailable.response(id),
     }

@@ -13,7 +13,7 @@ pnpm install --frozen-lockfile
 just dev
 ```
 
-`just dev` 启动 Docker 中的 PostgreSQL/RustFS，显式运行迁移并初始化私有存储 bucket，再启动宿主机 API、Worker 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API 和 Worker。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
+`just dev` 启动 Docker 中的 PostgreSQL/RustFS/Redis，显式运行迁移并初始化私有存储 bucket，再启动宿主机 API、Worker 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API 和 Worker。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
 
 打开[注册页面](http://127.0.0.1:5173/register)，填写邮箱、12–128 字符的密码及可选显示名，成功后自动进入已登录首页。首个成功注册的账号成为企业 Owner，后续账号为 Member。部署人员应先注册自己的 Owner 账号，再交给普通使用者；不需要邀请或等待邮件。
 
@@ -43,6 +43,8 @@ Owner/Admin 可以从“审计记录”按文档 ID、动作和请求 ID 追溯�
 
 从“API Keys”创建只读文档凭据，可用脚本读取有权访问的文档；参见 [API Key 教程](../tutorials/15-api-keys.md)。
 
+文档详情使用实际 Redis 正文缓存，每次读取仍由 PostgreSQL 验证可见性和版本；参见[版本缓存与回源](../tutorials/16-versioned-cache.md)。
+
 <!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：
@@ -71,7 +73,7 @@ just db-down
 docker compose up -d --wait postgres
 ```
 
-`Ctrl+C` 停止开发 API/Worker/Web，数据库、RustFS 与数据卷保留。`just services-down` 停止两项依赖，不删除数据；`just db-down` 可单独停止数据库。
+`Ctrl+C` 停止开发 API/Worker/Web，数据库、RustFS 与数据卷保留。`just services-down` 停止三项依赖，不删除数据；`just db-down` 可单独停止数据库。
 
 ## 文档与下一步
 

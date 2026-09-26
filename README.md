@@ -21,9 +21,9 @@ pnpm install --frozen-lockfile
 just dev
 ```
 
-访问 http://127.0.0.1:5173/。PostgreSQL/RustFS 运行在 Docker 中，API/Worker/Web 在宿主机运行，支持 API 源码重启与 Web HMR。缺少 `.env` 时使用 `.env.example` 的本地默认值；自定义配置放入不提交的 `.env`。
+访问 http://127.0.0.1:5173/。PostgreSQL/RustFS/Redis 运行在 Docker 中，API/Worker/Web 在宿主机运行，支持 API 源码重启与 Web HMR。缺少 `.env` 时使用 `.env.example` 的本地默认值；自定义配置放入不提交的 `.env`。
 
-`Ctrl+C` 停止 API/Worker/Web，保留数据；`just services-down` 停止开发 PostgreSQL/RustFS，保留数据卷。
+`Ctrl+C` 停止 API/Worker/Web，保留数据；`just services-down` 停止开发 PostgreSQL/RustFS/Redis，保留数据卷。
 
 ## 验证
 
@@ -31,7 +31,7 @@ just dev
 just check
 ```
 
-`just test-backend` 使用独立 PostgreSQL/RustFS 容器，`just test-frontend` 使用 Vitest/Testing Library，`just e2e` 运行真实 API 与 Chromium。测试不会清空开发数据库。
+`just test-backend` 使用独立 PostgreSQL/RustFS/Redis 容器，`just test-frontend` 使用 Vitest/Testing Library，`just e2e` 运行真实 API 与 Chromium。测试不会清空开发数据库。
 
 日常运行 `just check`；关键旅程完成后运行 `just e2e`（首次需 `pnpm exec playwright install chromium`），里程碑完整验证用 `just check-full`。
 

@@ -103,3 +103,29 @@ fn storage_endpoints_and_file_limits_are_validated_without_exposing_credentials(
         );
     }
 }
+
+#[test]
+fn invalid_cache_configuration_fails_before_serving_without_exposing_redis_credentials() {
+    for (field, value) in [
+        (
+            "REDIS_URL",
+            "http://user:should-never-appear-in-logs@127.0.0.1:9",
+        ),
+        ("CACHE_TTL_SECS", "0"),
+        ("CACHE_BUDGET_MS", "1001"),
+        ("CACHE_PREFIX", "bad prefix"),
+    ] {
+        rejects_configuration(
+            "postgres://user:should-never-appear-in-logs@127.0.0.1:9/missing",
+            "127.0.0.1:0",
+            field,
+            &[
+                (
+                    "REDIS_URL",
+                    "redis://user:should-never-appear-in-logs@127.0.0.1:9/",
+                ),
+                (field, value),
+            ],
+        );
+    }
+}

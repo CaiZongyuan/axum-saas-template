@@ -53,22 +53,28 @@ pub fn compose_routes(
     domain_routes: Router,
     document: utoipa::openapi::OpenApi,
 ) -> Router {
-    compose_routes_with_scopes(
-        pool,
-        auth,
-        domain_routes,
-        document,
-        modules::api_keys::core_scopes(),
-    )
+    compose_routes_with_options(pool, auth, domain_routes, document, CoreOptions::default())
 }
 
-/// Each removable domain registers the API key scopes implemented by its routes.
-pub fn compose_routes_with_scopes(
+pub struct CoreOptions {
+    pub api_key_scopes: Vec<modules::api_keys::KeyScope>,
+    pub cache: saas_platform::cache::Cache,
+}
+impl Default for CoreOptions {
+    fn default() -> Self {
+        Self {
+            api_key_scopes: modules::api_keys::core_scopes(),
+            cache: Default::default(),
+        }
+    }
+}
+/// Application shells share optional infrastructure with Core and reference routes.
+pub fn compose_routes_with_options(
     pool: PgPool,
     auth: saas_platform::config::AuthSettings,
     domain_routes: Router,
     document: utoipa::openapi::OpenApi,
-    scopes: Vec<modules::api_keys::KeyScope>,
+    options: CoreOptions,
 ) -> Router {
     Router::new()
         .route("/health/live", get(live))
@@ -84,7 +90,12 @@ pub fn compose_routes_with_scopes(
         .merge(modules::jobs::router(pool.clone(), auth.clone()))
         .merge(modules::notifications::router(pool.clone(), auth.clone()))
         .merge(modules::audit::router(pool.clone(), auth.clone()))
-        .merge(modules::api_keys::router(pool, auth, scopes))
+        .merge(modules::api_keys::router(
+            pool.clone(),
+            auth.clone(),
+            options.api_key_scopes,
+        ))
+        .merge(modules::system::cache::router(pool, auth, options.cache))
         .merge(domain_routes)
         .fallback(http::not_found)
         .method_not_allowed_fallback(http::method_not_allowed)
@@ -119,5 +130,6 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     document.merge(modules::notifications::openapi());
     document.merge(modules::audit::openapi());
     document.merge(modules::api_keys::openapi());
+    document.merge(modules::system::cache::openapi());
     document
 }

@@ -198,14 +198,69 @@ pub(super) async fn create(
     Ok(document)
 }
 
+pub(super) fn body_cache_key(id: &str, version: i64) -> String {
+    format!("knowledge:body:v1:{id}:{version}")
+}
+
 pub(super) async fn read(
     pool: &PgPool,
     actor: &CurrentUser,
     id: uuid::Uuid,
+    cache: &saas_platform::cache::Cache,
 ) -> Result<Document, Failure> {
-    let document = sqlx::query_as::<_, Document>(&format!("SELECT {COLUMNS}, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid AND g.access = 'editor')) AS can_edit FROM knowledge.documents WHERE id = $1::uuid AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM knowledge.knowledge_bases b WHERE b.id = documents.knowledge_base_id AND b.deleted_at IS NULL) AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid))"))
-        .bind(id.to_string()).bind(manager(actor.role)).bind(&actor.id).fetch_optional(pool).await?;
-    document.ok_or(Failure::NotFound)
+    use saas_platform::cache::Lookup;
+    let fresh = || authorized_document(pool, actor, id, true, None);
+    if !cache.snapshot().enabled {
+        return fresh().await?.ok_or(Failure::NotFound);
+    }
+    let deadline = cache.deadline();
+    for _ in 0..2 {
+        let mut header = authorized_document(pool, actor, id, false, None)
+            .await?
+            .ok_or(Failure::NotFound)?;
+        let key = body_cache_key(&header.id, header.version);
+        match cache.get(&key, deadline).await {
+            Lookup::Hit(markdown) => {
+                header.markdown = markdown;
+                return Ok(header);
+            }
+            Lookup::Miss => {
+                if let Some(document) =
+                    authorized_document(pool, actor, id, true, Some(header.version)).await?
+                {
+                    let _ = cache.put(&key, &document.markdown, deadline).await;
+                    return Ok(document);
+                }
+                // The version or authorization changed: restart before touching another key.
+            }
+            Lookup::Unavailable | Lookup::Disabled => {
+                return fresh().await?.ok_or(Failure::NotFound);
+            }
+        }
+    }
+    // Concurrent editing cannot force an unbounded retry loop; skip cache for this read.
+    fresh().await?.ok_or(Failure::NotFound)
+}
+async fn authorized_document(
+    pool: &PgPool,
+    actor: &CurrentUser,
+    id: uuid::Uuid,
+    include_body: bool,
+    version: Option<i64>,
+) -> Result<Option<Document>, Failure> {
+    let mut tx = pool.begin().await?;
+    let role = organization::active_role_in(&mut tx, &actor.id)
+        .await?
+        .ok_or(Failure::Unauthorized)?;
+    let body = if include_body {
+        "markdown"
+    } else {
+        "''::text AS markdown"
+    };
+    let document=sqlx::query_as::<_,Document>(&format!("SELECT id::text, knowledge_base_id::text, title, {body}, version, created_by::text, updated_by::text, created_at, updated_at, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid AND g.access = 'editor')) AS can_edit FROM knowledge.documents WHERE id = $1::uuid AND ($4::bigint IS NULL OR version = $4) AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM knowledge.knowledge_bases b WHERE b.id = documents.knowledge_base_id AND b.deleted_at IS NULL) AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid))"))
+        .bind(id.to_string()).bind(manager(role)).bind(&actor.id).bind(version).fetch_optional(&mut *tx).await?;
+    tx.commit().await?;
+    Ok(document)
 }
 
 /// Call after holding the current membership and base locks for the mutation.
