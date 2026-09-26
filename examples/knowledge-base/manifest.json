@@ -27,7 +27,9 @@
     "docs/research/document-export-streaming.md",
     "apps/web/src/exports.test.tsx",
     "tests/e2e/exports.spec.ts",
-    "docs/tutorials/10-document-exports.md"
+    "docs/tutorials/10-document-exports.md",
+    "tests/e2e/job-recovery.spec.ts",
+    "docs/tutorials/11-job-recovery.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
@@ -39,7 +41,8 @@
     "readme": "README.md",
     "worker": "apps/worker/src/main.rs",
     "configuration": "apps/api/src/bin/config-reference.rs",
-    "environment": ".env.example"
+    "environment": ".env.example",
+    "e2e": "scripts/e2e.mjs"
   },
   "registrationMarkers": {
     "apps/api/src/lib.rs": ["routes", "openapi", "configured-routes"],
@@ -50,7 +53,8 @@
     "README.md": ["readme"],
     "apps/worker/src/main.rs": ["worker"],
     "apps/api/src/bin/config-reference.rs": ["config-reference"],
-    ".env.example": ["export-config"]
+    ".env.example": ["export-config"],
+    "scripts/e2e.mjs": ["e2e-policy"]
   },
   "ownedDependencies": {
     "packages/views/package.json": [

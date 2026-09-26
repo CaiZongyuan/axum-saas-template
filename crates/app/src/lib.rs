@@ -62,7 +62,8 @@ pub fn compose_routes(
         )
         .with_state(pool.clone())
         .merge(modules::identity::router(pool.clone(), auth.clone()))
-        .merge(modules::organization::router(pool, auth))
+        .merge(modules::organization::router(pool.clone(), auth.clone()))
+        .merge(modules::jobs::router(pool, auth))
         .merge(domain_routes)
         .fallback(http::not_found)
         .method_not_allowed_fallback(http::method_not_allowed)
@@ -93,5 +94,6 @@ struct ApiDoc;
 pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut document = ApiDoc::openapi();
     document.merge(modules::organization::openapi());
+    document.merge(modules::jobs::openapi());
     document
 }

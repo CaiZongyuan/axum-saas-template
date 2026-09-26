@@ -1,5 +1,6 @@
-import { resolve } from 'node:path';
-import { rmSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { withTestPostgres } from './lib/postgres.mjs';
 import { withTestRustfs } from './lib/rustfs.mjs';
 import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
@@ -12,7 +13,7 @@ run('cargo', ['build', '--locked', '--workspace', '--bins'], {
   CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? '4',
 });
 await withTestPostgres(async ({ name, url }) => {
-  await withTestRustfs(async ({ env: storage }) => {
+  await withTestRustfs(async ({ name: storageName, env: storage }) => {
     const apiPort = await freePort();
     const webPort = await freePort();
     const workerPort = await freePort();
@@ -29,13 +30,25 @@ await withTestPostgres(async ({ name, url }) => {
       E2E_WEB_URL: `http://127.0.0.1:${webPort}`,
       APP_ORIGIN: `http://127.0.0.1:${webPort}`,
       TEST_PG_CONTAINER: name,
+      E2E_STORAGE_CONTAINER: storageName,
+      // Short, finite budgets make isolated recovery scenarios observable.
+      JOB_LEASE_SECS: '10',
+      JOB_HEARTBEAT_SECS: '2',
+      JOB_SHUTDOWN_SECS: '1',
+      // example:knowledge:e2e-policy:start
+      EXPORT_TIMEOUT_SECS: '5',
+      EXPORT_JOB_MAX_ATTEMPTS: '2',
+      // example:knowledge:e2e-policy:end
       E2E_OWNER_EMAIL: 'bootstrap-owner@example.test',
       E2E_OWNER_PASSWORD: 'browser-test-owner-password',
     };
     run(resolve(root, 'target/debug/migrate'), [], env);
     run(resolve(root, 'target/debug/bootstrap-storage'), [], env);
     const api = launch(resolve(root, 'target/debug/saas-api'), [], env);
-    const worker = launch(resolve(root, 'target/debug/saas-worker'), [], env);
+    const workerTemp = mkdtempSync(join(tmpdir(), 'saas-e2e-worker-'));
+    env.TMPDIR = workerTemp;
+    env.E2E_WORKER_PID_FILE = join(workerTemp, 'worker.pid');
+    const worker = launch('node', ['scripts/lib/test-worker.mjs'], env);
     let web;
     try {
       await waitFor(`${env.E2E_API_URL}/health/ready`, api);
@@ -69,6 +82,7 @@ await withTestPostgres(async ({ name, url }) => {
         stop(api),
         stop(worker, (Number(env.JOB_SHUTDOWN_SECS ?? 10) + 3) * 1000),
       ]);
+      rmSync(workerTemp, { recursive: true, force: true });
     }
   });
 });

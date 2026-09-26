@@ -124,6 +124,60 @@ export type HealthResponse = {
     status: string;
 };
 
+export type JobAttempt = {
+    batch: number;
+    ended_at?: string | null;
+    last_error?: string | null;
+    lease_expires_at: string;
+    number: number;
+    started_at: string;
+    status: string;
+    worker_id: string;
+};
+
+export type JobBatch = {
+    attempts: number;
+    created_at: string;
+    ended_at?: string | null;
+    last_error?: string | null;
+    legacy_attempts: number;
+    max_attempts: number;
+    number: number;
+    requested_by?: string | null;
+    status: string;
+};
+
+export type JobDetails = {
+    attempts: Array<JobAttempt>;
+    batches: Array<JobBatch>;
+    job: JobInfo;
+    next_before_batch?: number | null;
+};
+
+export type JobInfo = {
+    attempts: number;
+    batch: number;
+    can_retry: boolean;
+    causation_id?: string | null;
+    correlation_id: string;
+    created_at: string;
+    id: string;
+    kind: string;
+    last_error?: string | null;
+    lease_expires_at?: string | null;
+    max_attempts: number;
+    scheduled_at: string;
+    schema_version: number;
+    status: string;
+    updated_at: string;
+};
+
+export type JobPage = {
+    data: Array<JobInfo>;
+    has_more: boolean;
+    next_cursor?: string | null;
+};
+
 export type KnowledgeBase = {
     can_edit: boolean;
     can_manage: boolean;
@@ -192,6 +246,8 @@ export type RenameKnowledgeBase = {
 export type SetGrant = {
     access: GrantAccess;
 };
+
+export type StatusFilter = 'queued' | 'running' | 'retry_wait' | 'succeeded' | 'failed';
 
 export type SystemStatus = {
     database: string;
@@ -320,6 +376,89 @@ export type GetCurrentSessionResponses = {
 };
 
 export type GetCurrentSessionResponse = GetCurrentSessionResponses[keyof GetCurrentSessionResponses];
+
+export type ListJobsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        status?: StatusFilter;
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/jobs';
+};
+
+export type ListJobsErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListJobsError = ListJobsErrors[keyof ListJobsErrors];
+
+export type ListJobsResponses = {
+    200: JobPage;
+};
+
+export type ListJobsResponse = ListJobsResponses[keyof ListJobsResponses];
+
+export type GetJobData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: {
+        before_batch?: number;
+    };
+    url: '/api/v1/jobs/{id}';
+};
+
+export type GetJobErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetJobError = GetJobErrors[keyof GetJobErrors];
+
+export type GetJobResponses = {
+    200: JobDetails;
+};
+
+export type GetJobResponse = GetJobResponses[keyof GetJobResponses];
+
+export type RetryJobData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+        'idempotency-key': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/jobs/{id}/retry';
+};
+
+export type RetryJobErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    409: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type RetryJobError = RetryJobErrors[keyof RetryJobErrors];
+
+export type RetryJobResponses = {
+    202: JobInfo;
+};
+
+export type RetryJobResponse = RetryJobResponses[keyof RetryJobResponses];
 
 export type ListKnowledgeBasesData = {
     body?: never;
