@@ -1,6 +1,6 @@
 # Core 与参考业务的边界
 
-Core 提供身份、会话、成员、审计、幂等、文件、任务、通知和通用 HTTP 能力。Reference Domain 通过应用入口接入自己的业务；Core 不反向依赖它。
+Core 提供身份、会话、成员、审计、幂等、文件、任务、通知、API Key 和通用 HTTP 能力。Reference Domain 通过应用入口接入自己的业务；Core 不反向依赖它。
 
 - **platform** 拥有配置、连接池、迁移运行与日志初始化，不依赖应用或知识库类型。
 - **app** 的各个模块拥有自己的用例和表；纯 `domain.rs` 不依赖 HTTP 或数据库。
@@ -23,3 +23,5 @@ SQL 检查基于源码中的字符串和已登记表名，不能证明动态 SQL
 引入自己的业务时，使用公开身份、文件和任务能力；不要让 Core 通过私有表或反向 import 依赖示例。进一步决策见[可移除教程 ADR](../adr/0002-executable-removable-reference.md)。
 
 Notifications 拥有任务通知意图和收件箱；业务用公开接口在请求事务中登记意图，Jobs 在终态事务中发布通知。导航目标由应用壳解析，Core View 通过回调打开；目标 API 始终重新授权。未知目标不影响读取与标记已读。
+
+API Keys 管理通用凭据及其 scopes。应用入口注册各模块实际提供的 scope，业务处理器通过公开认证能力取得当前用户，再执行自己的资源授权。Core 的 profile:read 与 Key 管理在示例移除后保留；一次性 secret 不进入重放、查询或 Mutation 缓存。

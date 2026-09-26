@@ -41,6 +41,8 @@ Owner/Admin 可从首页“知识库”创建共享库、修改名称、授予�
 
 Owner/Admin 可以从“审计记录”按文档 ID、动作和请求 ID 追溯实际操作，参见[管理员审计](../tutorials/14-audit-history.md)。
 
+从“API Keys”创建只读文档凭据，可用脚本读取有权访问的文档；参见 [API Key 教程](../tutorials/15-api-keys.md)。
+
 <!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：

@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
 import {
+  ApiKeysView,
   AuditView,
   NotificationsView,
   type NotificationTargetResolver,
@@ -77,6 +78,9 @@ function HomePage() {
         </>
       }
     >
+      <a href="/api-keys" className="text-sm underline">
+        API Keys
+      </a>
       <a href="/notifications" className="text-sm underline">
         通知
       </a>
@@ -179,6 +183,24 @@ const jobRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs/$jobId',
   component: JobPage,
+});
+function ApiKeysPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <ApiKeysView
+      apiClient={apiClient}
+      copySecret={(secret) => navigator.clipboard.writeText(secret)}
+      onBack={() => {
+        void navigate({ to: '/' });
+      }}
+    />
+  );
+}
+const apiKeysRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/api-keys',
+  component: ApiKeysPage,
 });
 function AuditPage() {
   const { apiClient } = rootRoute.useRouteContext();
@@ -469,6 +491,7 @@ const routeTree = rootRoute.addChildren([
   newDocumentRoute,
   documentRoute,
   // example:knowledge:route-tree:end
+  apiKeysRoute,
   auditRoute,
   notificationsRoute,
   loginRoute,

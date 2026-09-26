@@ -1,5 +1,6 @@
 pub mod http;
 pub mod modules;
+mod secrets;
 
 use axum::{
     Extension, Json, Router, extract::State, http::StatusCode, middleware, response::Response,
@@ -52,6 +53,23 @@ pub fn compose_routes(
     domain_routes: Router,
     document: utoipa::openapi::OpenApi,
 ) -> Router {
+    compose_routes_with_scopes(
+        pool,
+        auth,
+        domain_routes,
+        document,
+        modules::api_keys::core_scopes(),
+    )
+}
+
+/// Each removable domain registers the API key scopes implemented by its routes.
+pub fn compose_routes_with_scopes(
+    pool: PgPool,
+    auth: saas_platform::config::AuthSettings,
+    domain_routes: Router,
+    document: utoipa::openapi::OpenApi,
+    scopes: Vec<modules::api_keys::KeyScope>,
+) -> Router {
     Router::new()
         .route("/health/live", get(live))
         .route("/health/ready", get(ready))
@@ -65,7 +83,8 @@ pub fn compose_routes(
         .merge(modules::organization::router(pool.clone(), auth.clone()))
         .merge(modules::jobs::router(pool.clone(), auth.clone()))
         .merge(modules::notifications::router(pool.clone(), auth.clone()))
-        .merge(modules::audit::router(pool, auth))
+        .merge(modules::audit::router(pool.clone(), auth.clone()))
+        .merge(modules::api_keys::router(pool, auth, scopes))
         .merge(domain_routes)
         .fallback(http::not_found)
         .method_not_allowed_fallback(http::method_not_allowed)
@@ -99,5 +118,6 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     document.merge(modules::jobs::openapi());
     document.merge(modules::notifications::openapi());
     document.merge(modules::audit::openapi());
+    document.merge(modules::api_keys::openapi());
     document
 }

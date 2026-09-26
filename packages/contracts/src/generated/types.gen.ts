@@ -17,6 +17,12 @@ export type ApiErrorResponse = {
     error: ApiError;
 };
 
+export type ApiKeyPage = {
+    data: Array<KeyInfo>;
+    has_more: boolean;
+    next_cursor?: string | null;
+};
+
 export type AttachmentPage = {
     can_delete: boolean;
     can_upload: boolean;
@@ -47,6 +53,12 @@ export type AuditPage = {
     next_cursor?: string | null;
 };
 
+export type CreateApiKey = {
+    expires_in_days: number;
+    name: string;
+    scopes: Array<string>;
+};
+
 export type CreateDocument = {
     knowledge_base_id?: string | null;
     markdown: string;
@@ -55,6 +67,11 @@ export type CreateDocument = {
 
 export type CreateKnowledgeBase = {
     name: string;
+};
+
+export type CreatedApiKey = {
+    key: KeyInfo;
+    secret: string;
 };
 
 export type CurrentSession = {
@@ -200,6 +217,27 @@ export type JobPage = {
     next_cursor?: string | null;
 };
 
+export type KeyInfo = {
+    created_at: string;
+    expires_at: string;
+    id: string;
+    last_used_at?: string | null;
+    name: string;
+    prefix: string;
+    revoked_at?: string | null;
+    scopes: Array<string>;
+    user_id: string;
+};
+
+export type KeyScope = {
+    id: string;
+    label: string;
+};
+
+export type KeyScopeList = {
+    data: Array<KeyScope>;
+};
+
 export type KnowledgeBase = {
     can_edit: boolean;
     can_manage: boolean;
@@ -337,6 +375,102 @@ export type UploadInput = {
     sha256: string;
     size: number;
 };
+
+export type ListApiKeysData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/api-keys';
+};
+
+export type ListApiKeysErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListApiKeysError = ListApiKeysErrors[keyof ListApiKeysErrors];
+
+export type ListApiKeysResponses = {
+    200: ApiKeyPage;
+};
+
+export type ListApiKeysResponse = ListApiKeysResponses[keyof ListApiKeysResponses];
+
+export type CreateApiKeyData = {
+    body: CreateApiKey;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/api-keys';
+};
+
+export type CreateApiKeyErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type CreateApiKeyError = CreateApiKeyErrors[keyof CreateApiKeyErrors];
+
+export type CreateApiKeyResponses = {
+    201: CreatedApiKey;
+};
+
+export type CreateApiKeyResponse = CreateApiKeyResponses[keyof CreateApiKeyResponses];
+
+export type ListApiKeyScopesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/api-keys/scopes';
+};
+
+export type ListApiKeyScopesErrors = {
+    401: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListApiKeyScopesError = ListApiKeyScopesErrors[keyof ListApiKeyScopesErrors];
+
+export type ListApiKeyScopesResponses = {
+    200: KeyScopeList;
+};
+
+export type ListApiKeyScopesResponse = ListApiKeyScopesResponses[keyof ListApiKeyScopesResponses];
+
+export type RevokeApiKeyData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/api-keys/{id}';
+};
+
+export type RevokeApiKeyErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type RevokeApiKeyError = RevokeApiKeyErrors[keyof RevokeApiKeyErrors];
+
+export type RevokeApiKeyResponses = {
+    204: void;
+};
+
+export type RevokeApiKeyResponse = RevokeApiKeyResponses[keyof RevokeApiKeyResponses];
 
 export type ListAuditEventsData = {
     body?: never;
@@ -773,6 +907,12 @@ export type SetKnowledgeBaseGrantResponse = SetKnowledgeBaseGrantResponses[keyof
 
 export type ListPersonalDocumentsData = {
     body?: never;
+    headers?: {
+        /**
+         * Bearer key with knowledge:read or browser Session
+         */
+        authorization?: string | null;
+    };
     path?: never;
     query?: {
         /**
@@ -792,6 +932,7 @@ export type ListPersonalDocumentsData = {
 export type ListPersonalDocumentsErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
+    403: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -862,6 +1003,12 @@ export type DeleteDocumentResponse = DeleteDocumentResponses[keyof DeleteDocumen
 
 export type GetDocumentData = {
     body?: never;
+    headers?: {
+        /**
+         * Bearer key with knowledge:read or browser Session
+         */
+        authorization?: string | null;
+    };
     path: {
         id: string;
     };
@@ -872,6 +1019,7 @@ export type GetDocumentData = {
 export type GetDocumentErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
+    403: ApiErrorResponse;
     404: ApiErrorResponse;
     503: ApiErrorResponse;
 };
@@ -1285,6 +1433,33 @@ export type UpdateMemberResponses = {
 };
 
 export type UpdateMemberResponse = UpdateMemberResponses[keyof UpdateMemberResponses];
+
+export type GetProfileData = {
+    body?: never;
+    headers?: {
+        /**
+         * Bearer API key with profile:read, or use a browser Session
+         */
+        authorization?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/profile';
+};
+
+export type GetProfileErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetProfileError = GetProfileErrors[keyof GetProfileErrors];
+
+export type GetProfileResponses = {
+    200: CurrentUser;
+};
+
+export type GetProfileResponse = GetProfileResponses[keyof GetProfileResponses];
 
 export type GetSystemStatusData = {
     body?: never;

@@ -456,6 +456,9 @@ pub async fn require_session(
     id: &RequestId,
     mutation: bool,
 ) -> Result<CurrentSession, Response> {
+    if headers.contains_key("authorization") {
+        return Err(unauthorized(id.clone()));
+    }
     if mutation && let Some(response) = origin_rejection(settings, headers, id) {
         return Err(response);
     }

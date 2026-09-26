@@ -1,12 +1,10 @@
+pub(crate) use crate::secrets::{secret, secret_hash};
 use argon2::{
     Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
-    password_hash::{
-        SaltString,
-        rand_core::{OsRng, RngCore},
-    },
+    password_hash::{SaltString, rand_core::OsRng},
 };
 use hmac::{Hmac, Mac};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 
 pub fn hash_password(password: String) -> Result<String, ()> {
     let salt = SaltString::generate(&mut OsRng);
@@ -14,12 +12,6 @@ pub fn hash_password(password: String) -> Result<String, ()> {
         .hash_password(password.as_bytes(), &salt)
         .map(|hash| hash.to_string())
         .map_err(|_| ())
-}
-
-pub fn secret() -> Result<String, ()> {
-    let mut bytes = [0u8; 32];
-    OsRng.try_fill_bytes(&mut bytes).map_err(|_| ())?;
-    Ok(hex::encode(bytes))
 }
 
 pub fn verify_password(password: String, stored: Option<String>) -> bool {
@@ -35,10 +27,6 @@ pub fn verify_password(password: String, stored: Option<String>) -> bool {
         let _ = Argon2::default().hash_password(password.as_bytes(), &salt);
         false
     }
-}
-
-pub fn secret_hash(secret: &str) -> Vec<u8> {
-    Sha256::digest(secret.as_bytes()).to_vec()
 }
 
 pub fn csrf_token(secret: &str) -> String {

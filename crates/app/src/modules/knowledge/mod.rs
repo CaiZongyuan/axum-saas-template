@@ -245,6 +245,14 @@ impl Failure {
     }
 }
 
+const READ_SCOPE: &str = "knowledge:read";
+pub fn api_key_scope() -> crate::modules::api_keys::KeyScope {
+    crate::modules::api_keys::KeyScope {
+        id: READ_SCOPE.into(),
+        label: "读取有权访问的文档".into(),
+    }
+}
+
 pub fn router(pool: PgPool, auth: AuthSettings) -> Router {
     router_with_files(pool, auth, None)
 }
@@ -328,28 +336,40 @@ async fn create_document(
     }
 }
 
-#[utoipa::path(get, path = "/api/v1/knowledge/documents/{id}", operation_id = "getDocument", tag = "Knowledge", params(("id" = String, Path)), responses((status = 200, body = Document), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 404, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
+#[utoipa::path(get, path = "/api/v1/knowledge/documents/{id}", operation_id = "getDocument", tag = "Knowledge", params(("id" = String, Path), ("authorization" = Option<String>, Header, description="Bearer key with knowledge:read or browser Session")), responses((status = 200, body = Document), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 404, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
 async fn get_document(
     State(state): State<Knowledge>,
     Extension(id): Extension<RequestId>,
     headers: HeaderMap,
     ApiPath(document_id): ApiPath<String>,
 ) -> Response {
-    let actor =
-        match identity::require_session(&state.pool, &state.auth, &headers, &id, false).await {
-            Ok(session) => session.user,
-            Err(response) => return response,
-        };
+    let actor = match crate::modules::api_keys::require_read(
+        &state.pool,
+        &state.auth,
+        &headers,
+        &id,
+        READ_SCOPE,
+    )
+    .await
+    {
+        Ok(access) => access,
+        Err(response) => return response,
+    };
     let Ok(document_id) = uuid::Uuid::parse_str(&document_id) else {
         return Failure::NotFound.response(id);
     };
     match tokio::time::timeout(
         Duration::from_secs(3),
-        application::read(&state.pool, &actor, document_id),
+        application::read(&state.pool, &actor.user, document_id),
     )
     .await
     {
-        Ok(Ok(document)) => Json(document).into_response(),
+        Ok(Ok(mut document)) => {
+            if actor.is_api_key {
+                document.can_edit = false;
+            }
+            Json(document).into_response()
+        }
         Ok(Err(error)) => error.response(id),
         Err(_) => Failure::Unavailable.response(id),
     }
@@ -411,25 +431,37 @@ async fn update_document(
     }
 }
 
-#[utoipa::path(get, path = "/api/v1/knowledge/documents", operation_id = "listPersonalDocuments", tag = "Knowledge", params(DocumentsQuery), responses((status = 200, body = DocumentPage), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
+#[utoipa::path(get, path = "/api/v1/knowledge/documents", operation_id = "listPersonalDocuments", tag = "Knowledge", params(DocumentsQuery, ("authorization" = Option<String>, Header, description="Bearer key with knowledge:read or browser Session")), responses((status = 200, body = DocumentPage), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
 async fn list_documents(
     State(state): State<Knowledge>,
     Extension(id): Extension<RequestId>,
     headers: HeaderMap,
     ApiQuery(query): ApiQuery<DocumentsQuery>,
 ) -> Response {
-    let actor =
-        match identity::require_session(&state.pool, &state.auth, &headers, &id, false).await {
-            Ok(session) => session.user,
-            Err(response) => return response,
-        };
-    match tokio::time::timeout(
-        Duration::from_secs(3),
-        application::list(&state.pool, &actor, query),
+    let actor = match crate::modules::api_keys::require_read(
+        &state.pool,
+        &state.auth,
+        &headers,
+        &id,
+        READ_SCOPE,
     )
     .await
     {
-        Ok(Ok(page)) => Json(page).into_response(),
+        Ok(access) => access,
+        Err(response) => return response,
+    };
+    match tokio::time::timeout(
+        Duration::from_secs(3),
+        application::list(&state.pool, &actor.user, query),
+    )
+    .await
+    {
+        Ok(Ok(mut page)) => {
+            if actor.is_api_key {
+                page.can_create = false;
+            }
+            Json(page).into_response()
+        }
         Ok(Err(error)) => error.response(id),
         Err(_) => Failure::Unavailable.response(id),
     }
