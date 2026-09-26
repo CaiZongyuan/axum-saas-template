@@ -4,8 +4,8 @@ use axum::{
 use saas_app::{
     http,
     modules::{
-        files::{FilePolicy, FileService},
-        jobs::{self, Handler, Worker, WorkerPolicy},
+        files::{self, FilePolicy, FileService},
+        jobs::{self, Handler, Maintenance, Worker, WorkerPolicy},
         system,
     },
 };
@@ -38,10 +38,25 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             },
         )
     });
-    let handlers: Vec<Arc<dyn Handler>> = Vec::new();
+    let mut handlers: Vec<Arc<dyn Handler>> = Vec::new();
+    let maintenance: Vec<Arc<dyn Maintenance>> = vec![files::cleanup_maintenance(pool.clone())];
+    if let Some(files) = &_files {
+        handlers.push(files::cleanup_handler(pool.clone(), files.clone()));
+        handlers.push(files::rescan_handler(pool.clone(), files.clone()));
+    }
+    let maintenance_period = Duration::from_secs(u64::from(policy.maintenance_secs));
     // example:knowledge:worker:start
     let export_policy = saas_app::modules::knowledge::ExportPolicy::from_env()?;
-    let mut handlers = handlers;
+    let mut maintenance = maintenance;
+    handlers.push(saas_app::modules::knowledge::document_cleanup_handler(
+        pool.clone(),
+    ));
+    handlers.push(saas_app::modules::knowledge::base_cleanup_handler(
+        pool.clone(),
+    ));
+    maintenance.push(saas_app::modules::knowledge::export_maintenance(
+        pool.clone(),
+    ));
     if let Some(files) = _files {
         handlers.push(saas_app::modules::knowledge::export_handler(
             pool.clone(),
@@ -85,6 +100,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!(address = %listener.local_addr()?, "Worker health listener ready");
     let (stop_tx, mut stop_rx) = tokio::sync::watch::channel(false);
     let worker_stop = stop_rx.clone();
+    let mut maintenance_stop = stop_rx.clone();
+    let maintain = jobs::run_maintenance(maintenance, maintenance_period, async move {
+        let _ = maintenance_stop.changed().await;
+    });
     let run_worker = worker.run_until(async move {
         let mut receiver = worker_stop;
         let _ = receiver.changed().await;
@@ -94,15 +113,19 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             let _ = stop_rx.changed().await;
         })
         .into_future();
-    tokio::pin!(run_worker, server);
-    let (worker_finished, server_finished) = tokio::select! {
-        _ = shutdown_signal() => (false, false),
-        _ = &mut run_worker => (true, false),
-        result = &mut server => { result?; (false, true) },
+    tokio::pin!(run_worker, maintain, server);
+    let (worker_finished, maintenance_finished, server_finished) = tokio::select! {
+        _ = shutdown_signal() => (false, false, false),
+        _ = &mut run_worker => (true, false, false),
+        _ = &mut maintain => (false, true, false),
+        result = &mut server => { result?; (false, false, true) },
     };
     let _ = stop_tx.send(true);
     if !worker_finished {
         run_worker.await;
+    }
+    if !maintenance_finished {
+        maintain.await;
     }
     if !server_finished {
         let _ = tokio::time::timeout(Duration::from_secs(1), server).await;

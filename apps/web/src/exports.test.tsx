@@ -63,6 +63,7 @@ function open(readable = () => true) {
         HttpResponse.json({
           data: [],
           can_upload: false,
+          can_delete: false,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,

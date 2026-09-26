@@ -35,6 +35,8 @@ Owner/Admin 可从首页“知识库”创建共享库、修改名称、授予�
 
 打开已保存文档，点击“导出当前文档”可生成正文与附件的 ZIP；页面展示进度并提供下载。参见[文档导出与后台任务](../tutorials/10-document-exports.md)。
 
+有权编辑时可以确认删除文档或附件；管理员可删除整个库，后台任务负责对象清理。详见[删除与可靠清理](../tutorials/12-deletion-cleanup.md)。
+
 <!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：

@@ -531,6 +531,7 @@ function open(path = '/documents', canCreate = () => true) {
       HttpResponse.json({
         data: [],
         can_upload: true,
+        can_delete: true,
         max_upload_bytes: 20971520,
         next_cursor: null,
         has_more: false,

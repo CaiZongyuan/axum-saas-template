@@ -45,6 +45,9 @@
     "requestDocumentExport",
     "listDocumentExports",
     "getDocumentExport",
-    "downloadDocumentExport"
+    "downloadDocumentExport",
+    "deleteDocument",
+    "deleteKnowledgeBase",
+    "deleteAttachment"
   ]
 }

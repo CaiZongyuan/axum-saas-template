@@ -18,7 +18,7 @@ use axum::{
     extract::{DefaultBodyLimit, State},
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use serde::{Deserialize, Serialize};
 use utoipa::{OpenApi, ToSchema};
@@ -26,6 +26,7 @@ use utoipa::{OpenApi, ToSchema};
 #[derive(Serialize, ToSchema)]
 struct AttachmentPage {
     can_upload: bool,
+    can_delete: bool,
     max_upload_bytes: i64,
     data: Vec<FileInfo>,
     next_cursor: Option<String>,
@@ -34,6 +35,10 @@ struct AttachmentPage {
 
 pub(super) fn routes() -> Router<Knowledge> {
     Router::new()
+        .route(
+            "/api/v1/knowledge/documents/{id}/attachments/{file_id}",
+            delete(remove_attachment),
+        )
         .route(
             "/api/v1/knowledge/documents/{id}/uploads",
             post(start_upload),
@@ -53,7 +58,13 @@ pub(super) fn routes() -> Router<Knowledge> {
         .layer(DefaultBodyLimit::max(16 * 1024))
 }
 #[derive(OpenApi)]
-#[openapi(paths(start_upload, list_attachments, complete_upload, download_attachment))]
+#[openapi(paths(
+    start_upload,
+    list_attachments,
+    complete_upload,
+    download_attachment,
+    remove_attachment
+))]
 struct AttachmentApi;
 pub(super) fn openapi() -> utoipa::openapi::OpenApi {
     AttachmentApi::openapi()
@@ -196,6 +207,7 @@ async fn list(
     tx.commit().await?;
     Ok(AttachmentPage {
         can_upload: can_edit && file_service.is_some(),
+        can_delete: can_edit,
         max_upload_bytes: file_service.map_or(0, |service| service.policy.max_bytes),
         data,
         next_cursor,
@@ -420,4 +432,66 @@ async fn download_attachment(
         Ok(Err(error)) => error.response(id),
         Err(_) => Failure::Unavailable.response(id),
     }
+}
+
+#[utoipa::path(delete, path = "/api/v1/knowledge/documents/{id}/attachments/{file_id}", operation_id = "deleteAttachment", tag = "Knowledge", params(("id" = String, Path), ("file_id" = String, Path), ("x-csrf-token" = String, Header)), responses((status = 204), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 404, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
+async fn remove_attachment(
+    State(state): State<Knowledge>,
+    Extension(id): Extension<RequestId>,
+    headers: HeaderMap,
+    ApiPath((document_id, file_id)): ApiPath<(String, String)>,
+) -> Response {
+    let actor = match identity::require_session(&state.pool, &state.auth, &headers, &id, true).await
+    {
+        Ok(session) => session.user,
+        Err(response) => return response,
+    };
+    let (Ok(document_id), Ok(file_id)) = (
+        uuid::Uuid::parse_str(&document_id),
+        uuid::Uuid::parse_str(&file_id),
+    ) else {
+        return Failure::NotFound.response(id);
+    };
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        remove_attachment_in(&state.pool, &actor.id, document_id, file_id, &id.0),
+    )
+    .await
+    {
+        Ok(Ok(())) => StatusCode::NO_CONTENT.into_response(),
+        Ok(Err(error)) => error.response(id),
+        Err(_) => Failure::Unavailable.response(id),
+    }
+}
+async fn remove_attachment_in(
+    pool: &sqlx::PgPool,
+    actor: &str,
+    document_id: uuid::Uuid,
+    file_id: uuid::Uuid,
+    request_id: &str,
+) -> Result<(), Failure> {
+    let mut tx = pool.begin().await?;
+    application::lock_document(&mut tx, actor, document_id, true).await?;
+    let removed = sqlx::query(
+        "DELETE FROM knowledge.attachments WHERE document_id = $1::uuid AND file_id = $2::uuid",
+    )
+    .bind(document_id.to_string())
+    .bind(file_id.to_string())
+    .execute(&mut *tx)
+    .await?;
+    if removed.rows_affected() != 1 {
+        return Err(Failure::NotFound);
+    }
+    sqlx::query("DELETE FROM knowledge.attachment_uploads WHERE document_id = $1::uuid AND upload_id = $2::uuid").bind(document_id.to_string()).bind(file_id.to_string()).execute(&mut *tx).await?;
+    files::mark_deleting(&mut tx, &file_id.to_string(), request_id).await?;
+    audit::append(
+        &mut tx,
+        actor,
+        "knowledge.attachment.delete",
+        &file_id.to_string(),
+        request_id,
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
 }

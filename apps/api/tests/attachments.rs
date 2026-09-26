@@ -145,6 +145,9 @@ impl ObjectStorage for GatedStorage {
             .presign_upload(location, headers, deadline)
             .await
     }
+    async fn delete(&self, location: &ObjectLocation) -> Result<(), StorageError> {
+        self.storage.delete(location).await
+    }
     async fn head(&self, location: &ObjectLocation) -> Result<ObjectInfo, StorageError> {
         self.storage.head(location).await
     }
@@ -317,6 +320,13 @@ async fn a_session_expiring_during_copy_cannot_publish(pool: PgPool) {
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn a_disappearing_source_document_cannot_be_published_after_copy(pool: PgPool) {
+    deletion_during_copy(pool, false).await;
+}
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_deleted_base_prevents_its_in_flight_upload_from_publishing(pool: PgPool) {
+    deletion_during_copy(pool, true).await;
+}
+async fn deletion_during_copy(pool: PgPool, remove_base: bool) {
     let gate = Arc::new(CopyGate::default());
     let app = application_with_gate(pool.clone(), Some(gate.clone())).await;
     let editor = register(&app, "editor@example.com").await;
@@ -343,12 +353,20 @@ async fn a_disappearing_source_document_cannot_be_published_after_copy(pool: PgP
         tokio::time::timeout(Duration::from_secs(5), gate.started.notified())
             .await
             .unwrap();
-        // T12 owns the actual deletion API; this fixture tests final source revalidation.
-        sqlx::query("DELETE FROM knowledge.documents WHERE id = $1::uuid")
-            .bind(doc)
-            .execute(&pool)
-            .await
-            .unwrap();
+        let source = if remove_base {
+            format!(
+                "/api/v1/knowledge/bases/{}",
+                document["knowledge_base_id"].as_str().unwrap()
+            )
+        } else {
+            format!("/api/v1/knowledge/documents/{doc}")
+        };
+        assert_eq!(
+            request(&app, &editor, "DELETE", &source, Value::Null)
+                .await
+                .status(),
+            StatusCode::NO_CONTENT
+        );
         gate.release.notify_one();
     };
     let (completed, ()) = tokio::join!(

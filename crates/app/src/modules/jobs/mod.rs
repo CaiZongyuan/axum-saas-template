@@ -1,3 +1,5 @@
+mod maintenance;
+pub use maintenance::{Maintenance, run_maintenance};
 mod administration;
 mod management;
 pub use management::{openapi, router};

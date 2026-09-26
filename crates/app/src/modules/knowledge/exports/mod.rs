@@ -1,7 +1,9 @@
 mod archive;
 mod configuration;
+mod maintenance;
 mod requests;
 pub use configuration::{ExportPolicy, FIELDS};
+pub use maintenance::export_maintenance;
 mod worker;
 use super::{
     Failure, Knowledge, application,
