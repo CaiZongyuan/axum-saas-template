@@ -112,6 +112,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/17-rate-limits.md",
+      "route": "tutorials/rate-limits.md",
+      "title": "请求限流与保守回退",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

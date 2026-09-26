@@ -9,6 +9,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getAttachmentDownload, type ApiClient } from '@saas/sdk';
 import { Button } from '@saas/ui/components/button';
+import { retryAfterSeconds } from '@saas/core';
+import { RateLimitHint, useRetryDelay } from '../system/rate-limit';
 import type { FileTransfer } from './file-transfer';
 
 export type AttachmentContextValue = {
@@ -33,6 +35,7 @@ export function AttachmentImage({ id, alt }: { id: string; alt: string }) {
     typeof IntersectionObserver === 'undefined',
   );
   const [imageFailed, setImageFailed] = useState(false);
+  const cooldown = useRetryDelay();
   useEffect(() => {
     if (visible || !element.current) return;
     const observer = new IntersectionObserver(
@@ -56,16 +59,24 @@ export function AttachmentImage({ id, alt }: { id: string; alt: string }) {
       id,
     ],
     enabled: !!context && visible,
-    queryFn: async ({ signal }) =>
-      (
-        await getAttachmentDownload({
-          client: context!.apiClient,
-          path: { id: context!.documentId, file_id: id },
-          query: { inline: true },
-          signal,
-          throwOnError: true,
-        })
-      ).data,
+    queryFn: async ({ signal }) => {
+      try {
+        return (
+          await getAttachmentDownload({
+            client: context!.apiClient,
+            path: { id: context!.documentId, file_id: id },
+            query: { inline: true },
+            signal,
+            throwOnError: true,
+          })
+        ).data;
+      } catch (error) {
+        if (!signal.aborted) cooldown.start(error);
+        throw error;
+      }
+    },
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: false,
     staleTime: 30_000,
     gcTime: 0,
@@ -75,16 +86,22 @@ export function AttachmentImage({ id, alt }: { id: string; alt: string }) {
       {!context ? (
         `附件图片：${alt}`
       ) : download.isError || imageFailed ? (
-        <Button
-          variant="link"
-          disabled={download.isFetching}
-          onClick={async () => {
-            const refreshed = await download.refetch();
-            if (refreshed.isSuccess) setImageFailed(false);
-          }}
-        >
-          重新读取图片：{alt}
-        </Button>
+        <>
+          <RateLimitHint error={download.error} inline />
+          <Button
+            variant="link"
+            disabled={download.isFetching || cooldown.remaining > 0}
+            onClick={async () => {
+              const refreshed = await download.refetch();
+              if (refreshed.isSuccess) setImageFailed(false);
+            }}
+          >
+            {cooldown.remaining > 0
+              ? `请等待 ${cooldown.remaining} 秒`
+              : '重新读取图片'}
+            ：{alt}
+          </Button>
+        </>
       ) : download.data?.file.previewable ? (
         <img
           src={download.data.url}
@@ -112,14 +129,15 @@ export function AttachmentLink({
   const context = useContext(AttachmentContext);
   const controller = useRef<AbortController | null>(null);
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<{ error: unknown } | null>(null);
+  const cooldown = useRetryDelay();
   useEffect(() => () => controller.current?.abort(), []);
   async function download() {
-    if (!context || controller.current) return;
+    if (!context || controller.current || cooldown.remaining > 0) return;
     const request = new AbortController();
     controller.current = request;
     setPending(true);
-    setFailed(false);
+    setFailure(null);
     try {
       const capability = (
         await getAttachmentDownload({
@@ -134,8 +152,11 @@ export function AttachmentLink({
         capability.file,
         request.signal,
       );
-    } catch {
-      if (!request.signal.aborted) setFailed(true);
+    } catch (error) {
+      if (!request.signal.aborted) {
+        setFailure({ error });
+        cooldown.start(error);
+      }
     } finally {
       controller.current = null;
       if (!request.signal.aborted) setPending(false);
@@ -146,15 +167,27 @@ export function AttachmentLink({
     <span>
       <Button
         variant="link"
-        disabled={pending}
+        disabled={pending || cooldown.remaining > 0}
         onClick={() => {
           void download();
         }}
       >
         {children}
-        {pending ? '（正在下载）' : ''}
+        {pending
+          ? '（正在下载）'
+          : cooldown.remaining > 0
+            ? `（请等待 ${cooldown.remaining} 秒）`
+            : ''}
       </Button>
-      {failed ? <span role="status"> 下载失败，请重试。</span> : null}
+      {failure ? (
+        <span role="status">
+          {retryAfterSeconds(failure.error) ? (
+            <RateLimitHint error={failure.error} inline />
+          ) : (
+            ' 下载失败，请重试。'
+          )}
+        </span>
+      ) : null}
     </span>
   );
 }

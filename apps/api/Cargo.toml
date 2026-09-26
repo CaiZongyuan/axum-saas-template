@@ -17,6 +17,7 @@ sqlx.workspace = true
 utoipa.workspace = true
 
 [dev-dependencies]
+url.workspace = true
 sqlx.workspace = true
 http-body-util.workspace = true
 tower.workspace = true

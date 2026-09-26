@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useState } from 'react';
 import {
   useInfiniteQuery,
@@ -26,7 +27,9 @@ function Failure({ error }: { error: unknown }) {
     <Alert variant="destructive">
       <AlertTitle>通知操作未完成</AlertTitle>
       <AlertDescription>
-        暂时无法读取或更新通知，请刷新重试。{id ? <p>请求编号：{id}</p> : null}
+        暂时无法读取或更新通知，请刷新重试。
+        <RateLimitHint error={error} />
+        {id ? <p>请求编号：{id}</p> : null}
       </AlertDescription>
     </Alert>
   );

@@ -23,6 +23,8 @@ just dev
 
 Owner/Admin 从首页“企业成员”管理角色和启用状态；最后一位有效 Owner 不能被停用或降级。详见[成员管理教程](../tutorials/08-members.md)。后台任务入口提供安全状态、尝试历史和失败任务的有限重试。
 
+注册、登录和普通请求默认启用限流，达到上限后页面展示等待提示；见[请求限流与回退](../tutorials/17-rate-limits.md)。
+
 <!-- example:knowledge:quickstart:start -->
 
 ## 保存第一篇文档

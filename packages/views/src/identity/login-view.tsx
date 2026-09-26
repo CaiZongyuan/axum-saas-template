@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { loginUser, type ApiClient, type Login } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
+import { requestIdFromError, retryAfterSeconds } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Button } from '@saas/ui/components/button';
 import {
@@ -14,6 +14,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
 import { replaceSession } from './session';
+import { useRetryDelay } from '../system/rate-limit';
 
 export function LoginView({
   apiClient,
@@ -23,14 +24,15 @@ export function LoginView({
   onLoggedIn: () => void;
 }) {
   const queryClient = useQueryClient();
+  const cooldown = useRetryDelay();
   const mutation = useMutation({
     mutationFn: async (body: Login) =>
       (await loginUser({ client: apiClient, body, throwOnError: true })).data,
     retry: false,
+    onError: cooldown.start,
     gcTime: 0,
     onSuccess: async (session) => {
       await replaceSession(queryClient, apiClient, session);
-      onLoggedIn();
     },
   });
   const errorCode =
@@ -53,11 +55,15 @@ export function LoginView({
           <form
             onSubmit={(event) => {
               event.preventDefault();
+              if (cooldown.remaining > 0 || mutation.isPending) return;
               const data = new FormData(event.currentTarget);
-              mutation.mutate({
-                email: String(data.get('email')).trim(),
-                password: String(data.get('password')),
-              });
+              mutation.mutate(
+                {
+                  email: String(data.get('email')).trim(),
+                  password: String(data.get('password')),
+                },
+                { onSuccess: onLoggedIn },
+              );
             }}
           >
             <FieldGroup>
@@ -89,15 +95,26 @@ export function LoginView({
                 <Alert variant="destructive">
                   <AlertTitle>登录未完成</AlertTitle>
                   <AlertDescription>
-                    {errorCode === 'auth.invalid_credentials'
-                      ? '邮箱或密码不正确，请重新输入。'
-                      : '暂时无法登录，请稍后重试。'}
+                    {retryAfterSeconds(mutation.error)
+                      ? cooldown.remaining > 0
+                        ? '请求过于频繁，请等待后重试。'
+                        : '请求过于频繁，现在可以重新尝试。'
+                      : errorCode === 'auth.invalid_credentials'
+                        ? '邮箱或密码不正确，请重新输入。'
+                        : '暂时无法登录，请稍后重试。'}
                     {requestId ? <p>请求编号：{requestId}</p> : null}
                   </AlertDescription>
                 </Alert>
               ) : null}
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? '正在登录…' : '登录'}
+              <Button
+                type="submit"
+                disabled={mutation.isPending || cooldown.remaining > 0}
+              >
+                {mutation.isPending
+                  ? '正在登录…'
+                  : cooldown.remaining > 0
+                    ? `请等待 ${cooldown.remaining} 秒`
+                    : '登录'}
               </Button>
             </FieldGroup>
           </form>

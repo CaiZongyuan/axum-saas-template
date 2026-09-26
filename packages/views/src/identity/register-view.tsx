@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { registerUser, type ApiClient, type Registration } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
+import { requestIdFromError, retryAfterSeconds } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Button } from '@saas/ui/components/button';
 import {
@@ -19,6 +19,7 @@ import {
 } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
 import { replaceSession } from './session';
+import { useRetryDelay } from '../system/rate-limit';
 
 function registrationError(error: unknown) {
   const code =
@@ -41,15 +42,16 @@ export function RegisterView({
   onRegistered: () => void;
 }) {
   const queryClient = useQueryClient();
+  const cooldown = useRetryDelay();
   const mutation = useMutation({
     mutationFn: async (body: Registration) =>
       (await registerUser({ client: apiClient, body, throwOnError: true }))
         .data,
     retry: false,
+    onError: cooldown.start,
     gcTime: 0,
     onSuccess: async (session) => {
       await replaceSession(queryClient, apiClient, session);
-      onRegistered();
     },
   });
   const requestId = requestIdFromError(mutation.error);
@@ -66,12 +68,16 @@ export function RegisterView({
           <form
             onSubmit={(event) => {
               event.preventDefault();
+              if (cooldown.remaining > 0 || mutation.isPending) return;
               const data = new FormData(event.currentTarget);
-              mutation.mutate({
-                email: String(data.get('email')).trim(),
-                password: String(data.get('password')),
-                display_name: String(data.get('display_name')).trim() || null,
-              });
+              mutation.mutate(
+                {
+                  email: String(data.get('email')).trim(),
+                  password: String(data.get('password')),
+                  display_name: String(data.get('display_name')).trim() || null,
+                },
+                { onSuccess: onRegistered },
+              );
             }}
           >
             <FieldGroup>
@@ -118,13 +124,24 @@ export function RegisterView({
                 <Alert variant="destructive">
                   <AlertTitle>注册未完成</AlertTitle>
                   <AlertDescription>
-                    {registrationError(mutation.error)}
+                    {retryAfterSeconds(mutation.error)
+                      ? cooldown.remaining > 0
+                        ? '请求过于频繁，请等待后重试。'
+                        : '请求过于频繁，现在可以重新尝试。'
+                      : registrationError(mutation.error)}
                     {requestId ? <p>请求编号：{requestId}</p> : null}
                   </AlertDescription>
                 </Alert>
               ) : null}
-              <Button type="submit" disabled={mutation.isPending}>
-                {mutation.isPending ? '正在创建账号…' : '创建账号'}
+              <Button
+                type="submit"
+                disabled={mutation.isPending || cooldown.remaining > 0}
+              >
+                {mutation.isPending
+                  ? '正在创建账号…'
+                  : cooldown.remaining > 0
+                    ? `请等待 ${cooldown.remaining} 秒`
+                    : '创建账号'}
               </Button>
             </FieldGroup>
           </form>

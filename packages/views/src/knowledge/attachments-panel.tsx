@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -54,6 +55,7 @@ function Failure({ error }: { error: unknown }) {
       <AlertTitle>附件操作未完成</AlertTitle>
       <AlertDescription>
         {messages[code(error) ?? ''] ?? '上传失败或下载暂时不可用，请重试。'}
+        <RateLimitHint error={error} />
         {id ? <p>请求编号：{id}</p> : null}
       </AlertDescription>
     </Alert>

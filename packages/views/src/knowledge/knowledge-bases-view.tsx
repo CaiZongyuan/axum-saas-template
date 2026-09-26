@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState } from 'react';
 import {
   useInfiniteQuery,
@@ -49,6 +50,7 @@ function Failure({ error }: { error: unknown }) {
       <AlertTitle>操作未完成</AlertTitle>
       <AlertDescription>
         知识库不存在、权限已变化或服务暂时不可用，请重新查询。
+        <RateLimitHint error={error} />
         {id ? <p>请求编号：{id}</p> : null}
       </AlertDescription>
     </Alert>

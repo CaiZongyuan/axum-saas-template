@@ -7,6 +7,7 @@ pub mod identity;
 pub mod jobs;
 pub mod notifications;
 pub mod organization;
+pub mod rate_limit;
 pub mod system;
 // example:knowledge:module:start
 pub mod knowledge;

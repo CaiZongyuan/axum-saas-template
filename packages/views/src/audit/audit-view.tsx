@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useState } from 'react';
 import {
   useInfiniteQuery,
@@ -41,6 +42,7 @@ function Failure({ error }: { error: unknown }) {
       <AlertTitle>无法读取审计记录</AlertTitle>
       <AlertDescription>
         {messages[code ?? ''] ?? '暂时无法读取，请刷新重试。'}
+        <RateLimitHint error={error} />
         {id ? <p>请求编号：{id}</p> : null}
       </AlertDescription>
     </Alert>

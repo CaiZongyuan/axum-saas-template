@@ -26,11 +26,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     // Reference-domain routers will be composed here without changing Core.
     let mut server = Box::pin(
-        axum::serve(listener, app)
-            .with_graceful_shutdown(async {
-                let _ = shutdown_rx.await;
-            })
-            .into_future(),
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .with_graceful_shutdown(async {
+            let _ = shutdown_rx.await;
+        })
+        .into_future(),
     );
     tokio::select! {
         result = &mut server => result?,

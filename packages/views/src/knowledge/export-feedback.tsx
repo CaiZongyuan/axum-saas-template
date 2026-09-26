@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { requestIdFromError } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 
@@ -31,6 +32,7 @@ export function ExportFailure({ error }: { error: unknown }) {
       <AlertTitle>导出操作未完成</AlertTitle>
       <AlertDescription>
         {messages[code ?? ''] ?? '暂时无法处理，请重试。'}
+        <RateLimitHint error={error} />
         {id ? <p>请求编号：{id}</p> : null}
       </AlertDescription>
     </Alert>

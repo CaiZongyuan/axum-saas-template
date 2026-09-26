@@ -1,3 +1,4 @@
+import { RateLimitHint } from './rate-limit';
 import { requestIdFromError } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { useQuery } from '@tanstack/react-query';
@@ -111,6 +112,7 @@ export function StatusView({
             <AlertTitle>暂时无法连接服务</AlertTitle>
             <AlertDescription>
               <p>请确认 API 与 PostgreSQL 已启动并完成迁移，然后重新检查。</p>
+              <RateLimitHint error={query.error} />
               {requestId ? (
                 <p>
                   请求编号：<code>{requestId}</code>

@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   queryOptions,
@@ -88,6 +89,7 @@ function Failure({ error }: { error: unknown }) {
       <AlertTitle>操作未完成</AlertTitle>
       <AlertDescription>
         {messages[code ?? ''] ?? '服务暂时不可用，请稍后重试。'}
+        <RateLimitHint error={error} />
         {requestId ? <p>请求编号：{requestId}</p> : null}
       </AlertDescription>
     </Alert>

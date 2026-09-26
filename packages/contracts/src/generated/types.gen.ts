@@ -338,6 +338,26 @@ export type ObjectCapability = {
 
 export type Outcome = 'succeeded' | 'failed';
 
+export type PolicyMetrics = {
+    fallback_limit: number;
+    fallbacks: number;
+    limit: number;
+    local_allowed: number;
+    local_denied: number;
+    policy: string;
+    redis_allowed: number;
+    redis_denied: number;
+};
+
+export type RateLimitMetrics = {
+    enabled: boolean;
+    local_capacity: number;
+    local_entries: number;
+    policies: Array<PolicyMetrics>;
+    redis_configured: boolean;
+    window_secs: number;
+};
+
 export type Registration = {
     display_name?: string | null;
     email: string;
@@ -400,6 +420,10 @@ export type ListApiKeysData = {
 export type ListApiKeysErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -425,6 +449,10 @@ export type CreateApiKeyErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -445,6 +473,10 @@ export type ListApiKeyScopesData = {
 
 export type ListApiKeyScopesErrors = {
     401: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -472,6 +504,10 @@ export type RevokeApiKeyErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -504,6 +540,10 @@ export type ListAuditEventsErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -528,6 +568,10 @@ export type LoginUserErrors = {
     403: ApiErrorResponse;
     408: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -555,6 +599,10 @@ export type LogoutUserData = {
 export type LogoutUserErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -579,6 +627,10 @@ export type RegisterUserErrors = {
     408: ApiErrorResponse;
     409: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -599,6 +651,10 @@ export type GetCurrentSessionData = {
 
 export type GetCurrentSessionErrors = {
     401: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -625,6 +681,10 @@ export type ListJobsErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -652,6 +712,10 @@ export type GetJobErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -682,6 +746,10 @@ export type RetryJobErrors = {
     403: ApiErrorResponse;
     404: ApiErrorResponse;
     409: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -706,6 +774,10 @@ export type ListKnowledgeBasesData = {
 export type ListKnowledgeBasesErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -735,6 +807,10 @@ export type CreateKnowledgeBaseErrors = {
     408: ApiErrorResponse;
     409: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -763,6 +839,10 @@ export type DeleteKnowledgeBaseErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -787,6 +867,10 @@ export type GetKnowledgeBaseErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -817,6 +901,10 @@ export type RenameKnowledgeBaseErrors = {
     404: ApiErrorResponse;
     408: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -845,6 +933,10 @@ export type ListKnowledgeBaseGrantsErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -874,6 +966,10 @@ export type RevokeKnowledgeBaseGrantErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -905,6 +1001,10 @@ export type SetKnowledgeBaseGrantErrors = {
     404: ApiErrorResponse;
     408: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -944,6 +1044,10 @@ export type ListPersonalDocumentsErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -973,6 +1077,10 @@ export type CreateDocumentErrors = {
     408: ApiErrorResponse;
     409: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1001,6 +1109,10 @@ export type DeleteDocumentErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1032,6 +1144,10 @@ export type GetDocumentErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1063,6 +1179,10 @@ export type UpdateDocumentErrors = {
     408: ApiErrorResponse;
     409: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1090,6 +1210,10 @@ export type ListAttachmentsErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1119,6 +1243,10 @@ export type DeleteAttachmentErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1146,6 +1274,10 @@ export type GetAttachmentDownloadErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1174,6 +1306,10 @@ export type ListDocumentExportsErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1205,6 +1341,10 @@ export type RequestDocumentExportErrors = {
     404: ApiErrorResponse;
     409: ApiErrorResponse;
     413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1231,6 +1371,10 @@ export type GetDocumentExportErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1259,6 +1403,10 @@ export type DownloadDocumentExportErrors = {
     404: ApiErrorResponse;
     409: ApiErrorResponse;
     410: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1292,6 +1440,10 @@ export type StartAttachmentUploadErrors = {
     410: ApiErrorResponse;
     413: ApiErrorResponse;
     422: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1325,6 +1477,10 @@ export type CompleteAttachmentUploadErrors = {
     410: ApiErrorResponse;
     413: ApiErrorResponse;
     422: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1350,6 +1506,10 @@ export type ListNotificationsData = {
 export type ListNotificationsErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1377,6 +1537,10 @@ export type ReadNotificationErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
     404: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1402,6 +1566,10 @@ export type ListMembersErrors = {
     400: ApiErrorResponse;
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1434,6 +1602,10 @@ export type UpdateMemberErrors = {
     409: ApiErrorResponse;
     413: ApiErrorResponse;
     422: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1461,6 +1633,10 @@ export type GetProfileData = {
 export type GetProfileErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1482,6 +1658,10 @@ export type GetCacheStatusData = {
 export type GetCacheStatusErrors = {
     401: ApiErrorResponse;
     403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     503: ApiErrorResponse;
 };
 
@@ -1493,6 +1673,31 @@ export type GetCacheStatusResponses = {
 
 export type GetCacheStatusResponse = GetCacheStatusResponses[keyof GetCacheStatusResponses];
 
+export type GetRateLimitStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/system/rate-limits';
+};
+
+export type GetRateLimitStatusErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetRateLimitStatusError = GetRateLimitStatusErrors[keyof GetRateLimitStatusErrors];
+
+export type GetRateLimitStatusResponses = {
+    200: RateLimitMetrics;
+};
+
+export type GetRateLimitStatusResponse = GetRateLimitStatusResponses[keyof GetRateLimitStatusResponses];
+
 export type GetSystemStatusData = {
     body?: never;
     path?: never;
@@ -1501,6 +1706,10 @@ export type GetSystemStatusData = {
 };
 
 export type GetSystemStatusErrors = {
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
     /**
      * Database or migration metadata is unavailable
      */

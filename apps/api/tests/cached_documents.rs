@@ -1,4 +1,4 @@
-#[path = "support/redis_gate.rs"]
+#[path = "../../../tests/support/redis_gate.rs"]
 mod redis_gate;
 use axum::{
     Router,
@@ -244,7 +244,7 @@ async fn cached_bodies_never_cache_permissions_or_survive_revocation_and_deletio
 async fn a_version_change_during_a_cache_miss_reauthorizes_and_does_not_cache_new_body_under_old_version(
     pool: PgPool,
 ) {
-    let gate = redis_gate::RedisGate::new().await;
+    let gate = redis_gate::RedisGate::new(b"GET").await;
     let prefix = format!("race:{}", uuid::Uuid::now_v7());
     let cache = Cache::new(CacheSettings {
         url: gate.url.clone(),
@@ -274,7 +274,7 @@ async fn a_version_change_during_a_cache_miss_reauthorizes_and_does_not_cache_ne
         let path = path.clone();
         tokio::spawn(async move { request(&app, &actor, "GET", &path, json!(null)).await })
     };
-    gate.wait_for_get().await;
+    gate.wait_for_command().await;
     assert_eq!(
         request(
             &app,
@@ -319,7 +319,7 @@ async fn a_version_change_during_a_cache_miss_reauthorizes_and_does_not_cache_ne
 async fn a_live_but_unresponsive_redis_is_bounded_and_recovers_with_fresh_connections(
     pool: PgPool,
 ) {
-    let gate = redis_gate::RedisGate::new().await;
+    let gate = redis_gate::RedisGate::new(b"GET").await;
     let cache = Cache::new(CacheSettings {
         url: gate.url.clone(),
         prefix: format!("timeout:{}", uuid::Uuid::now_v7()),
@@ -351,7 +351,7 @@ async fn a_live_but_unresponsive_redis_is_bounded_and_recovers_with_fresh_connec
         let path = path.clone();
         tokio::spawn(async move { request(&app, &actor, "GET", &path, json!(null)).await })
     };
-    gate.wait_for_get().await;
+    gate.wait_for_command().await;
     let response = tokio::time::timeout(std::time::Duration::from_secs(1), read)
         .await
         .expect("cache fallback must not wait indefinitely")
@@ -379,7 +379,7 @@ async fn a_live_but_unresponsive_redis_is_bounded_and_recovers_with_fresh_connec
 
 #[sqlx::test(migrations = "../../migrations")]
 async fn disconnecting_redis_after_a_hit_still_returns_the_current_database_body(pool: PgPool) {
-    let gate = redis_gate::RedisGate::new().await;
+    let mut gate = redis_gate::RedisGate::new(b"GET").await;
     gate.release();
     let cache = Cache::new(CacheSettings {
         url: gate.url.clone(),
@@ -412,7 +412,7 @@ async fn disconnecting_redis_after_a_hit_still_returns_the_current_database_body
             StatusCode::OK
         );
     }
-    drop(gate);
+    gate.stop().await;
     let response = request(&app, &actor, "GET", &path, json!(null)).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(data(response).await["markdown"], "still available");
