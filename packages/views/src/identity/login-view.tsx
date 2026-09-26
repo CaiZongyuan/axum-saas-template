@@ -119,7 +119,10 @@ export function LoginView({
             </FieldGroup>
           </form>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex gap-4">
+          <a className="text-sm underline" href="/forgot-password">
+            忘记密码？
+          </a>
           <a className="text-sm underline" href="/register">
             还没有账号？创建账号
           </a>

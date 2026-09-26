@@ -1,6 +1,6 @@
 # Core 与参考业务的边界
 
-Core 提供身份、会话、成员、审计、幂等、文件、任务、通知、API Key 和通用 HTTP 能力。Reference Domain 通过应用入口接入自己的业务；Core 不反向依赖它。
+Core 提供身份、会话、成员、审计、幂等、文件、任务、通知、邮件、API Key 和通用 HTTP 能力。Reference Domain 通过应用入口接入自己的业务；Core 不反向依赖它。
 
 - **platform** 拥有配置、连接池、迁移运行、可选 Redis 文本缓存与日志初始化，不依赖应用或知识库类型。
 - **app** 的各个模块拥有自己的用例和表；纯 `domain.rs` 不依赖 HTTP 或数据库。
@@ -29,3 +29,5 @@ API Keys 管理通用凭据及其 scopes。应用入口注册各模块实际提�
 CoreOptions 在应用组装点传递 scope 注册和共享 Cache。Cache 只处理有预算的 Redis I/O 与进程计量，Knowledge 自己负责数据库授权、正文版本和 key；Core 不保存或复用业务权限结论。
 
 RateLimit 在 Core 中分类请求、维护有界本地回退和固定策略计量；Platform WindowCounter 执行有限 Redis 原子操作。缓存与计数共享私有 transport 实现，各自持有容量和超时预算；业务模块不直接发送任意 Redis 命令。
+
+Identity 拥有重置有效性、hash、短期密文表与邮件 Handler；Mail 提供有界加密/解密与投递能力，Platform 封装 SMTP。Jobs 只保存 reset ID，并负责租约和重试。Core 的密码重置页面、教程与浏览器测试独立于知识库所有权，删例后保留。

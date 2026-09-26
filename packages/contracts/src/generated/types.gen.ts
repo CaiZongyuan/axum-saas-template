@@ -64,6 +64,11 @@ export type CacheMetrics = {
     writes: number;
 };
 
+export type CompleteReset = {
+    password: string;
+    token: string;
+};
+
 export type CreateApiKey = {
     expires_in_days: number;
     name: string;
@@ -368,6 +373,14 @@ export type RenameKnowledgeBase = {
     name: string;
 };
 
+export type ResetAccepted = {
+    status: string;
+};
+
+export type ResetRequest = {
+    email: string;
+};
+
 export type SetGrant = {
     access: GrantAccess;
 };
@@ -613,6 +626,61 @@ export type LogoutUserResponses = {
 };
 
 export type LogoutUserResponse = LogoutUserResponses[keyof LogoutUserResponses];
+
+export type RequestPasswordResetData = {
+    body: ResetRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/password-reset';
+};
+
+export type RequestPasswordResetErrors = {
+    400: ApiErrorResponse;
+    403: ApiErrorResponse;
+    408: ApiErrorResponse;
+    413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type RequestPasswordResetError = RequestPasswordResetErrors[keyof RequestPasswordResetErrors];
+
+export type RequestPasswordResetResponses = {
+    202: ResetAccepted;
+};
+
+export type RequestPasswordResetResponse = RequestPasswordResetResponses[keyof RequestPasswordResetResponses];
+
+export type CompletePasswordResetData = {
+    body: CompleteReset;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/password-reset/complete';
+};
+
+export type CompletePasswordResetErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    408: ApiErrorResponse;
+    413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type CompletePasswordResetError = CompletePasswordResetErrors[keyof CompletePasswordResetErrors];
+
+export type CompletePasswordResetResponses = {
+    204: void;
+};
+
+export type CompletePasswordResetResponse = CompletePasswordResetResponses[keyof CompletePasswordResetResponses];
 
 export type RegisterUserData = {
     body: Registration;

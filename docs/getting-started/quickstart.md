@@ -1,6 +1,6 @@
 # 快速开始
 
-Core 提供邮箱密码注册、登录/退出、成员管理、会话失效与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。
+Core 提供邮箱密码注册、登录/退出、成员管理、密码重置、会话失效与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。
 
 ## 准备工具
 
@@ -13,13 +13,15 @@ pnpm install --frozen-lockfile
 just dev
 ```
 
-`just dev` 启动 Docker 中的 PostgreSQL/RustFS/Redis，显式运行迁移并初始化私有存储 bucket，再启动宿主机 API、Worker 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API 和 Worker。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
+`just dev` 启动 Docker 中的 PostgreSQL/RustFS/Redis/Mailpit，显式运行迁移并初始化私有存储 bucket，再启动宿主机 API、Worker 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API 和 Worker。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
 
 打开[注册页面](http://127.0.0.1:5173/register)，填写邮箱、12–128 字符的密码及可选显示名，成功后自动进入已登录首页。首个成功注册的账号成为企业 Owner，后续账号为 Member。部署人员应先注册自己的 Owner 账号，再交给普通使用者；不需要邀请或等待邮件。
 
 [服务状态页](http://127.0.0.1:5173/system)会显示“服务已就绪”“PostgreSQL 已连接”和当前迁移版本；迁移历史必须与当前源码匹配。
 
 已有账号可以打开[登录页面](http://127.0.0.1:5173/login)。首页可退出登录，随后旧会话失效；详见[登录与会话教程](../tutorials/03-sessions.md)。
+
+忘记密码时可从登录页申请重置邮件，在 [Mailpit](http://127.0.0.1:8025) 打开一次性链接；详见[密码重置教程](../tutorials/18-password-reset.md)。开发邮件 key 自动保存为私有的 `.secrets/development-mail-key`，不会进入版本控制。
 
 Owner/Admin 从首页“企业成员”管理角色和启用状态；最后一位有效 Owner 不能被停用或降级。详见[成员管理教程](../tutorials/08-members.md)。后台任务入口提供安全状态、尝试历史和失败任务的有限重试。
 
@@ -75,7 +77,7 @@ just db-down
 docker compose up -d --wait postgres
 ```
 
-`Ctrl+C` 停止开发 API/Worker/Web，数据库、RustFS 与数据卷保留。`just services-down` 停止三项依赖，不删除数据；`just db-down` 可单独停止数据库。
+`Ctrl+C` 停止开发 API/Worker/Web，数据库、RustFS 与数据卷保留。`just services-down` 停止四项依赖，不删除数据；`just db-down` 可单独停止数据库。
 
 ## 文档与下一步
 

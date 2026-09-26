@@ -13,3 +13,5 @@ apps/docs/.generated/
 apps/docs/.vitepress/cache/
 apps/docs/.vitepress/dist/
 .DS_Store
+
+.secrets/

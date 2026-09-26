@@ -1,13 +1,17 @@
+import { useEffect, useState } from 'react';
 import {
   createRootRouteWithContext,
   createRoute,
   createRouter,
   Outlet,
   useNavigate,
+  useLocation,
   type RouterHistory,
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
 import {
+  ForgotPasswordView,
+  ResetPasswordView,
   ApiKeysView,
   AuditView,
   NotificationsView,
@@ -183,6 +187,71 @@ const jobRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs/$jobId',
   component: JobPage,
+});
+function ForgotPasswordPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <ForgotPasswordView
+      apiClient={apiClient}
+      onLogin={() => {
+        void navigate({ to: '/login' });
+      }}
+    />
+  );
+}
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forgot-password',
+  component: ForgotPasswordPage,
+});
+function resetToken(hash: string) {
+  if (hash.length > 256) return undefined;
+  const value = new URLSearchParams(hash.replace(/^#/, '')).get('token');
+  return value && /^[0-9a-f]{64}$/i.test(value) ? value : undefined;
+}
+function ResetPasswordPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  const hash = useLocation({ select: (location) => location.hash });
+  const [link, setLink] = useState(() => ({
+    observedHash: hash,
+    token: resetToken(hash),
+    revision: 0,
+  }));
+  // A new email link may navigate within this mounted route. Capture it before
+  // replacing the fragment; a fresh View drops prior form/success/request state.
+  if (hash !== link.observedHash) {
+    setLink({
+      observedHash: hash,
+      token: hash ? resetToken(hash) : link.token,
+      revision: hash ? link.revision + 1 : link.revision,
+    });
+  }
+  useEffect(() => {
+    if (hash) void navigate({ to: '/reset-password', hash: '', replace: true });
+  }, [hash, navigate]);
+  return (
+    <ResetPasswordView
+      apiClient={apiClient}
+      key={link.revision}
+      token={link.token}
+      onConsumed={() =>
+        setLink((current) => ({ ...current, token: undefined }))
+      }
+      onLogin={() => {
+        void navigate({ to: '/login' });
+      }}
+      onRequest={() => {
+        void navigate({ to: '/forgot-password' });
+      }}
+    />
+  );
+}
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: ResetPasswordPage,
 });
 function ApiKeysPage() {
   const { apiClient } = rootRoute.useRouteContext();
@@ -491,6 +560,8 @@ const routeTree = rootRoute.addChildren([
   newDocumentRoute,
   documentRoute,
   // example:knowledge:route-tree:end
+  forgotPasswordRoute,
+  resetPasswordRoute,
   apiKeysRoute,
   auditRoute,
   notificationsRoute,

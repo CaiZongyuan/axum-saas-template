@@ -39,7 +39,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         )
     });
     let mut handlers: Vec<Arc<dyn Handler>> = Vec::new();
-    let maintenance: Vec<Arc<dyn Maintenance>> = vec![files::cleanup_maintenance(pool.clone())];
+    let maintenance: Vec<Arc<dyn Maintenance>> = vec![
+        files::cleanup_maintenance(pool.clone()),
+        saas_app::modules::identity::password_reset_maintenance(pool.clone()),
+    ];
+    if let Some(reset) = saas_app::modules::identity::PasswordReset::from_env()? {
+        handlers.push(reset.handler(pool.clone()));
+    }
     if let Some(files) = &_files {
         handlers.push(files::cleanup_handler(pool.clone(), files.clone()));
         handlers.push(files::rescan_handler(pool.clone(), files.clone()));

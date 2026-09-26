@@ -60,6 +60,7 @@ pub fn configured_router(
     auth: AuthSettings,
     _files: Option<saas_app::modules::files::FileService>,
 ) -> Result<Router, saas_platform::config::ConfigError> {
+    let password_reset = saas_app::modules::identity::PasswordReset::from_env()?;
     let limiter = saas_app::modules::rate_limit::RateLimiter::from_env()?;
     let cache = saas_platform::cache::Cache::from_env()?;
     let key_scopes = saas_app::modules::api_keys::core_scopes();
@@ -85,6 +86,7 @@ pub fn configured_router(
             api_key_scopes: key_scopes,
             cache,
             limiter,
+            password_reset,
         },
     ))
 }

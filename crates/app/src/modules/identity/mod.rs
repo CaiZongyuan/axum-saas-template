@@ -1,4 +1,11 @@
 mod crypto;
+mod password_reset;
+pub use password_reset::{
+    FIELDS as PASSWORD_RESET_FIELDS, PasswordReset, ResetPolicy, openapi as password_reset_openapi,
+};
+pub use password_reset::{
+    maintenance as password_reset_maintenance, revoke as revoke_password_resets,
+};
 
 use crate::{
     http::{BoundedJson, RequestId, public_error},
@@ -57,6 +64,7 @@ struct Identity {
     pool: PgPool,
     settings: AuthSettings,
     password_slots: Arc<Semaphore>,
+    password_reset: Option<PasswordReset>,
 }
 
 #[derive(Deserialize, ToSchema)]
@@ -89,8 +97,20 @@ pub struct CurrentSession {
 }
 
 pub fn router(pool: PgPool, settings: AuthSettings) -> Router {
+    router_with_reset(pool, settings, None)
+}
+pub fn router_with_reset(
+    pool: PgPool,
+    settings: AuthSettings,
+    password_reset: Option<PasswordReset>,
+) -> Router {
     Router::new()
         .route("/api/v1/auth/register", post(register))
+        .route("/api/v1/auth/password-reset", post(password_reset::request))
+        .route(
+            "/api/v1/auth/password-reset/complete",
+            post(password_reset::complete),
+        )
         .route("/api/v1/auth/login", post(login))
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/auth/session", get(current_session))
@@ -107,6 +127,7 @@ pub fn router(pool: PgPool, settings: AuthSettings) -> Router {
             pool,
             settings,
             password_slots: Arc::new(Semaphore::new(4)),
+            password_reset,
         })
 }
 
@@ -192,7 +213,7 @@ async fn login(
     if !valid {
         return invalid();
     }
-    let Some((user_id, email, display_name, _)) = record else {
+    let Some((user_id, email, display_name, verified_hash)) = record else {
         return invalid();
     };
     let role = match tokio::time::timeout(
@@ -211,8 +232,16 @@ async fn login(
         display_name,
         role,
     };
-    match tokio::time::timeout(Duration::from_secs(2), issue_session(&state, user)).await {
-        Ok(Ok((cookie, session))) => ([("set-cookie", cookie)], Json(session)).into_response(),
+    match tokio::time::timeout(
+        Duration::from_secs(2),
+        issue_session(&state, user, &verified_hash),
+    )
+    .await
+    {
+        Ok(Ok(Some((cookie, session)))) => {
+            ([("set-cookie", cookie)], Json(session)).into_response()
+        }
+        Ok(Ok(None)) => invalid(),
         _ => failure(&id),
     }
 }
@@ -322,8 +351,13 @@ async fn create_account(
         display_name,
         role,
     };
-    match tokio::time::timeout(Duration::from_secs(2), issue_session(state, user)).await {
-        Ok(Ok((cookie, session))) => {
+    match tokio::time::timeout(
+        Duration::from_secs(2),
+        issue_session(state, user, &password_hash),
+    )
+    .await
+    {
+        Ok(Ok(Some((cookie, session)))) => {
             (StatusCode::CREATED, [("set-cookie", cookie)], Json(session)).into_response()
         }
         _ => public_error(
@@ -405,13 +439,26 @@ async fn logout(
 async fn issue_session(
     state: &Identity,
     mut user: CurrentUser,
-) -> Result<(String, CurrentSession), ()> {
+    verified_hash: &str,
+) -> Result<Option<(String, CurrentSession)>, ()> {
     let secret = crypto::secret()?;
     let mut tx = state.pool.begin().await.map_err(|_| ())?;
     user.role = organization::active_role_in(&mut tx, &user.id)
         .await
         .map_err(|_| ())?
         .ok_or(())?;
+    // Lock in the same membership -> credential order as reset consumption.
+    // A password verified before a concurrent reset cannot mint a later Session.
+    let current: Option<String> = sqlx::query_scalar(
+        "SELECT password_hash FROM saas_core.credentials WHERE user_id=$1::uuid FOR SHARE",
+    )
+    .bind(&user.id)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| ())?;
+    if current.as_deref() != Some(verified_hash) {
+        return Ok(None);
+    }
     sqlx::query("INSERT INTO saas_core.sessions (id, secret_hash, user_id, expires_at) VALUES ($1::uuid, $2, $3::uuid, now() + make_interval(secs => $4))")
         .bind(uuid::Uuid::now_v7().to_string()).bind(crypto::secret_hash(&secret)).bind(&user.id)
         .bind(f64::from(state.settings.absolute_secs)).execute(&mut *tx).await.map_err(|_| ())?;
@@ -427,13 +474,13 @@ async fn issue_session(
             ""
         }
     );
-    Ok((
+    Ok(Some((
         cookie,
         CurrentSession {
             user,
             csrf_token: crypto::csrf_token(&secret),
         },
-    ))
+    )))
 }
 
 #[utoipa::path(get, path = "/api/v1/auth/session", operation_id = "getCurrentSession", tag = "Identity", responses((status = 200, body = CurrentSession), (status = 401, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]

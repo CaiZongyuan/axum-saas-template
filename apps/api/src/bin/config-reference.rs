@@ -4,6 +4,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .chain(saas_app::modules::jobs::FIELDS)
         .chain(saas_platform::cache::FIELDS)
         .chain(saas_app::modules::rate_limit::FIELDS)
+        .chain(saas_platform::mail::FIELDS)
+        .chain(saas_app::modules::mail::FIELDS)
+        .chain(saas_app::modules::identity::PASSWORD_RESET_FIELDS)
         .collect::<Vec<_>>();
     // example:knowledge:config-reference:start
     let fields = fields

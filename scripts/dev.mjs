@@ -5,7 +5,7 @@ import { developmentEnv, launch, root, run, stop } from './lib/process.mjs';
 const env = developmentEnv();
 run(
   'docker',
-  ['compose', 'up', '-d', '--wait', 'postgres', 'rustfs', 'redis'],
+  ['compose', 'up', '-d', '--wait', 'postgres', 'rustfs', 'redis', 'mailpit'],
   env,
 );
 run('cargo', ['run', '--locked', '-p', 'saas-api', '--bin', 'migrate'], env);
@@ -62,7 +62,7 @@ async function close() {
   watchers.forEach((watcher) => watcher.close());
   await Promise.all([stop(api), stop(worker, workerGrace), stop(web)]);
   console.log(
-    'API, Worker and Web stopped. Data is preserved; use just services-down to stop PostgreSQL/RustFS/Redis.',
+    'API, Worker and Web stopped. Data is preserved; use just services-down to stop PostgreSQL/RustFS/Redis/Mailpit.',
   );
 }
 process.once('SIGINT', () => {
@@ -75,5 +75,5 @@ web.once('exit', () => {
   if (!closing) void close();
 });
 console.log(
-  `Web: http://127.0.0.1:${env.WEB_PORT ?? 5173} | API: http://${env.APP_BIND} | Worker: http://${env.WORKER_BIND} | docs: just docs`,
+  `Web: http://127.0.0.1:${env.WEB_PORT ?? 5173} | API: http://${env.APP_BIND} | Worker: http://${env.WORKER_BIND} | mail: http://127.0.0.1:${env.MAILPIT_HTTP_PORT ?? 8025} | docs: just docs`,
 );
