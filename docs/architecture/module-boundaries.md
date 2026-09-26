@@ -2,7 +2,7 @@
 
 Core 提供身份、会话、成员、审计、幂等、文件、任务、通知、API Key 和通用 HTTP 能力。Reference Domain 通过应用入口接入自己的业务；Core 不反向依赖它。
 
-- **platform** 拥有配置、连接池、迁移运行与日志初始化，不依赖应用或知识库类型。
+- **platform** 拥有配置、连接池、迁移运行、可选 Redis 文本缓存与日志初始化，不依赖应用或知识库类型。
 - **app** 的各个模块拥有自己的用例和表；纯 `domain.rs` 不依赖 HTTP 或数据库。
 - **API 入口** 在 `apps/api/src/lib.rs` 组装 Router/OpenAPI，通用构建器接收额外路由与合同。
 - **contracts / sdk** 来自 OpenAPI 生成；SDK 的类型使用 contracts。
@@ -25,3 +25,5 @@ SQL 检查基于源码中的字符串和已登记表名，不能证明动态 SQL
 Notifications 拥有任务通知意图和收件箱；业务用公开接口在请求事务中登记意图，Jobs 在终态事务中发布通知。导航目标由应用壳解析，Core View 通过回调打开；目标 API 始终重新授权。未知目标不影响读取与标记已读。
 
 API Keys 管理通用凭据及其 scopes。应用入口注册各模块实际提供的 scope，业务处理器通过公开认证能力取得当前用户，再执行自己的资源授权。Core 的 profile:read 与 Key 管理在示例移除后保留；一次性 secret 不进入重放、查询或 Mutation 缓存。
+
+CoreOptions 在应用组装点传递 scope 注册和共享 Cache。Cache 只处理有预算的 Redis I/O 与进程计量，Knowledge 自己负责数据库授权、正文版本和 key；Core 不保存或复用业务权限结论。

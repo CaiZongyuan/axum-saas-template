@@ -106,6 +106,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/16-versioned-cache.md",
+      "route": "tutorials/versioned-cache.md",
+      "title": "Redis 正文缓存与数据库回源",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

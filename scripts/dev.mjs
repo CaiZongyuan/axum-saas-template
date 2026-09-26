@@ -3,7 +3,11 @@ import { join } from 'node:path';
 import { developmentEnv, launch, root, run, stop } from './lib/process.mjs';
 
 const env = developmentEnv();
-run('docker', ['compose', 'up', '-d', '--wait', 'postgres', 'rustfs'], env);
+run(
+  'docker',
+  ['compose', 'up', '-d', '--wait', 'postgres', 'rustfs', 'redis'],
+  env,
+);
 run('cargo', ['run', '--locked', '-p', 'saas-api', '--bin', 'migrate'], env);
 run(
   'cargo',
@@ -58,7 +62,7 @@ async function close() {
   watchers.forEach((watcher) => watcher.close());
   await Promise.all([stop(api), stop(worker, workerGrace), stop(web)]);
   console.log(
-    'API, Worker and Web stopped. Data is preserved; use just services-down to stop PostgreSQL/RustFS.',
+    'API, Worker and Web stopped. Data is preserved; use just services-down to stop PostgreSQL/RustFS/Redis.',
   );
 }
 process.once('SIGINT', () => {

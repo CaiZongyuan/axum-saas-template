@@ -1,3 +1,4 @@
+pub mod cache;
 use axum::{Extension, Json, extract::State, http::StatusCode, response::Response};
 use serde::Serialize;
 use sqlx::PgPool;

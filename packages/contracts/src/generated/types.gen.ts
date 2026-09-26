@@ -53,6 +53,17 @@ export type AuditPage = {
     next_cursor?: string | null;
 };
 
+export type CacheMetrics = {
+    enabled: boolean;
+    fallbacks: number;
+    hits: number;
+    invalidation_failures: number;
+    invalidations: number;
+    misses: number;
+    write_failures: number;
+    writes: number;
+};
+
 export type CreateApiKey = {
     expires_in_days: number;
     name: string;
@@ -1460,6 +1471,27 @@ export type GetProfileResponses = {
 };
 
 export type GetProfileResponse = GetProfileResponses[keyof GetProfileResponses];
+
+export type GetCacheStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/system/cache';
+};
+
+export type GetCacheStatusErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetCacheStatusError = GetCacheStatusErrors[keyof GetCacheStatusErrors];
+
+export type GetCacheStatusResponses = {
+    200: CacheMetrics;
+};
+
+export type GetCacheStatusResponse = GetCacheStatusResponses[keyof GetCacheStatusResponses];
 
 export type GetSystemStatusData = {
     body?: never;
