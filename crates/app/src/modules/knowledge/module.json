@@ -5,7 +5,8 @@
     "knowledge.grants",
     "knowledge.documents",
     "knowledge.attachment_uploads",
-    "knowledge.attachments"
+    "knowledge.attachments",
+    "knowledge.exports"
   ],
   "viewPath": "packages/views/src/knowledge",
   "contractSymbols": [
@@ -38,6 +39,12 @@
     "startAttachmentUpload",
     "completeAttachmentUpload",
     "listAttachments",
-    "getAttachmentDownload"
+    "getAttachmentDownload",
+    "DocumentExport",
+    "ExportPage",
+    "requestDocumentExport",
+    "listDocumentExports",
+    "getDocumentExport",
+    "downloadDocumentExport"
   ]
 }

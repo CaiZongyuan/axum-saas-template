@@ -7,6 +7,7 @@ use aws_sdk_s3::{
 };
 use std::{
     collections::BTreeMap,
+    path::Path,
     time::{Duration, SystemTime},
 };
 
@@ -46,6 +47,11 @@ pub struct ObjectInfo {
     pub metadata: BTreeMap<String, String>,
 }
 
+pub struct FileDigest {
+    pub size: u64,
+    pub sha256: String,
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum StorageError {
     #[error("The signing deadline has expired")]
@@ -78,6 +84,18 @@ pub trait ObjectStorage: Send + Sync {
         target: &ObjectLocation,
     ) -> Result<(), StorageError>;
     async fn read(&self, location: &ObjectLocation, limit: u64) -> Result<Vec<u8>, StorageError>;
+    async fn download_to(
+        &self,
+        location: &ObjectLocation,
+        path: &Path,
+        limit: u64,
+    ) -> Result<FileDigest, StorageError>;
+    async fn put_file_if_absent(
+        &self,
+        location: &ObjectLocation,
+        path: &Path,
+        headers: &UploadHeaders,
+    ) -> Result<(), StorageError>;
     async fn presign_download(
         &self,
         location: &ObjectLocation,
@@ -319,6 +337,88 @@ impl ObjectStorage for S3ObjectStorage {
             bytes.extend_from_slice(&chunk);
         }
         Ok(bytes)
+    }
+
+    async fn download_to(
+        &self,
+        location: &ObjectLocation,
+        path: &Path,
+        limit: u64,
+    ) -> Result<FileDigest, StorageError> {
+        use sha2::{Digest, Sha256};
+        use tokio::io::AsyncWriteExt;
+        let transfer = async {
+            let mut object = self
+                .internal
+                .get_object()
+                .bucket(&location.bucket)
+                .key(&location.key)
+                .send()
+                .await
+                .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
+            if object
+                .content_length()
+                .is_some_and(|length| length < 0 || length as u64 > limit)
+            {
+                return Err(StorageError::TooLarge);
+            }
+            let mut file = tokio::fs::File::create(path)
+                .await
+                .map_err(|_| StorageError::Unavailable)?;
+            let mut received = 0u64;
+            let mut hash = Sha256::new();
+            while let Some(chunk) = object
+                .body
+                .try_next()
+                .await
+                .map_err(|_| StorageError::Unavailable)?
+            {
+                received = received
+                    .checked_add(chunk.len() as u64)
+                    .filter(|size| *size <= limit)
+                    .ok_or(StorageError::TooLarge)?;
+                hash.update(&chunk);
+                file.write_all(&chunk)
+                    .await
+                    .map_err(|_| StorageError::Unavailable)?;
+            }
+            file.flush().await.map_err(|_| StorageError::Unavailable)?;
+            Ok(FileDigest {
+                size: received,
+                sha256: hex::encode(hash.finalize()),
+            })
+        };
+        tokio::time::timeout(Duration::from_secs(120), transfer)
+            .await
+            .map_err(|_| StorageError::Unavailable)?
+    }
+
+    async fn put_file_if_absent(
+        &self,
+        location: &ObjectLocation,
+        path: &Path,
+        headers: &UploadHeaders,
+    ) -> Result<(), StorageError> {
+        let body = aws_sdk_s3::primitives::ByteStream::read_from()
+            .path(path)
+            .buffer_size(64 * 1024)
+            .build()
+            .await
+            .map_err(|_| StorageError::Unavailable)?;
+        self.internal
+            .put_object()
+            .bucket(&location.bucket)
+            .key(&location.key)
+            .if_none_match("*")
+            .content_type(&headers.content_type)
+            .content_encoding("identity")
+            .checksum_sha256(&headers.checksum_sha256)
+            .metadata("upload-id", &headers.upload_id)
+            .body(body)
+            .send()
+            .await
+            .map_err(|error| failure(error.raw_response().map(|r| r.status().as_u16())))?;
+        Ok(())
     }
 
     async fn presign_download(

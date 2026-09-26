@@ -161,6 +161,24 @@ impl ObjectStorage for GatedStorage {
     async fn read(&self, location: &ObjectLocation, limit: u64) -> Result<Vec<u8>, StorageError> {
         self.storage.read(location, limit).await
     }
+    async fn download_to(
+        &self,
+        location: &ObjectLocation,
+        path: &std::path::Path,
+        limit: u64,
+    ) -> Result<saas_platform::object_storage::FileDigest, StorageError> {
+        self.storage.download_to(location, path, limit).await
+    }
+    async fn put_file_if_absent(
+        &self,
+        location: &ObjectLocation,
+        path: &std::path::Path,
+        headers: &UploadHeaders,
+    ) -> Result<(), StorageError> {
+        self.storage
+            .put_file_if_absent(location, path, headers)
+            .await
+    }
     async fn presign_download(
         &self,
         location: &ObjectLocation,

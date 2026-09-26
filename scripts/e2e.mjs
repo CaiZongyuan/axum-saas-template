@@ -7,7 +7,7 @@ import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
 // Remove legacy HTML reports that can contain authentication action arguments.
 rmSync(resolve(root, 'playwright-report'), { recursive: true, force: true });
 
-run('cargo', ['build', '--locked', '-p', 'saas-api', '--bins'], {
+run('cargo', ['build', '--locked', '--workspace', '--bins'], {
   ...process.env,
   CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? '4',
 });
@@ -15,11 +15,13 @@ await withTestPostgres(async ({ name, url }) => {
   await withTestRustfs(async ({ env: storage }) => {
     const apiPort = await freePort();
     const webPort = await freePort();
+    const workerPort = await freePort();
     const env = {
       ...process.env,
       ...storage,
       DATABASE_URL: url,
       APP_BIND: `127.0.0.1:${apiPort}`,
+      WORKER_BIND: `127.0.0.1:${workerPort}`,
       RUST_LOG: 'info',
       VITE_API_PROXY: `http://127.0.0.1:${apiPort}`,
       WEB_PORT: String(webPort),
@@ -33,9 +35,11 @@ await withTestPostgres(async ({ name, url }) => {
     run(resolve(root, 'target/debug/migrate'), [], env);
     run(resolve(root, 'target/debug/bootstrap-storage'), [], env);
     const api = launch(resolve(root, 'target/debug/saas-api'), [], env);
+    const worker = launch(resolve(root, 'target/debug/saas-worker'), [], env);
     let web;
     try {
       await waitFor(`${env.E2E_API_URL}/health/ready`, api);
+      await waitFor(`http://${env.WORKER_BIND}/health/ready`, worker);
       // All journeys start with a known Owner; newly registered accounts are Members.
       // This prevents test-file ordering from changing role expectations.
       const bootstrap = await fetch(`${env.E2E_API_URL}/api/v1/auth/register`, {
@@ -60,7 +64,11 @@ await withTestPostgres(async ({ name, url }) => {
         env,
       );
     } finally {
-      await Promise.all([stop(web), stop(api)]);
+      await Promise.all([
+        stop(web),
+        stop(api),
+        stop(worker, (Number(env.JOB_SHUTDOWN_SECS ?? 10) + 3) * 1000),
+      ]);
     }
   });
 });

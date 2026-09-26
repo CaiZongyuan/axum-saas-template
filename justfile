@@ -17,6 +17,9 @@ db-down:
 migrate:
     node scripts/migrate.mjs
 
+worker:
+    node scripts/worker.mjs
+
 bootstrap-storage:
     node scripts/bootstrap-storage.mjs
 

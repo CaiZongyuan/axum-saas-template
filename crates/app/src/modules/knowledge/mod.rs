@@ -2,7 +2,9 @@ mod application;
 mod attachments;
 mod bases;
 mod domain;
+mod exports;
 mod grants;
+pub use exports::{ExportPolicy, FIELDS as CONFIG_FIELDS, export_handler, process_export};
 mod pagination;
 
 use crate::{
@@ -27,6 +29,7 @@ use utoipa::{OpenApi, ToSchema};
 struct Knowledge {
     pool: PgPool,
     auth: AuthSettings,
+    export_policy: ExportPolicy,
     files: Option<crate::modules::files::FileService>,
 }
 
@@ -99,6 +102,10 @@ pub struct DocumentsQuery {
 enum Failure {
     File(crate::modules::files::Error),
     InvalidName,
+    Unauthorized,
+    ExportTooLarge,
+    ExportExpired,
+    ExportNotReady,
     InvalidVersion,
     VersionConflict,
     InvalidText,
@@ -143,6 +150,26 @@ impl From<crate::modules::idempotency::Error> for Failure {
 impl Failure {
     fn response(self, id: RequestId) -> Response {
         let (status, code, message) = match self {
+            Self::ExportExpired => (
+                StatusCode::GONE,
+                "knowledge.export_expired",
+                "Export has expired",
+            ),
+            Self::ExportNotReady => (
+                StatusCode::CONFLICT,
+                "knowledge.export_not_ready",
+                "Export is not ready to download",
+            ),
+            Self::Unauthorized => (
+                StatusCode::UNAUTHORIZED,
+                "auth.unauthorized",
+                "Sign in to continue",
+            ),
+            Self::ExportTooLarge => (
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "knowledge.export_too_large",
+                "Document export exceeds the configured limits",
+            ),
             Self::File(error) => return error.response(id),
             Self::InvalidName => (
                 StatusCode::BAD_REQUEST,
@@ -222,8 +249,17 @@ pub fn router_with_files(
     auth: AuthSettings,
     files: Option<crate::modules::files::FileService>,
 ) -> Router {
+    router_with_policy(pool, auth, files, ExportPolicy::default())
+}
+pub fn router_with_policy(
+    pool: PgPool,
+    auth: AuthSettings,
+    files: Option<crate::modules::files::FileService>,
+    export_policy: ExportPolicy,
+) -> Router {
     Router::new()
         .merge(attachments::routes())
+        .merge(exports::routes())
         .merge(bases::routes())
         .merge(grants::routes())
         .route(
@@ -235,7 +271,12 @@ pub fn router_with_files(
             get(get_document).put(update_document),
         )
         .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
-        .with_state(Knowledge { pool, auth, files })
+        .with_state(Knowledge {
+            pool,
+            auth,
+            files,
+            export_policy,
+        })
 }
 
 #[utoipa::path(post, path = "/api/v1/knowledge/documents", operation_id = "createDocument", tag = "Knowledge", request_body = CreateDocument, params(("x-csrf-token" = String, Header), ("idempotency-key" = String, Header)), responses((status = 201, body = Document), (status = 400, body = crate::http::ApiErrorResponse), (status = 401, body = crate::http::ApiErrorResponse), (status = 403, body = crate::http::ApiErrorResponse), (status = 408, body = crate::http::ApiErrorResponse), (status = 409, body = crate::http::ApiErrorResponse), (status = 413, body = crate::http::ApiErrorResponse), (status = 503, body = crate::http::ApiErrorResponse)))]
@@ -317,6 +358,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     document.merge(bases::openapi());
     document.merge(grants::openapi());
     document.merge(attachments::openapi());
+    document.merge(exports::openapi());
     document
 }
 

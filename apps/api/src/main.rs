@@ -20,19 +20,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             },
         )
     });
+    let app = saas_api::configured_router(pool.clone(), settings.auth, files)?;
     let listener = tokio::net::TcpListener::bind(settings.bind).await?;
     tracing::info!(address = %listener.local_addr()?, "API listening");
     let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
     // Reference-domain routers will be composed here without changing Core.
     let mut server = Box::pin(
-        axum::serve(
-            listener,
-            saas_api::router_with_files(pool.clone(), settings.auth, files),
-        )
-        .with_graceful_shutdown(async {
-            let _ = shutdown_rx.await;
-        })
-        .into_future(),
+        axum::serve(listener, app)
+            .with_graceful_shutdown(async {
+                let _ = shutdown_rx.await;
+            })
+            .into_future(),
     );
     tokio::select! {
         result = &mut server => result?,

@@ -6,7 +6,7 @@ Rust/Axum + React 的模块化全栈模板，以可移除的知识库 example �
 
 <!-- example:knowledge:readme:start -->
 
-**知识库示例：** 首页点击“我的文档”，即可新建 Markdown、保存、刷新读取。首次写作自动准备个人库；重复请求幂等处理，私有内容按授权访问。支持标题搜索、安全 Markdown 预览与分页；支持显式编辑、版本冲突保护及共享库 Reader/Editor 授权与撤权；支持 RustFS 附件上传、校验、授权下载与 Markdown 图片引用。
+**知识库示例：** 首页点击“我的文档”，即可新建 Markdown、保存、刷新读取。首次写作自动准备个人库；重复请求幂等处理，私有内容按授权访问。支持标题搜索、安全 Markdown 预览与分页；支持显式编辑、版本冲突保护及共享库 Reader/Editor 授权与撤权；支持 RustFS 附件上传、校验、授权下载与 Markdown 图片引用，当前文档可通过真实 Worker 导出 ZIP。
 
 <!-- example:knowledge:readme:end -->
 
@@ -21,9 +21,9 @@ pnpm install --frozen-lockfile
 just dev
 ```
 
-访问 http://127.0.0.1:5173/。PostgreSQL/RustFS 运行在 Docker 中，API/Web 在宿主机运行，支持 API 源码重启与 Web HMR。缺少 `.env` 时使用 `.env.example` 的本地默认值；自定义配置放入不提交的 `.env`。
+访问 http://127.0.0.1:5173/。PostgreSQL/RustFS 运行在 Docker 中，API/Worker/Web 在宿主机运行，支持 API 源码重启与 Web HMR。缺少 `.env` 时使用 `.env.example` 的本地默认值；自定义配置放入不提交的 `.env`。
 
-`Ctrl+C` 停止 API/Web，保留数据；`just services-down` 停止开发 PostgreSQL/RustFS，保留数据卷。
+`Ctrl+C` 停止 API/Worker/Web，保留数据；`just services-down` 停止开发 PostgreSQL/RustFS，保留数据卷。
 
 ## 验证
 

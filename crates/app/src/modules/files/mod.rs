@@ -555,3 +555,105 @@ fn valid_contents(content_type: &str, bytes: &[u8]) -> bool {
         _ => true,
     }
 }
+
+/// Immutable object identity recorded in an authorized business snapshot.
+#[derive(Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct FileSnapshot {
+    pub id: String,
+    pub file_name: String,
+    pub content_type: String,
+    pub size: i64,
+    pub sha256: String,
+    pub bucket: String,
+    pub object_key: String,
+}
+
+pub async fn snapshots(
+    connection: &mut PgConnection,
+    ids: &[String],
+) -> Result<Vec<FileSnapshot>, Error> {
+    let files: Vec<FileSnapshot> = sqlx::query_as("SELECT id::text, file_name, content_type, actual_size AS size, encode(sha256, 'hex') AS sha256, bucket, ready_key AS object_key FROM saas_core.files WHERE id = ANY($1::text[]::uuid[]) AND state = 'ready' ORDER BY id FOR SHARE")
+        .bind(ids).fetch_all(connection).await?;
+    if files.len() != ids.len() {
+        return Err(Error::NotFound);
+    }
+    Ok(files)
+}
+
+impl FileService {
+    /// Only business code supplies this policy; HTTP upload limits stay separate.
+    pub async fn prepare_generated(
+        &self,
+        connection: &mut PgConnection,
+        actor_id: &str,
+        input: &UploadInput,
+        max_bytes: i64,
+        retention_secs: u32,
+    ) -> Result<CompletionAttempt, Error> {
+        let service = Self {
+            policy: FilePolicy {
+                max_bytes,
+                upload_secs: retention_secs,
+                download_secs: self.policy.download_secs,
+            },
+            ..self.clone()
+        };
+        let upload = service.start(connection, actor_id, input).await?;
+        match service.plan_completion(connection, &upload.id).await? {
+            CompletionPlan::Attempt(attempt) => Ok(attempt),
+            _ => Err(Error::Unavailable),
+        }
+    }
+
+    pub async fn download_snapshot(
+        &self,
+        snapshot: &FileSnapshot,
+        path: &std::path::Path,
+    ) -> Result<(), Error> {
+        let digest = self
+            .storage
+            .download_to(
+                &ObjectLocation {
+                    bucket: snapshot.bucket.clone(),
+                    key: snapshot.object_key.clone(),
+                },
+                path,
+                snapshot.size as u64,
+            )
+            .await?;
+        if digest.size != snapshot.size as u64 || digest.sha256 != snapshot.sha256 {
+            return Err(Error::Rejected);
+        }
+        Ok(())
+    }
+
+    /// The private artifact is complete and immutable before this conditional write begins.
+    pub async fn write_generated(
+        &self,
+        attempt: &CompletionAttempt,
+        path: &std::path::Path,
+    ) -> Result<VerifiedCandidate, Error> {
+        self.storage
+            .put_file_if_absent(
+                &attempt.target,
+                path,
+                &UploadHeaders {
+                    content_type: attempt.upload.content_type.clone(),
+                    upload_id: attempt.upload.id.clone(),
+                    checksum_sha256: STANDARD.encode(&attempt.upload.sha256),
+                },
+            )
+            .await?;
+        let actual = self.storage.head(&attempt.target).await?;
+        if actual.size != attempt.upload.declared_size as u64
+            || actual.content_type != attempt.upload.content_type
+            || actual.metadata.get("upload-id") != Some(&attempt.upload.id)
+        {
+            return Err(Error::Rejected);
+        }
+        Ok(VerifiedCandidate {
+            attempt: attempt.clone(),
+            size: actual.size as i64,
+        })
+    }
+}

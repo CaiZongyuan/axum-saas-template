@@ -477,3 +477,41 @@ pub async fn require_session(
         _ => Err(failure(id)),
     }
 }
+
+/// A durable identity reference, never the session secret or its hash.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CredentialRef {
+    Session { id: String },
+}
+
+/// Capture only an active credential belonging to the already authorized actor.
+pub async fn background_credential(
+    connection: &mut sqlx::PgConnection,
+    settings: &AuthSettings,
+    headers: &HeaderMap,
+    user_id: &str,
+) -> Result<Option<CredentialRef>, sqlx::Error> {
+    let Some(secret) = cookie_secret(headers, settings) else {
+        return Ok(None);
+    };
+    let id: Option<String> = sqlx::query_scalar("SELECT id::text FROM saas_core.sessions WHERE secret_hash = $1 AND user_id = $2::uuid AND NOT revoked AND expires_at > clock_timestamp() AND last_seen_at > clock_timestamp() - make_interval(secs => $3) FOR SHARE")
+        .bind(crypto::secret_hash(secret)).bind(user_id).bind(f64::from(settings.idle_secs)).fetch_optional(connection).await?;
+    Ok(id.map(|id| CredentialRef::Session { id }))
+}
+
+/// Does not extend the original credential's lifetime when a background job runs.
+pub async fn credential_is_current(
+    connection: &mut sqlx::PgConnection,
+    settings: &AuthSettings,
+    user_id: &str,
+    credential: &CredentialRef,
+) -> Result<bool, sqlx::Error> {
+    match credential {
+        CredentialRef::Session { id } => {
+            let id: Option<String> = sqlx::query_scalar("SELECT id::text FROM saas_core.sessions WHERE id = $1::uuid AND user_id = $2::uuid AND NOT revoked AND expires_at > clock_timestamp() AND last_seen_at > clock_timestamp() - make_interval(secs => $3) FOR SHARE")
+                .bind(id).bind(user_id).bind(f64::from(settings.idle_secs)).fetch_optional(connection).await?;
+            Ok(id.is_some())
+        }
+    }
+}

@@ -61,6 +61,9 @@ function open(
   markdown = document.markdown,
 ) {
   server.use(
+    http.get('http://api.test/api/v1/knowledge/documents/:id/exports', () =>
+      HttpResponse.json({ data: [], next_cursor: null, has_more: false }),
+    ),
     http.get('http://api.test/api/v1/auth/session', () =>
       HttpResponse.json(identity),
     ),

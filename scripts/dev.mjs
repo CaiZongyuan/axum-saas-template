@@ -15,34 +15,38 @@ let api = launch(
   ['run', '--locked', '-p', 'saas-api', '--bin', 'saas-api'],
   env,
 );
+let worker = launch('cargo', ['run', '--locked', '-p', 'saas-worker'], env);
+const workerGrace = (Number(env.JOB_SHUTDOWN_SECS ?? 10) + 3) * 1000;
 const web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);
 let closing = false;
 let restarting = false;
 let changed = false;
 let debounce;
 
-async function restartApi() {
+async function restartRust() {
   changed = true;
   if (restarting || closing) return;
   restarting = true;
   while (changed && !closing) {
     changed = false;
-    await stop(api);
-    if (!closing)
+    await Promise.all([stop(api), stop(worker, workerGrace)]);
+    if (!closing) {
+      worker = launch('cargo', ['run', '--locked', '-p', 'saas-worker'], env);
       api = launch(
         'cargo',
         ['run', '--locked', '-p', 'saas-api', '--bin', 'saas-api'],
         env,
       );
+    }
   }
   restarting = false;
 }
-const watchers = ['crates', 'apps/api'].map((directory) =>
+const watchers = ['crates', 'apps/api', 'apps/worker'].map((directory) =>
   watch(join(root, directory), { recursive: true }, (_event, name) => {
     if (!name || !/\.(rs|toml)$/.test(name)) return;
     clearTimeout(debounce);
     debounce = setTimeout(() => {
-      void restartApi();
+      void restartRust();
     }, 150);
   }),
 );
@@ -52,9 +56,9 @@ async function close() {
   closing = true;
   clearTimeout(debounce);
   watchers.forEach((watcher) => watcher.close());
-  await Promise.all([stop(api), stop(web)]);
+  await Promise.all([stop(api), stop(worker, workerGrace), stop(web)]);
   console.log(
-    'API and Web stopped. Data is preserved; use just services-down to stop PostgreSQL/RustFS.',
+    'API, Worker and Web stopped. Data is preserved; use just services-down to stop PostgreSQL/RustFS.',
   );
 }
 process.once('SIGINT', () => {
@@ -67,5 +71,5 @@ web.once('exit', () => {
   if (!closing) void close();
 });
 console.log(
-  `Web: http://127.0.0.1:${env.WEB_PORT ?? 5173} | API: http://${env.APP_BIND} | docs: just docs`,
+  `Web: http://127.0.0.1:${env.WEB_PORT ?? 5173} | API: http://${env.APP_BIND} | Worker: http://${env.WORKER_BIND} | docs: just docs`,
 );

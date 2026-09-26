@@ -38,7 +38,7 @@ export function launch(command, args, env) {
   });
 }
 
-export async function stop(child) {
+export async function stop(child, graceMs = 5_000) {
   if (!child?.pid) return;
   const alive = () => {
     if (process.platform === 'win32')
@@ -61,7 +61,7 @@ export async function stop(child) {
   };
   if (!alive()) return;
   signal('SIGTERM');
-  const deadline = performance.now() + 5_000;
+  const deadline = performance.now() + graceMs;
   while (alive() && performance.now() < deadline) await delay(25);
   // A wrapper exiting does not prove its process group has stopped.
   if (alive()) signal('SIGKILL');
