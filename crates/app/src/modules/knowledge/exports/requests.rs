@@ -107,10 +107,14 @@ pub(super) async fn create(
                 .bind(&export_id).bind(document_id.to_string()).bind(actor_id).bind(credential).bind(job_id).bind(version).bind(snapshot).bind(f64::from(policy.retention_secs)).execute(&mut *tx).await?;
         audit::append(
             &mut tx,
-            actor_id,
-            "knowledge.export.request",
-            &export_id,
-            request_id,
+            audit::Event {
+                actor_id,
+                action: "knowledge.export.request",
+                resource_type: "knowledge.export",
+                resource_id: &export_id,
+                source: audit::Source::Request(request_id),
+                subject_user_id: None,
+            },
         )
         .await?;
         idempotency::complete(

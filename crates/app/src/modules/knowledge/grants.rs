@@ -194,14 +194,18 @@ async fn change(
     if result.rows_affected() > 0 {
         audit::append(
             &mut tx,
-            actor_id,
-            if access.is_some() {
-                "knowledge.grant.assign"
-            } else {
-                "knowledge.grant.revoke"
+            audit::Event {
+                actor_id,
+                action: if access.is_some() {
+                    "knowledge.grant.assign"
+                } else {
+                    "knowledge.grant.revoke"
+                },
+                resource_type: "knowledge.grant",
+                resource_id: &base_id.to_string(),
+                source: audit::Source::Request(request_id),
+                subject_user_id: Some(&target.to_string()),
             },
-            &base_id.to_string(),
-            request_id,
         )
         .await?;
     }

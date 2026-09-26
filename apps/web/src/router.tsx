@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
 import {
+  AuditView,
   NotificationsView,
   type NotificationTargetResolver,
   StatusView,
@@ -66,9 +67,14 @@ function HomePage() {
       apiClient={apiClient}
       docsUrl={docsUrl}
       adminActions={
-        <a href="/jobs" className="text-sm underline">
-          后台任务
-        </a>
+        <>
+          <a href="/jobs" className="text-sm underline">
+            后台任务
+          </a>
+          <a href="/audit" className="text-sm underline">
+            审计记录
+          </a>
+        </>
       }
     >
       <a href="/notifications" className="text-sm underline">
@@ -173,6 +179,23 @@ const jobRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs/$jobId',
   component: JobPage,
+});
+function AuditPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <AuditView
+      apiClient={apiClient}
+      onBack={() => {
+        void navigate({ to: '/' });
+      }}
+    />
+  );
+}
+const auditRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/audit',
+  component: AuditPage,
 });
 function NotificationsPage() {
   const { apiClient } = rootRoute.useRouteContext();
@@ -446,6 +469,7 @@ const routeTree = rootRoute.addChildren([
   newDocumentRoute,
   documentRoute,
   // example:knowledge:route-tree:end
+  auditRoute,
   notificationsRoute,
   loginRoute,
   membersRoute,

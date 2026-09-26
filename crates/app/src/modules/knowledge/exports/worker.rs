@@ -195,7 +195,7 @@ pub async fn process_export(
                 _ => return Err(JobError::Permanent("knowledge.export_publication_conflict")),
             };
             sqlx::query("UPDATE knowledge.exports SET file_id = $2::uuid, updated_at = now() WHERE id = $1::uuid").bind(&export_id).bind(&file.id).execute(&mut *tx).await?;
-            audit::append(&mut tx, &work.requested_by, "knowledge.export.complete", &export_id, &lease.correlation_id).await?;
+            audit::append(&mut tx, audit::Event { actor_id: &work.requested_by, action: "knowledge.export.complete", resource_type: "knowledge.export", resource_id: &export_id, source: audit::Source::Job { id: &lease.id, correlation_id: &lease.correlation_id }, subject_user_id: None }).await?;
             lease.succeed(&mut tx).await?;
             tx.commit().await?;
             Ok::<_, JobError>(())

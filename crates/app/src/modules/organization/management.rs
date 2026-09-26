@@ -312,10 +312,14 @@ async fn update(
     }
     audit::append(
         &mut tx,
-        actor_id,
-        "organization.member.update",
-        target,
-        request_id,
+        audit::Event {
+            actor_id,
+            action: "organization.member.update",
+            resource_type: "organization.member",
+            resource_id: target,
+            source: audit::Source::Request(request_id),
+            subject_user_id: None,
+        },
     )
     .await?;
     let profile = identity::profiles(&mut tx, &[target.to_owned()])

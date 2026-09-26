@@ -66,10 +66,14 @@ async fn request_deletion(
     queue_document_cleanup(&mut tx, &document.to_string(), request_id).await?;
     audit::append(
         &mut tx,
-        actor,
-        "knowledge.document.delete",
-        &document.to_string(),
-        request_id,
+        audit::Event {
+            actor_id: actor,
+            action: "knowledge.document.delete",
+            resource_type: "knowledge.document",
+            resource_id: &document.to_string(),
+            source: audit::Source::Request(request_id),
+            subject_user_id: None,
+        },
     )
     .await?;
     tx.commit().await?;
@@ -214,10 +218,14 @@ async fn request_base_deletion(
     sqlx::query("UPDATE knowledge.knowledge_bases SET deleted_at = clock_timestamp(), cleanup_job_id = $2::uuid WHERE id = $1::uuid").bind(base.to_string()).bind(job).execute(&mut *tx).await?;
     audit::append(
         &mut tx,
-        actor,
-        "knowledge.base.delete",
-        &base.to_string(),
-        correlation,
+        audit::Event {
+            actor_id: actor,
+            action: "knowledge.base.delete",
+            resource_type: "knowledge.base",
+            resource_id: &base.to_string(),
+            source: audit::Source::Request(correlation),
+            subject_user_id: None,
+        },
     )
     .await?;
     tx.commit().await?;

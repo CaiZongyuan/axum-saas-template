@@ -26,6 +26,27 @@ export type AttachmentPage = {
     next_cursor?: string | null;
 };
 
+export type AuditEvent = {
+    action: string;
+    actor_id?: string | null;
+    actor_type: string;
+    correlation_id: string;
+    created_at: string;
+    id: string;
+    job_id?: string | null;
+    metadata: Metadata;
+    request_id?: string | null;
+    resource_id: string;
+    resource_type: string;
+    trace_id?: string | null;
+};
+
+export type AuditPage = {
+    data: Array<AuditEvent>;
+    has_more: boolean;
+    next_cursor?: string | null;
+};
+
 export type CreateDocument = {
     knowledge_base_id?: string | null;
     markdown: string;
@@ -225,6 +246,10 @@ export type MemberPage = {
 
 export type MemberRole = 'owner' | 'admin' | 'member';
 
+export type Metadata = {
+    subject_user_id?: string | null;
+};
+
 export type Notification = {
     created_at: string;
     id: string;
@@ -312,6 +337,38 @@ export type UploadInput = {
     sha256: string;
     size: number;
 };
+
+export type ListAuditEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        resource_id?: string;
+        action?: string;
+        request_id?: string;
+        resource_type?: string;
+        actor_id?: string;
+        correlation_id?: string;
+        job_id?: string;
+        limit?: number;
+        cursor?: string;
+    };
+    url: '/api/v1/audit-events';
+};
+
+export type ListAuditEventsErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListAuditEventsError = ListAuditEventsErrors[keyof ListAuditEventsErrors];
+
+export type ListAuditEventsResponses = {
+    200: AuditPage;
+};
+
+export type ListAuditEventsResponse = ListAuditEventsResponses[keyof ListAuditEventsResponses];
 
 export type LoginUserData = {
     body: Login;
