@@ -1,3 +1,6 @@
+mod administration;
+mod management;
+pub use management::{openapi, router};
 mod worker;
 use serde::Serialize;
 use serde_json::Value;
@@ -7,6 +10,7 @@ pub use worker::{FIELDS, Handler, Worker, WorkerPolicy, worker_bind};
 pub struct NewJob<'a> {
     pub kind: &'a str,
     pub schema_version: i32,
+    pub max_attempts: i32,
     pub payload: Value,
     pub correlation_id: &'a str,
 }
@@ -17,8 +21,9 @@ pub async fn enqueue(
     job: NewJob<'_>,
 ) -> Result<String, sqlx::Error> {
     let id = uuid::Uuid::now_v7().to_string();
-    sqlx::query("INSERT INTO saas_core.jobs (id, kind, schema_version, payload, correlation_id) VALUES ($1::uuid, $2, $3, $4, $5)")
-        .bind(&id).bind(job.kind).bind(job.schema_version).bind(job.payload).bind(job.correlation_id).execute(connection).await?;
+    sqlx::query("INSERT INTO saas_core.jobs (id, kind, schema_version, payload, correlation_id, max_attempts) VALUES ($1::uuid, $2, $3, $4, $5, $6)")
+        .bind(&id).bind(job.kind).bind(job.schema_version).bind(job.payload).bind(job.correlation_id).bind(job.max_attempts).execute(&mut *connection).await?;
+    sqlx::query("INSERT INTO saas_core.job_batches (job_id, number, max_attempts, status) SELECT id, 1, max_attempts, 'queued' FROM saas_core.jobs WHERE id = $1::uuid").bind(&id).execute(connection).await?;
     Ok(id)
 }
 
@@ -45,6 +50,8 @@ pub struct Lease {
     pub payload: Value,
     pub lease_token: String,
     pub correlation_id: String,
+    pub batch: i32,
+    pub attempt: i32,
 }
 
 #[derive(Debug)]
@@ -66,10 +73,19 @@ pub async fn claim(
     lease_secs: u32,
 ) -> Result<Option<Lease>, sqlx::Error> {
     let mut tx = pool.begin().await?;
-    sqlx::query("UPDATE saas_core.jobs SET status = 'failed', last_error = 'jobs.attempts_exhausted', updated_at = now() WHERE id IN (SELECT id FROM saas_core.jobs WHERE status = 'running' AND lease_expires_at <= clock_timestamp() AND attempts >= max_attempts AND kind = ANY($1) ORDER BY lease_expires_at, id FOR UPDATE SKIP LOCKED LIMIT 25)")
-        .bind(kinds).execute(&mut *tx).await?;
-    let lease = sqlx::query_as("WITH candidate AS (SELECT id FROM saas_core.jobs WHERE kind = ANY($1) AND attempts < max_attempts AND ((status IN ('queued', 'retry_wait') AND scheduled_at <= clock_timestamp()) OR (status = 'running' AND lease_expires_at <= clock_timestamp())) ORDER BY scheduled_at, id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE saas_core.jobs j SET status = 'running', lease_token = $2::uuid, locked_by = $3, lease_expires_at = clock_timestamp() + make_interval(secs => $4), attempts = attempts + 1, updated_at = now() FROM candidate c WHERE j.id = c.id RETURNING j.id::text, j.kind, j.schema_version, j.payload, j.lease_token::text, j.correlation_id")
+    let exhausted: Vec<(String, String)> = sqlx::query_as("UPDATE saas_core.jobs SET status = 'failed', last_error = 'jobs.attempts_exhausted', updated_at = now() WHERE id IN (SELECT id FROM saas_core.jobs WHERE status = 'running' AND lease_expires_at <= clock_timestamp() AND attempts >= max_attempts AND kind = ANY($1) ORDER BY lease_expires_at, id FOR UPDATE SKIP LOCKED LIMIT 25) RETURNING id::text, lease_token::text")
+        .bind(kinds).fetch_all(&mut *tx).await?;
+    for (id, token) in exhausted {
+        sqlx::query("UPDATE saas_core.job_attempts SET status = 'lease_expired', last_error = 'jobs.lease_expired', ended_at = clock_timestamp() WHERE lease_token = $1::uuid AND status = 'running'").bind(token).execute(&mut *tx).await?;
+        sqlx::query("UPDATE saas_core.job_batches b SET status = 'failed', last_error = 'jobs.attempts_exhausted', ended_at = clock_timestamp() FROM saas_core.jobs j WHERE j.id = $1::uuid AND b.job_id = j.id AND b.number = j.batch").bind(id).execute(&mut *tx).await?;
+    }
+    let lease: Option<Lease> = sqlx::query_as("WITH candidate AS (SELECT id FROM saas_core.jobs WHERE kind = ANY($1) AND attempts < max_attempts AND ((status IN ('queued', 'retry_wait') AND scheduled_at <= clock_timestamp()) OR (status = 'running' AND lease_expires_at <= clock_timestamp())) ORDER BY scheduled_at, id FOR UPDATE SKIP LOCKED LIMIT 1) UPDATE saas_core.jobs j SET status = 'running', lease_token = $2::uuid, locked_by = $3, lease_expires_at = clock_timestamp() + make_interval(secs => $4), attempts = attempts + 1, updated_at = now() FROM candidate c WHERE j.id = c.id RETURNING j.id::text, j.kind, j.schema_version, j.payload, j.lease_token::text, j.correlation_id, j.batch, j.attempts AS attempt")
         .bind(kinds).bind(uuid::Uuid::now_v7().to_string()).bind(worker).bind(f64::from(lease_secs)).fetch_optional(&mut *tx).await?;
+    if let Some(lease) = &lease {
+        sqlx::query("UPDATE saas_core.job_attempts SET status = 'lease_expired', last_error = 'jobs.lease_expired', ended_at = clock_timestamp() WHERE job_id = $1::uuid AND status = 'running'").bind(&lease.id).execute(&mut *tx).await?;
+        sqlx::query("INSERT INTO saas_core.job_attempts (job_id, batch, number, lease_token, worker_id, status, lease_expires_at) SELECT id, batch, attempts, lease_token, locked_by, 'running', lease_expires_at FROM saas_core.jobs WHERE id = $1::uuid").bind(&lease.id).execute(&mut *tx).await?;
+        sqlx::query("UPDATE saas_core.job_batches SET status = 'running', attempts = $3, last_error = NULL WHERE job_id = $1::uuid AND number = $2").bind(&lease.id).bind(lease.batch).bind(lease.attempt).execute(&mut *tx).await?;
+    }
     tx.commit().await?;
     Ok(lease)
 }
@@ -83,21 +99,36 @@ impl Lease {
     }
     pub async fn succeed(&self, connection: &mut PgConnection) -> Result<(), JobError> {
         let done = sqlx::query("UPDATE saas_core.jobs SET status = 'succeeded', last_error = NULL, updated_at = now() WHERE id = $1::uuid AND status = 'running' AND lease_token = $2::uuid AND lease_expires_at > clock_timestamp()")
-            .bind(&self.id).bind(&self.lease_token).execute(connection).await?;
-        if done.rows_affected() == 1 {
-            Ok(())
-        } else {
-            Err(JobError::LostLease)
+            .bind(&self.id).bind(&self.lease_token).execute(&mut *connection).await?;
+        if done.rows_affected() != 1 {
+            return Err(JobError::LostLease);
         }
+        self.record_outcome(connection, "succeeded", None).await?;
+        Ok(())
+    }
+    async fn record_outcome(
+        &self,
+        connection: &mut PgConnection,
+        status: &str,
+        error: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("UPDATE saas_core.job_attempts SET status = $2, last_error = $3, ended_at = clock_timestamp() WHERE lease_token = $1::uuid AND status = 'running'")
+            .bind(&self.lease_token).bind(status).bind(error).execute(&mut *connection).await?;
+        sqlx::query("UPDATE saas_core.job_batches SET status = $3, last_error = $4, ended_at = CASE WHEN $3 IN ('succeeded', 'failed') THEN clock_timestamp() ELSE NULL END WHERE job_id = $1::uuid AND number = $2")
+            .bind(&self.id).bind(self.batch).bind(status).bind(error).execute(connection).await?;
+        Ok(())
     }
     pub async fn heartbeat(&self, pool: &sqlx::PgPool, lease_secs: u32) -> Result<(), JobError> {
+        let mut tx = pool.begin().await?;
         let renewed = sqlx::query("UPDATE saas_core.jobs SET lease_expires_at = clock_timestamp() + make_interval(secs => $3), updated_at = now() WHERE id = $1::uuid AND status = 'running' AND lease_token = $2::uuid AND lease_expires_at > clock_timestamp()")
-            .bind(&self.id).bind(&self.lease_token).bind(f64::from(lease_secs)).execute(pool).await?;
-        if renewed.rows_affected() == 1 {
-            Ok(())
-        } else {
-            Err(JobError::LostLease)
+            .bind(&self.id).bind(&self.lease_token).bind(f64::from(lease_secs)).execute(&mut *tx).await?;
+        if renewed.rows_affected() != 1 {
+            return Err(JobError::LostLease);
         }
+        sqlx::query("UPDATE saas_core.job_attempts a SET lease_expires_at = j.lease_expires_at FROM saas_core.jobs j WHERE j.id = $1::uuid AND a.lease_token = j.lease_token")
+            .bind(&self.id).execute(&mut *tx).await?;
+        tx.commit().await?;
+        Ok(())
     }
     /// Only safe, static codes enter the persisted error summary.
     pub async fn fail(&self, pool: &sqlx::PgPool, error: &JobError) -> Result<(), sqlx::Error> {
@@ -106,8 +137,13 @@ impl Lease {
             JobError::Transient(code) => (*code, true),
             JobError::LostLease => return Ok(()),
         };
-        sqlx::query("UPDATE saas_core.jobs SET status = CASE WHEN $4 AND attempts < max_attempts THEN 'retry_wait' ELSE 'failed' END, scheduled_at = clock_timestamp() + make_interval(secs => random() * LEAST(900.0, power(2.0, attempts))), last_error = $3, updated_at = now() WHERE id = $1::uuid AND status = 'running' AND lease_token = $2::uuid AND lease_expires_at > clock_timestamp()")
-            .bind(&self.id).bind(&self.lease_token).bind(code).bind(transient).execute(pool).await?;
+        let mut tx = pool.begin().await?;
+        let status: Option<String> = sqlx::query_scalar("UPDATE saas_core.jobs SET status = CASE WHEN $4 AND attempts < max_attempts THEN 'retry_wait' ELSE 'failed' END, scheduled_at = clock_timestamp() + make_interval(secs => random() * LEAST(900.0, power(2.0, attempts))), last_error = $3, updated_at = now() WHERE id = $1::uuid AND status = 'running' AND lease_token = $2::uuid AND lease_expires_at > clock_timestamp() RETURNING status")
+            .bind(&self.id).bind(&self.lease_token).bind(code).bind(transient).fetch_optional(&mut *tx).await?;
+        if let Some(status) = status {
+            self.record_outcome(&mut tx, &status, Some(code)).await?;
+        }
+        tx.commit().await?;
         Ok(())
     }
 }

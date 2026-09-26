@@ -72,6 +72,7 @@ pub(super) async fn create(
             jobs::NewJob {
                 kind: "knowledge.export",
                 schema_version: 1,
+                max_attempts: policy.max_attempts,
                 payload: serde_json::to_value(ExportPayload {
                     export_id: export_id.clone(),
                 })

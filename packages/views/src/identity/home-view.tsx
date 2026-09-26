@@ -18,10 +18,12 @@ export function HomeView({
   apiClient,
   docsUrl,
   children,
+  adminActions,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
   children?: ReactNode;
+  adminActions?: ReactNode;
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
@@ -87,6 +89,9 @@ export function HomeView({
             <>
               <p>{user.email}</p>
               {children}
+              {user.role === 'owner' || user.role === 'admin'
+                ? adminActions
+                : null}
               <Badge variant="secondary">
                 {
                   { owner: '企业所有者', admin: '管理员', member: '成员' }[

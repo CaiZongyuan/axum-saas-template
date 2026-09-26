@@ -13,6 +13,8 @@ import {
   HomeView,
   LoginView,
   MembersView,
+  JobsView,
+  JobView,
 } from '@saas/views';
 // example:knowledge:imports:start
 import { browserFileTransfer } from './knowledge-files';
@@ -57,7 +59,15 @@ function RegistrationPage() {
 function HomePage() {
   const { apiClient, docsUrl } = rootRoute.useRouteContext();
   return (
-    <HomeView apiClient={apiClient} docsUrl={docsUrl}>
+    <HomeView
+      apiClient={apiClient}
+      docsUrl={docsUrl}
+      adminActions={
+        <a href="/jobs" className="text-sm underline">
+          后台任务
+        </a>
+      }
+    >
       <a href="/members" className="text-sm underline">
         企业成员
       </a>
@@ -118,6 +128,45 @@ const membersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/members',
   component: MembersPage,
+});
+function JobsPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <JobsView
+      apiClient={apiClient}
+      onBack={() => {
+        void navigate({ to: '/' });
+      }}
+      onOpenJob={(jobId) => {
+        void navigate({ to: '/jobs/$jobId', params: { jobId } });
+      }}
+    />
+  );
+}
+const jobsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/jobs',
+  component: JobsPage,
+});
+function JobPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const { jobId } = jobRoute.useParams();
+  const navigate = useNavigate();
+  return (
+    <JobView
+      apiClient={apiClient}
+      jobId={jobId}
+      onBack={() => {
+        void navigate({ to: '/jobs' });
+      }}
+    />
+  );
+}
+const jobRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/jobs/$jobId',
+  component: JobPage,
 });
 // example:knowledge:routes:start
 function KnowledgeBasePage() {
@@ -332,6 +381,8 @@ const routeTree = rootRoute.addChildren([
   // example:knowledge:route-tree:end
   loginRoute,
   membersRoute,
+  jobsRoute,
+  jobRoute,
   homeRoute,
   registrationRoute,
   statusRoute,

@@ -1,1 +1,8 @@
-{ "kind": "core", "tables": ["saas_core.jobs"] }
+{
+  "kind": "core",
+  "tables": [
+    "saas_core.jobs",
+    "saas_core.job_batches",
+    "saas_core.job_attempts"
+  ]
+}

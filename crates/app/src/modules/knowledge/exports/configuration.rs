@@ -2,6 +2,12 @@ use saas_platform::config::{ConfigError, Setting, bounded_u32};
 
 pub const FIELDS: &[Setting] = &[
     Setting {
+        name: "EXPORT_JOB_MAX_ATTEMPTS",
+        default: Some("5"),
+        secret: false,
+        description: "Finite attempt budget per export execution batch (1..20).",
+    },
+    Setting {
         name: "EXPORT_MAX_ATTACHMENTS",
         default: Some("100"),
         secret: false,
@@ -34,6 +40,7 @@ pub const FIELDS: &[Setting] = &[
 ];
 #[derive(Clone)]
 pub struct ExportPolicy {
+    pub max_attempts: i32,
     pub max_attachments: u32,
     pub max_input_bytes: i64,
     pub max_output_bytes: u64,
@@ -43,6 +50,7 @@ pub struct ExportPolicy {
 impl Default for ExportPolicy {
     fn default() -> Self {
         Self {
+            max_attempts: 5,
             max_attachments: 100,
             max_input_bytes: 256 * 1024 * 1024,
             max_output_bytes: 272 * 1024 * 1024,
@@ -54,11 +62,12 @@ impl Default for ExportPolicy {
 impl ExportPolicy {
     pub fn from_env() -> Result<Self, ConfigError> {
         Ok(Self {
-            max_attachments: bounded_u32(&FIELDS[0], 0, 1000)?,
-            max_input_bytes: i64::from(bounded_u32(&FIELDS[1], 1, 1073741824)?),
-            max_output_bytes: u64::from(bounded_u32(&FIELDS[2], 1024, 1107296256)?),
-            retention_secs: bounded_u32(&FIELDS[3], 60, 604800)?,
-            timeout_secs: bounded_u32(&FIELDS[4], 1, 600)?,
+            max_attempts: bounded_u32(&FIELDS[0], 1, 20)? as i32,
+            max_attachments: bounded_u32(&FIELDS[1], 0, 1000)?,
+            max_input_bytes: i64::from(bounded_u32(&FIELDS[2], 1, 1073741824)?),
+            max_output_bytes: u64::from(bounded_u32(&FIELDS[3], 1024, 1107296256)?),
+            retention_secs: bounded_u32(&FIELDS[4], 60, 604800)?,
+            timeout_secs: bounded_u32(&FIELDS[5], 1, 600)?,
         })
     }
 }
