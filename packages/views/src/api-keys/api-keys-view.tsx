@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState } from 'react';
 import {
   useInfiniteQuery,
@@ -54,6 +55,7 @@ function Failure({
         {creation
           ? '请刷新列表确认是否已创建；若已有记录但未取得密钥，请撤销后重新创建。'
           : '请检查当前会话和输入后重试。'}
+        <RateLimitHint error={error} />
         {id ? <p>请求编号：{id}</p> : null}
       </AlertDescription>
     </Alert>

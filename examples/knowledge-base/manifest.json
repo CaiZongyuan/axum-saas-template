@@ -43,7 +43,6 @@
     "apps/api/tests/key_documents.rs",
     "docs/tutorials/15-api-keys.md",
     "apps/api/tests/cached_documents.rs",
-    "apps/api/tests/support/redis_gate.rs",
     "docs/tutorials/16-versioned-cache.md",
     "docs/research/redis-cache-runtime.md"
   ],

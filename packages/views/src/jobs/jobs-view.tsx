@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useRef, useState, type ReactNode } from 'react';
 import {
   useInfiniteQuery,
@@ -59,6 +60,7 @@ function Failure({ error }: { error: unknown }) {
       <AlertTitle>任务操作未完成</AlertTitle>
       <AlertDescription>
         {messages[code(error) ?? ''] ?? '暂时无法完成，请重试。'}
+        <RateLimitHint error={error} />
         {id ? <p>请求编号：{id}</p> : null}
       </AlertDescription>
     </Alert>

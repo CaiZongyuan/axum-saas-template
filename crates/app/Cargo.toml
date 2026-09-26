@@ -31,6 +31,7 @@ pulldown-cmark.workspace = true
 pulldown-cmark-to-cmark.workspace = true
 
 [dev-dependencies]
+url.workspace = true
 http-body-util.workspace = true
 serde_json.workspace = true
 tower.workspace = true

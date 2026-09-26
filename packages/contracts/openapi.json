@@ -69,6 +69,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -147,6 +164,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -179,6 +213,23 @@
           },
           "401": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -250,6 +301,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -402,6 +470,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -492,6 +577,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -538,6 +640,23 @@
           },
           "403": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -636,6 +755,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -668,6 +804,23 @@
           },
           "401": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -767,6 +920,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -849,6 +1019,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -963,6 +1150,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -1028,6 +1232,23 @@
           },
           "401": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1152,6 +1373,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -1214,6 +1452,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1338,6 +1593,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -1409,6 +1681,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1510,6 +1799,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1644,6 +1950,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -1723,6 +2046,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1837,6 +2177,23 @@
           },
           "403": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1961,6 +2318,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -2045,6 +2419,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2179,6 +2570,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -2250,6 +2658,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2349,6 +2774,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -2438,6 +2880,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -2516,6 +2975,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2617,6 +3093,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2739,6 +3232,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -2819,6 +3329,23 @@
           },
           "404": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2927,6 +3454,23 @@
           },
           "410": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3081,6 +3625,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -3217,6 +3778,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -3290,6 +3868,23 @@
           },
           "401": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3376,6 +3971,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -3451,6 +4063,23 @@
           },
           "403": {
             "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3597,6 +4226,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -3661,6 +4307,23 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -3711,6 +4374,90 @@
               }
             }
           },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/system/rate-limits": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "operationId": "getRateLimitStatus",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RateLimitMetrics"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "",
             "content": {
@@ -3737,6 +4484,23 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/SystemStatus"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Request budget exceeded; retry after the specified seconds",
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
                 }
               }
             }
@@ -5093,6 +5857,97 @@
           "succeeded",
           "failed"
         ]
+      },
+      "PolicyMetrics": {
+        "type": "object",
+        "required": [
+          "policy",
+          "limit",
+          "fallback_limit",
+          "redis_allowed",
+          "redis_denied",
+          "local_allowed",
+          "local_denied",
+          "fallbacks"
+        ],
+        "properties": {
+          "fallback_limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "fallbacks": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "local_allowed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "local_denied": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "policy": {
+            "type": "string"
+          },
+          "redis_allowed": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "redis_denied": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "RateLimitMetrics": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "redis_configured",
+          "window_secs",
+          "local_entries",
+          "local_capacity",
+          "policies"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "local_capacity": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "local_entries": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "policies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicyMetrics"
+            }
+          },
+          "redis_configured": {
+            "type": "boolean"
+          },
+          "window_secs": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
       },
       "Registration": {
         "type": "object",

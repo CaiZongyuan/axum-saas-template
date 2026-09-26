@@ -17,8 +17,8 @@ pub struct RedisGate {
     task: JoinHandle<()>,
 }
 impl RedisGate {
-    pub async fn new() -> Self {
-        let destination = reqwest::Url::parse(&std::env::var("REDIS_URL").unwrap()).unwrap();
+    pub async fn new(target: &'static [u8]) -> Self {
+        let destination = url::Url::parse(&std::env::var("REDIS_URL").unwrap()).unwrap();
         let destination = format!(
             "{}:{}",
             destination.host_str().unwrap(),
@@ -44,7 +44,7 @@ impl RedisGate {
                             let forward=async {
                                 let mut reader=BufReader::new(front_read);
                                 while let Ok(Some((name,command)))=command(&mut reader).await {
-                                    if name.eq_ignore_ascii_case(b"GET")&&first_get.swap(false,Ordering::SeqCst) {
+                                    if name.eq_ignore_ascii_case(target)&&first_get.swap(false,Ordering::SeqCst) {
                                         entered.notify_one();release.notified().await;
                                     }
                                     back_write.write_all(&command).await?;
@@ -65,10 +65,14 @@ impl RedisGate {
             task,
         }
     }
-    pub async fn wait_for_get(&self) {
+    pub async fn wait_for_command(&self) {
         tokio::time::timeout(std::time::Duration::from_secs(3), self.entered.notified())
             .await
-            .expect("cache GET reached the controlled Redis boundary");
+            .expect("command reached the controlled Redis boundary");
+    }
+    pub async fn stop(&mut self) {
+        self.task.abort();
+        let _ = (&mut self.task).await;
     }
     pub fn release(&self) {
         self.release.notify_one();

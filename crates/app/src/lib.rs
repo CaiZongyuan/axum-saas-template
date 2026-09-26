@@ -59,12 +59,14 @@ pub fn compose_routes(
 pub struct CoreOptions {
     pub api_key_scopes: Vec<modules::api_keys::KeyScope>,
     pub cache: saas_platform::cache::Cache,
+    pub limiter: modules::rate_limit::RateLimiter,
 }
 impl Default for CoreOptions {
     fn default() -> Self {
         Self {
             api_key_scopes: modules::api_keys::core_scopes(),
             cache: Default::default(),
+            limiter: Default::default(),
         }
     }
 }
@@ -95,10 +97,19 @@ pub fn compose_routes_with_options(
             auth.clone(),
             options.api_key_scopes,
         ))
+        .merge(modules::rate_limit::router(
+            pool.clone(),
+            auth.clone(),
+            options.limiter.clone(),
+        ))
         .merge(modules::system::cache::router(pool, auth, options.cache))
         .merge(domain_routes)
         .fallback(http::not_found)
         .method_not_allowed_fallback(http::method_not_allowed)
+        .layer(middleware::from_fn_with_state(
+            options.limiter,
+            modules::rate_limit::enforce,
+        ))
         .layer(middleware::from_fn(http::request_context))
 }
 
@@ -131,5 +142,6 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     document.merge(modules::audit::openapi());
     document.merge(modules::api_keys::openapi());
     document.merge(modules::system::cache::openapi());
-    document
+    document.merge(modules::rate_limit::openapi());
+    modules::rate_limit::describe(document)
 }

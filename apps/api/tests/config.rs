@@ -129,3 +129,29 @@ fn invalid_cache_configuration_fails_before_serving_without_exposing_redis_crede
         );
     }
 }
+
+#[test]
+fn invalid_rate_limit_policies_fail_before_serving_without_leaking_redis_credentials() {
+    for (field, value) in [
+        ("RATE_LIMIT_ENABLED", "perhaps"),
+        ("RATE_LIMIT_WINDOW_SECS", "0"),
+        ("RATE_LIMIT_MAX_LOCAL_ENTRIES", "0"),
+        ("RATE_LIMIT_REGISTRATION", "0"),
+        ("RATE_LIMIT_AUTHENTICATION_FALLBACK", "61"),
+        ("RATE_LIMIT_BUDGET_MS", "1001"),
+        ("RATE_LIMIT_PREFIX", "bad prefix"),
+    ] {
+        rejects_configuration(
+            "postgres://user:should-never-appear-in-logs@127.0.0.1:9/missing",
+            "127.0.0.1:0",
+            field,
+            &[
+                (
+                    "REDIS_URL",
+                    "redis://user:should-never-appear-in-logs@127.0.0.1:9/",
+                ),
+                (field, value),
+            ],
+        );
+    }
+}

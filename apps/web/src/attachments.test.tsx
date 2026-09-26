@@ -553,3 +553,70 @@ test('a stalled download releases its controls after the transfer deadline', asy
     });
   }
 });
+
+test('inline images and attachment links preserve rate-limit hints and wait before retrying', async () => {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] });
+  try {
+    const imageId = '0195c9a0-0000-7000-8000-000000000010';
+    const fileId = '0195c9a0-0000-7000-8000-000000000011';
+    let calls = 0;
+    server.use(
+      http.get(
+        'http://api.test/api/v1/knowledge/documents/doc-one/attachments',
+        () =>
+          HttpResponse.json({
+            data: [],
+            can_upload: false,
+            can_delete: false,
+            max_upload_bytes: 20971520,
+            next_cursor: null,
+            has_more: false,
+          }),
+      ),
+      http.get(
+        'http://api.test/api/v1/knowledge/documents/doc-one/attachments/:file/download',
+        () => {
+          calls++;
+          return HttpResponse.json(
+            {
+              error: {
+                code: 'rate_limit.exceeded',
+                message: 'Wait',
+                request_id: 'inline-wait',
+                details: { retry_after_seconds: '2' },
+              },
+            },
+            { status: 429, headers: { 'Retry-After': '2' } },
+          );
+        },
+      ),
+    );
+    const user = open(
+      '/documents/doc-one',
+      false,
+      `![图示](attachment:${imageId})\n\n[原始资料](attachment:${fileId})`,
+    );
+    expect(
+      await screen.findByText('请求过于频繁，请 2 秒后重试。'),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: /图示/ })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: '原始资料' }));
+    await waitFor(() =>
+      expect(screen.getAllByText('请求过于频繁，请 2 秒后重试。')).toHaveLength(
+        2,
+      ),
+    );
+    expect(screen.getByRole('button', { name: /原始资料/ })).toBeDisabled();
+    expect(calls).toBe(2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2100);
+    });
+    expect(
+      screen.getByRole('button', { name: '重新读取图片：图示' }),
+    ).toBeEnabled();
+    expect(screen.getByRole('button', { name: '原始资料' })).toBeEnabled();
+    expect(calls).toBe(2);
+  } finally {
+    vi.useRealTimers();
+  }
+});

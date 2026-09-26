@@ -41,6 +41,7 @@ pub fn router_with_cache(
         saas_app::CoreOptions {
             api_key_scopes: key_scopes,
             cache,
+            ..Default::default()
         },
     )
 }
@@ -51,7 +52,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut document = document;
     document.merge(saas_app::modules::knowledge::openapi());
     // example:knowledge:openapi:end
-    document
+    saas_app::modules::rate_limit::describe(document)
 }
 
 pub fn configured_router(
@@ -59,6 +60,7 @@ pub fn configured_router(
     auth: AuthSettings,
     _files: Option<saas_app::modules::files::FileService>,
 ) -> Result<Router, saas_platform::config::ConfigError> {
+    let limiter = saas_app::modules::rate_limit::RateLimiter::from_env()?;
     let cache = saas_platform::cache::Cache::from_env()?;
     let key_scopes = saas_app::modules::api_keys::core_scopes();
     let routes = Router::new();
@@ -82,6 +84,7 @@ pub fn configured_router(
         saas_app::CoreOptions {
             api_key_scopes: key_scopes,
             cache,
+            limiter,
         },
     ))
 }

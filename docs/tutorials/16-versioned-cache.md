@@ -75,7 +75,7 @@ just check
 
 测试脚本启动独立 PostgreSQL、RustFS、Redis，缓存 prefix 按测试隔离，结束后删除自己的测试容器。HTTP 测试证明首次 miss、再次 hit、保存后新版本、共享正文但不共享编辑权限、撤权/删除拒绝以及真实计数变化。
 
-[Redis 转发夹具](../../apps/api/tests/support/redis_gate.rs)把命令发给真正的 Redis，只在一次 GET 上设置受控 barrier：一个测试在 header 查询与 miss 回源之间编辑文档，确认重新授权取新版本且不污染旧 key；另一个保持连接但不回答 GET，确认在预算内回源、后续独立连接可恢复。断开转发服务也会回源。测试没有用随机 sleep 制造竞态。
+[Redis 转发夹具](../../tests/support/redis_gate.rs)把命令发给真正的 Redis，只在一次 GET 上设置受控 barrier：一个测试在 header 查询与 miss 回源之间编辑文档，确认重新授权取新版本且不污染旧 key；另一个保持连接但不回答 GET，确认在预算内回源、后续独立连接可恢复。断开转发服务也会回源。测试没有用随机 sleep 制造竞态。
 
 前端沿用同一个文档 View 与 SDK，无需学习另一套“缓存页面”；本票没有额外重复浏览器套件。
 

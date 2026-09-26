@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { logoutUser, type ApiClient } from '@saas/sdk';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
@@ -54,7 +55,10 @@ export function HomeView({
       <main className="mx-auto max-w-lg p-8">
         <Alert variant="destructive">
           <AlertTitle>无法读取会话</AlertTitle>
-          <AlertDescription>请检查网络后重试。</AlertDescription>
+          <AlertDescription>
+            请检查网络后重试。
+            <RateLimitHint error={session.error} />
+          </AlertDescription>
         </Alert>
         <Button
           className="mt-4"
@@ -102,7 +106,10 @@ export function HomeView({
               {logout.isError ? (
                 <Alert variant="destructive">
                   <AlertTitle>退出失败</AlertTitle>
-                  <AlertDescription>请检查网络后重试。</AlertDescription>
+                  <AlertDescription>
+                    请检查网络后重试。
+                    <RateLimitHint error={logout.error} />
+                  </AlertDescription>
                 </Alert>
               ) : null}
               <Button

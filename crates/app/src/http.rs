@@ -197,3 +197,25 @@ pub fn public_error(
     )
         .into_response()
 }
+
+/// One public error contract for all limiter policies and backends.
+pub fn too_many_requests(id: RequestId, retry_after: u64) -> Response {
+    let seconds = retry_after.max(1).to_string();
+    let mut response = (
+        StatusCode::TOO_MANY_REQUESTS,
+        Json(ApiErrorResponse {
+            error: ApiError {
+                code: "rate_limit.exceeded",
+                message: "Too many requests; wait before retrying",
+                request_id: id.0,
+                details: [("retry_after_seconds".into(), seconds.clone())].into(),
+            },
+        }),
+    )
+        .into_response();
+    response.headers_mut().insert(
+        "retry-after",
+        HeaderValue::from_str(&seconds).expect("numeric retry delay is a valid header"),
+    );
+    response
+}

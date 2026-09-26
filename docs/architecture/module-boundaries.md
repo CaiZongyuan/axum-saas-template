@@ -27,3 +27,5 @@ Notifications 拥有任务通知意图和收件箱；业务用公开接口在请
 API Keys 管理通用凭据及其 scopes。应用入口注册各模块实际提供的 scope，业务处理器通过公开认证能力取得当前用户，再执行自己的资源授权。Core 的 profile:read 与 Key 管理在示例移除后保留；一次性 secret 不进入重放、查询或 Mutation 缓存。
 
 CoreOptions 在应用组装点传递 scope 注册和共享 Cache。Cache 只处理有预算的 Redis I/O 与进程计量，Knowledge 自己负责数据库授权、正文版本和 key；Core 不保存或复用业务权限结论。
+
+RateLimit 在 Core 中分类请求、维护有界本地回退和固定策略计量；Platform WindowCounter 执行有限 Redis 原子操作。缓存与计数共享私有 transport 实现，各自持有容量和超时预算；业务模块不直接发送任意 Redis 命令。

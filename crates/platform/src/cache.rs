@@ -1,5 +1,5 @@
 //! Optional text cache. PostgreSQL callers retain ownership of authorization and versions.
-use crate::config::ConfigError;
+use crate::{config::ConfigError, redis_transport::Endpoint};
 use std::{
     sync::{
         Arc,
@@ -7,7 +7,7 @@ use std::{
     },
     time::Duration,
 };
-use tokio::{sync::Semaphore, time::Instant};
+use tokio::time::Instant;
 
 #[derive(Clone)]
 pub struct CacheSettings {
@@ -55,9 +55,8 @@ pub enum Lookup {
     Disabled,
 }
 struct Inner {
-    client: Option<redis::Client>,
+    endpoint: Option<Endpoint>,
     settings: CacheSettings,
-    slots: Semaphore,
     counters: Counters,
 }
 #[derive(Clone)]
@@ -70,17 +69,12 @@ impl Default for Cache {
 impl Cache {
     pub fn disabled() -> Self {
         Self(Arc::new(Inner {
-            client: None,
+            endpoint: None,
             settings: Default::default(),
-            slots: Semaphore::new(16),
             counters: Default::default(),
         }))
     }
     pub fn new(settings: CacheSettings) -> Result<Self, ConfigError> {
-        let url = url::Url::parse(&settings.url).map_err(|_| ConfigError("REDIS_URL"))?;
-        if url.scheme() != "redis" || url.host_str().is_none() || url.fragment().is_some() {
-            return Err(ConfigError("REDIS_URL"));
-        }
         if settings.prefix.is_empty()
             || settings.prefix.len() > 100
             || !settings
@@ -96,12 +90,10 @@ impl Cache {
         if settings.budget < Duration::from_millis(1) || settings.budget > Duration::from_secs(1) {
             return Err(ConfigError("CACHE_BUDGET_MS"));
         }
-        let client =
-            redis::Client::open(settings.url.as_str()).map_err(|_| ConfigError("REDIS_URL"))?;
+        let endpoint = Endpoint::new(&settings.url, settings.budget)?;
         Ok(Self(Arc::new(Inner {
-            client: Some(client),
+            endpoint: Some(endpoint),
             settings,
-            slots: Semaphore::new(16),
             counters: Default::default(),
         })))
     }
@@ -111,7 +103,7 @@ impl Cache {
     pub fn snapshot(&self) -> CacheSnapshot {
         let c = &self.0.counters;
         CacheSnapshot {
-            enabled: self.0.client.is_some(),
+            enabled: self.0.endpoint.is_some(),
             hits: c.hits.load(Ordering::Relaxed),
             misses: c.misses.load(Ordering::Relaxed),
             fallbacks: c.fallbacks.load(Ordering::Relaxed),
@@ -132,32 +124,16 @@ impl Cache {
         command: &redis::Cmd,
         deadline: Instant,
     ) -> Result<T, CacheUnavailable> {
-        let client = self.0.client.as_ref().ok_or(CacheUnavailable)?;
-        let _permit = self.0.slots.try_acquire().map_err(|_| CacheUnavailable)?;
-        if Instant::now() >= deadline {
-            return Err(CacheUnavailable);
-        }
-        tokio::time::timeout_at(deadline, async {
-            let config = redis::AsyncConnectionConfig::new()
-                .set_connection_timeout(Some(self.0.settings.budget))
-                .set_response_timeout(Some(self.0.settings.budget))
-                .set_concurrency_limit(1)
-                .set_pipeline_buffer_size(1);
-            // The unique connection owner is dropped on success, error, cancellation or timeout.
-            let mut connection = client
-                .get_multiplexed_async_connection_with_config(&config)
-                .await
-                .map_err(|_| CacheUnavailable)?;
-            command
-                .query_async(&mut connection)
-                .await
-                .map_err(|_| CacheUnavailable)
-        })
-        .await
-        .map_err(|_| CacheUnavailable)?
+        self.0
+            .endpoint
+            .as_ref()
+            .ok_or(CacheUnavailable)?
+            .query(command, deadline)
+            .await
+            .map_err(|_| CacheUnavailable)
     }
     pub async fn get(&self, key: &str, deadline: Instant) -> Lookup {
-        if self.0.client.is_none() {
+        if self.0.endpoint.is_none() {
             return Lookup::Disabled;
         }
         let result = async {
@@ -212,7 +188,7 @@ impl Cache {
         result
     }
     pub async fn remove(&self, key: &str, deadline: Instant) -> Result<(), CacheUnavailable> {
-        if self.0.client.is_none() {
+        if self.0.endpoint.is_none() {
             return Ok(());
         }
         let result = async {

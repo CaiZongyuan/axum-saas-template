@@ -1,3 +1,4 @@
+import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -166,6 +167,7 @@ export function DeleteResource({
             <AlertDescription>
               {messages[code(mutation.error) ?? ''] ??
                 '暂时无法删除，请重试或刷新查看最新状态。'}
+              <RateLimitHint error={mutation.error} />
               {requestId ? <p>请求编号：{requestId}</p> : null}
             </AlertDescription>
           </Alert>
