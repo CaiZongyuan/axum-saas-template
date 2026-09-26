@@ -3674,6 +3674,56 @@
         }
       }
     },
+    "/api/v1/system/cache": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "operationId": "getCacheStatus",
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheMetrics"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/system/status": {
       "get": {
         "tags": [
@@ -3943,6 +3993,59 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "CacheMetrics": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "hits",
+          "misses",
+          "fallbacks",
+          "writes",
+          "write_failures",
+          "invalidations",
+          "invalidation_failures"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "fallbacks": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "hits": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "invalidation_failures": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "invalidations": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "misses": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "write_failures": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "writes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       },
