@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { withTestPostgres } from './lib/postgres.mjs';
 import { withTestRustfs } from './lib/rustfs.mjs';
+import { withTestMailpit } from './lib/mailpit.mjs';
 import { withTestRedis } from './lib/redis.mjs';
 import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
 
@@ -16,84 +17,87 @@ run('cargo', ['build', '--locked', '--workspace', '--bins'], {
 await withTestPostgres(async ({ name, url }) => {
   await withTestRustfs(async ({ name: storageName, env: storage }) => {
     await withTestRedis(async ({ env: cacheEnv }) => {
-      const apiPort = await freePort();
-      const webPort = await freePort();
-      const workerPort = await freePort();
-      const env = {
-        ...process.env,
-        ...storage,
-        ...cacheEnv,
-        CACHE_PREFIX: `e2e:${name}`,
-        DATABASE_URL: url,
-        APP_BIND: `127.0.0.1:${apiPort}`,
-        WORKER_BIND: `127.0.0.1:${workerPort}`,
-        RUST_LOG: 'info',
-        VITE_API_PROXY: `http://127.0.0.1:${apiPort}`,
-        WEB_PORT: String(webPort),
-        E2E_API_URL: `http://127.0.0.1:${apiPort}`,
-        E2E_WEB_URL: `http://127.0.0.1:${webPort}`,
-        APP_ORIGIN: `http://127.0.0.1:${webPort}`,
-        TEST_PG_CONTAINER: name,
-        E2E_STORAGE_CONTAINER: storageName,
-        // Short, finite budgets make isolated recovery scenarios observable.
-        JOB_LEASE_SECS: '10',
-        JOB_HEARTBEAT_SECS: '2',
-        JOB_SHUTDOWN_SECS: '1',
-        // example:knowledge:e2e-policy:start
-        EXPORT_TIMEOUT_SECS: '5',
-        EXPORT_JOB_MAX_ATTEMPTS: '2',
-        // example:knowledge:e2e-policy:end
-        E2E_OWNER_EMAIL: 'bootstrap-owner@example.test',
-        E2E_OWNER_PASSWORD: 'browser-test-owner-password',
-      };
-      run(resolve(root, 'target/debug/migrate'), [], env);
-      run(resolve(root, 'target/debug/bootstrap-storage'), [], env);
-      const api = launch(resolve(root, 'target/debug/saas-api'), [], env);
-      const workerTemp = mkdtempSync(join(tmpdir(), 'saas-e2e-worker-'));
-      env.TMPDIR = workerTemp;
-      env.E2E_WORKER_PID_FILE = join(workerTemp, 'worker.pid');
-      const worker = launch('node', ['scripts/lib/test-worker.mjs'], env);
-      let web;
-      try {
-        await waitFor(`${env.E2E_API_URL}/health/ready`, api);
-        await waitFor(`http://${env.WORKER_BIND}/health/ready`, worker);
-        // All journeys start with a known Owner; newly registered accounts are Members.
-        // This prevents test-file ordering from changing role expectations.
-        const bootstrap = await fetch(
-          `${env.E2E_API_URL}/api/v1/auth/register`,
-          {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              origin: env.APP_ORIGIN,
+      await withTestMailpit(async ({ env: mailEnv }) => {
+        const apiPort = await freePort();
+        const webPort = await freePort();
+        const workerPort = await freePort();
+        const env = {
+          ...process.env,
+          ...storage,
+          ...cacheEnv,
+          ...mailEnv,
+          CACHE_PREFIX: `e2e:${name}`,
+          DATABASE_URL: url,
+          APP_BIND: `127.0.0.1:${apiPort}`,
+          WORKER_BIND: `127.0.0.1:${workerPort}`,
+          RUST_LOG: 'info',
+          VITE_API_PROXY: `http://127.0.0.1:${apiPort}`,
+          WEB_PORT: String(webPort),
+          E2E_API_URL: `http://127.0.0.1:${apiPort}`,
+          E2E_WEB_URL: `http://127.0.0.1:${webPort}`,
+          APP_ORIGIN: `http://127.0.0.1:${webPort}`,
+          TEST_PG_CONTAINER: name,
+          E2E_STORAGE_CONTAINER: storageName,
+          // Short, finite budgets make isolated recovery scenarios observable.
+          JOB_LEASE_SECS: '10',
+          JOB_HEARTBEAT_SECS: '2',
+          JOB_SHUTDOWN_SECS: '1',
+          // example:knowledge:e2e-policy:start
+          EXPORT_TIMEOUT_SECS: '5',
+          EXPORT_JOB_MAX_ATTEMPTS: '2',
+          // example:knowledge:e2e-policy:end
+          E2E_OWNER_EMAIL: 'bootstrap-owner@example.test',
+          E2E_OWNER_PASSWORD: 'browser-test-owner-password',
+        };
+        run(resolve(root, 'target/debug/migrate'), [], env);
+        run(resolve(root, 'target/debug/bootstrap-storage'), [], env);
+        const api = launch(resolve(root, 'target/debug/saas-api'), [], env);
+        const workerTemp = mkdtempSync(join(tmpdir(), 'saas-e2e-worker-'));
+        env.TMPDIR = workerTemp;
+        env.E2E_WORKER_PID_FILE = join(workerTemp, 'worker.pid');
+        const worker = launch('node', ['scripts/lib/test-worker.mjs'], env);
+        let web;
+        try {
+          await waitFor(`${env.E2E_API_URL}/health/ready`, api);
+          await waitFor(`http://${env.WORKER_BIND}/health/ready`, worker);
+          // All journeys start with a known Owner; newly registered accounts are Members.
+          // This prevents test-file ordering from changing role expectations.
+          const bootstrap = await fetch(
+            `${env.E2E_API_URL}/api/v1/auth/register`,
+            {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+                origin: env.APP_ORIGIN,
+              },
+              body: JSON.stringify({
+                email: env.E2E_OWNER_EMAIL,
+                password: env.E2E_OWNER_PASSWORD,
+              }),
+              signal: AbortSignal.timeout(10_000),
             },
-            body: JSON.stringify({
-              email: env.E2E_OWNER_EMAIL,
-              password: env.E2E_OWNER_PASSWORD,
-            }),
-            signal: AbortSignal.timeout(10_000),
-          },
-        );
-        if (
-          bootstrap.status !== 201 ||
-          (await bootstrap.json()).user.role !== 'owner'
-        )
-          throw new Error('Could not initialize the isolated E2E Owner');
-        web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);
-        await waitFor(env.E2E_WEB_URL, web);
-        run(
-          'pnpm',
-          ['exec', 'playwright', 'test', ...process.argv.slice(2)],
-          env,
-        );
-      } finally {
-        await Promise.all([
-          stop(web),
-          stop(api),
-          stop(worker, (Number(env.JOB_SHUTDOWN_SECS ?? 10) + 3) * 1000),
-        ]);
-        rmSync(workerTemp, { recursive: true, force: true });
-      }
+          );
+          if (
+            bootstrap.status !== 201 ||
+            (await bootstrap.json()).user.role !== 'owner'
+          )
+            throw new Error('Could not initialize the isolated E2E Owner');
+          web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);
+          await waitFor(env.E2E_WEB_URL, web);
+          run(
+            'pnpm',
+            ['exec', 'playwright', 'test', ...process.argv.slice(2)],
+            env,
+          );
+        } finally {
+          await Promise.all([
+            stop(web),
+            stop(api),
+            stop(worker, (Number(env.JOB_SHUTDOWN_SECS ?? 10) + 3) * 1000),
+          ]);
+          rmSync(workerTemp, { recursive: true, force: true });
+        }
+      });
     });
   });
 });

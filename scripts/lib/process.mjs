@@ -1,3 +1,4 @@
+import { developmentMailKey } from './development-mail-key.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
@@ -17,12 +18,19 @@ export function developmentEnv() {
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
   }
-  return {
+  const env = {
     ...defaults,
     ...local,
     ...process.env,
     CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? '4',
   };
+  if (
+    env.MAIL_SMTP_HOST &&
+    env.MAIL_SMTP_TLS === 'local' &&
+    !env.MAIL_ENCRYPTION_KEY
+  )
+    env.MAIL_ENCRYPTION_KEY = developmentMailKey(root);
+  return env;
 }
 
 export function run(command, args, env = process.env) {

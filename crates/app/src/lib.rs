@@ -60,6 +60,7 @@ pub struct CoreOptions {
     pub api_key_scopes: Vec<modules::api_keys::KeyScope>,
     pub cache: saas_platform::cache::Cache,
     pub limiter: modules::rate_limit::RateLimiter,
+    pub password_reset: Option<modules::identity::PasswordReset>,
 }
 impl Default for CoreOptions {
     fn default() -> Self {
@@ -67,6 +68,7 @@ impl Default for CoreOptions {
             api_key_scopes: modules::api_keys::core_scopes(),
             cache: Default::default(),
             limiter: Default::default(),
+            password_reset: None,
         }
     }
 }
@@ -87,7 +89,11 @@ pub fn compose_routes_with_options(
             get(move || std::future::ready(Json(document.clone()))),
         )
         .with_state(pool.clone())
-        .merge(modules::identity::router(pool.clone(), auth.clone()))
+        .merge(modules::identity::router_with_reset(
+            pool.clone(),
+            auth.clone(),
+            options.password_reset,
+        ))
         .merge(modules::organization::router(pool.clone(), auth.clone()))
         .merge(modules::jobs::router(pool.clone(), auth.clone()))
         .merge(modules::notifications::router(pool.clone(), auth.clone()))
@@ -137,6 +143,7 @@ struct ApiDoc;
 pub fn openapi() -> utoipa::openapi::OpenApi {
     let mut document = ApiDoc::openapi();
     document.merge(modules::organization::openapi());
+    document.merge(modules::identity::password_reset_openapi());
     document.merge(modules::jobs::openapi());
     document.merge(modules::notifications::openapi());
     document.merge(modules::audit::openapi());

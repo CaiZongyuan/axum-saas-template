@@ -309,6 +309,7 @@ async fn update(
         .bind(input.role).bind(input.active).bind(target).fetch_one(&mut *tx).await?;
     if !input.active {
         identity::revoke_user_sessions(&mut tx, target).await?;
+        identity::revoke_password_resets(&mut tx, target).await?;
     }
     audit::append(
         &mut tx,

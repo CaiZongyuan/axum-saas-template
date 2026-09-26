@@ -5,6 +5,7 @@ pub mod files;
 pub mod idempotency;
 pub mod identity;
 pub mod jobs;
+pub mod mail;
 pub mod notifications;
 pub mod organization;
 pub mod rate_limit;

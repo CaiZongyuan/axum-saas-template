@@ -1,4 +1,10 @@
 {
   "kind": "core",
-  "tables": ["saas_core.users", "saas_core.credentials", "saas_core.sessions"]
+  "tables": [
+    "saas_core.users",
+    "saas_core.credentials",
+    "saas_core.sessions",
+    "saas_core.password_resets",
+    "saas_core.password_reset_mail"
+  ]
 }

@@ -118,6 +118,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/18-password-reset.md",
+      "route": "tutorials/password-reset.md",
+      "title": "密码重置与可靠邮件",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
