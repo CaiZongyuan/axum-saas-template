@@ -18,6 +18,7 @@ export type ApiErrorResponse = {
 };
 
 export type AttachmentPage = {
+    can_delete: boolean;
     can_upload: boolean;
     data: Array<FileInfo>;
     has_more: boolean;
@@ -513,6 +514,34 @@ export type CreateKnowledgeBaseResponses = {
 
 export type CreateKnowledgeBaseResponse = CreateKnowledgeBaseResponses[keyof CreateKnowledgeBaseResponses];
 
+export type DeleteKnowledgeBaseData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/bases/{id}';
+};
+
+export type DeleteKnowledgeBaseErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type DeleteKnowledgeBaseError = DeleteKnowledgeBaseErrors[keyof DeleteKnowledgeBaseErrors];
+
+export type DeleteKnowledgeBaseResponses = {
+    204: void;
+};
+
+export type DeleteKnowledgeBaseResponse = DeleteKnowledgeBaseResponses[keyof DeleteKnowledgeBaseResponses];
+
 export type GetKnowledgeBaseData = {
     body?: never;
     path: {
@@ -716,6 +745,34 @@ export type CreateDocumentResponses = {
 
 export type CreateDocumentResponse = CreateDocumentResponses[keyof CreateDocumentResponses];
 
+export type DeleteDocumentData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}';
+};
+
+export type DeleteDocumentErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type DeleteDocumentError = DeleteDocumentErrors[keyof DeleteDocumentErrors];
+
+export type DeleteDocumentResponses = {
+    204: void;
+};
+
+export type DeleteDocumentResponse = DeleteDocumentResponses[keyof DeleteDocumentResponses];
+
 export type GetDocumentData = {
     body?: never;
     path: {
@@ -797,6 +854,35 @@ export type ListAttachmentsResponses = {
 };
 
 export type ListAttachmentsResponse = ListAttachmentsResponses[keyof ListAttachmentsResponses];
+
+export type DeleteAttachmentData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+        file_id: string;
+    };
+    query?: never;
+    url: '/api/v1/knowledge/documents/{id}/attachments/{file_id}';
+};
+
+export type DeleteAttachmentErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type DeleteAttachmentError = DeleteAttachmentErrors[keyof DeleteAttachmentErrors];
+
+export type DeleteAttachmentResponses = {
+    204: void;
+};
+
+export type DeleteAttachmentResponse = DeleteAttachmentResponses[keyof DeleteAttachmentResponses];
 
 export type GetAttachmentDownloadData = {
     body?: never;

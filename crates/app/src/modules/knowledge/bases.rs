@@ -83,7 +83,7 @@ pub(super) async fn read_base(
     role: organization::MemberRole,
     id: uuid::Uuid,
 ) -> Result<KnowledgeBase, Failure> {
-    sqlx::query_as::<_, KnowledgeBase>("SELECT b.id::text, b.name, (b.personal_owner IS NOT NULL) AS personal, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid AND g.access = 'editor')) AS can_edit, $2 AS can_manage FROM knowledge.knowledge_bases b WHERE b.id = $3::uuid AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid))")
+    sqlx::query_as::<_, KnowledgeBase>("SELECT b.id::text, b.name, (b.personal_owner IS NOT NULL) AS personal, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid AND g.access = 'editor')) AS can_edit, $2 AS can_manage FROM knowledge.knowledge_bases b WHERE b.id = $3::uuid AND b.deleted_at IS NULL AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid))")
         .bind(actor_id).bind(manager(role)).bind(id.to_string()).fetch_optional(connection).await?.ok_or(Failure::NotFound)
 }
 
@@ -92,7 +92,9 @@ pub(super) fn routes() -> Router<Knowledge> {
         .route("/api/v1/knowledge/bases", post(create_base).get(list_bases))
         .route(
             "/api/v1/knowledge/bases/{id}",
-            get(get_base).put(rename_base),
+            get(get_base)
+                .put(rename_base)
+                .delete(super::deletion::delete_base),
         )
 }
 #[derive(OpenApi)]
@@ -205,8 +207,12 @@ async fn create(
         fingerprint: &fingerprint,
     };
     if let Some(response) = idempotency::claim(&mut tx, &attempt).await? {
-        let base: KnowledgeBase =
-            serde_json::from_value(response).map_err(|_| Failure::Unavailable)?;
+        let saved = response["base_id"]
+            .as_str()
+            .or_else(|| response["id"].as_str())
+            .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            .ok_or(Failure::Unavailable)?;
+        let base = read_base(&mut tx, &actor.id, role, saved).await?;
         tx.commit().await?;
         return Ok(base);
     }
@@ -220,12 +226,7 @@ async fn create(
         request_id,
     )
     .await?;
-    idempotency::complete(
-        &mut tx,
-        &attempt,
-        serde_json::to_value(&base).map_err(|_| Failure::Unavailable)?,
-    )
-    .await?;
+    idempotency::complete(&mut tx, &attempt, serde_json::json!({"base_id":base.id})).await?;
     tx.commit().await?;
     Ok::<_, Failure>(base)
 }
@@ -236,7 +237,7 @@ async fn list(
     query: PageQuery,
 ) -> Result<KnowledgeBasePage, Failure> {
     let (limit, cursor) = query.decode(&actor.id, "bases-id-asc")?;
-    let mut data = sqlx::query_as::<_, KnowledgeBase>("SELECT b.id::text, b.name, (b.personal_owner IS NOT NULL) AS personal, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid AND g.access = 'editor')) AS can_edit, $2 AS can_manage FROM knowledge.knowledge_bases b WHERE ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::uuid IS NULL OR b.id > $3::uuid) ORDER BY b.id LIMIT $4")
+    let mut data = sqlx::query_as::<_, KnowledgeBase>("SELECT b.id::text, b.name, (b.personal_owner IS NOT NULL) AS personal, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid AND g.access = 'editor')) AS can_edit, $2 AS can_manage FROM knowledge.knowledge_bases b WHERE b.deleted_at IS NULL AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::uuid IS NULL OR b.id > $3::uuid) ORDER BY b.id LIMIT $4")
             .bind(&actor.id).bind(manager(actor.role)).bind(cursor).bind(i64::from(limit) + 1).fetch_all(pool).await?;
     let has_more = data.len() > limit as usize;
     data.truncate(limit as usize);
@@ -268,7 +269,7 @@ pub(super) async fn lock_manage_base(
     base_id: uuid::Uuid,
 ) -> Result<KnowledgeBase, Failure> {
     let exists: Option<String> = sqlx::query_scalar(
-        "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid FOR UPDATE",
+        "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid AND deleted_at IS NULL FOR UPDATE",
     )
     .bind(base_id.to_string())
     .fetch_optional(&mut *connection)

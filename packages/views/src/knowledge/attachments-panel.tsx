@@ -22,6 +22,8 @@ import {
 import { Input } from '@saas/ui/components/input';
 import { Progress } from '@saas/ui/components/progress';
 import type { FileTransfer } from './file-transfer';
+import { DeleteResource } from './delete-resource';
+import { sessionKey } from '../identity';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -119,6 +121,34 @@ export function AttachmentsPanel({
     !!attachments.data?.pages[0]?.can_upload &&
     !attachments.isError &&
     !denied;
+  const serverCanDelete = attachments.data?.pages[0]?.can_delete;
+  const canDelete =
+    canEdit && serverCanDelete === true && !attachments.isError && !denied;
+  const accessError = code(attachments.error);
+  useEffect(() => {
+    if (
+      (canEdit && serverCanDelete === false) ||
+      [
+        'knowledge.not_found',
+        'knowledge.forbidden',
+        'auth.unauthorized',
+      ].includes(accessError ?? '')
+    ) {
+      void queryClient.invalidateQueries({
+        queryKey: ['knowledge', 'document', identity.user.id, documentId],
+      });
+      if (accessError === 'auth.unauthorized')
+        void queryClient.invalidateQueries({ queryKey: sessionKey(apiClient) });
+    }
+  }, [
+    canEdit,
+    serverCanDelete,
+    accessError,
+    queryClient,
+    identity.user.id,
+    documentId,
+    apiClient,
+  ]);
   const maxBytes = attachments.data?.pages[0]?.max_upload_bytes ?? 0;
   const items = attachments.data?.pages.flatMap((page) => page.data) ?? [];
 
@@ -250,7 +280,7 @@ export function AttachmentsPanel({
         onClick={async () => {
           const refreshed = await attachments.refetch();
           if (refreshed.isSuccess)
-            setDenied(!refreshed.data.pages[0]?.can_upload);
+            setDenied(!refreshed.data.pages[0]?.can_delete);
         }}
       >
         重新查询附件
@@ -326,6 +356,19 @@ export function AttachmentsPanel({
               >
                 {downloading === file.id ? '正在下载…' : '下载'}
               </Button>
+              {canDelete ? (
+                <DeleteResource
+                  apiClient={apiClient}
+                  identity={identity}
+                  resource={{
+                    kind: 'attachment',
+                    id: file.id,
+                    documentId,
+                    name: file.file_name,
+                  }}
+                  disabled={busy || !!downloading}
+                />
+              ) : null}
               {onInsert && canUpload ? (
                 <Button
                   variant="outline"

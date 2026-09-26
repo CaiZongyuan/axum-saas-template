@@ -6,7 +6,7 @@ Rust/Axum + React 的模块化全栈模板，以可移除的知识库 example �
 
 <!-- example:knowledge:readme:start -->
 
-**知识库示例：** 首页点击“我的文档”，即可新建 Markdown、保存、刷新读取。首次写作自动准备个人库；重复请求幂等处理，私有内容按授权访问。支持标题搜索、安全 Markdown 预览与分页；支持显式编辑、版本冲突保护及共享库 Reader/Editor 授权与撤权；支持 RustFS 附件上传、校验、授权下载与 Markdown 图片引用，当前文档可通过真实 Worker 导出 ZIP。
+**知识库示例：** 首页点击“我的文档”，即可新建 Markdown、保存、刷新读取。首次写作自动准备个人库；重复请求幂等处理，私有内容按授权访问。支持标题搜索、安全 Markdown 预览与分页；支持显式编辑、版本冲突保护及共享库 Reader/Editor 授权与撤权；支持 RustFS 附件上传、校验、授权下载与 Markdown 图片引用，当前文档可通过真实 Worker 导出 ZIP。支持确认删除文档、附件和知识库，后台可靠清理对象及过期数据。
 
 <!-- example:knowledge:readme:end -->
 

@@ -51,6 +51,7 @@ import { sessionKey, sessionQuery } from '../identity';
 import { MarkdownPreview } from './markdown-preview';
 import { knowledgeBaseQuery } from './knowledge-base-query';
 import { AttachmentsPanel } from './attachments-panel';
+import { DeleteResource } from './delete-resource';
 import { ExportsPanel } from './exports-panel';
 import type { FileTransfer } from './file-transfer';
 
@@ -850,6 +851,19 @@ export function DocumentView({
             <p className="text-sm text-muted-foreground">
               版本 {document.data.version}
             </p>
+            {document.data.can_edit && session.data ? (
+              <DeleteResource
+                key={`delete:${session.data.user.id}:${documentId}`}
+                apiClient={apiClient}
+                identity={session.data}
+                resource={{
+                  kind: 'document',
+                  id: documentId,
+                  name: document.data.title,
+                }}
+                onDeleted={onBack}
+              />
+            ) : null}
             <MarkdownPreview
               markdown={document.data.markdown}
               attachments={

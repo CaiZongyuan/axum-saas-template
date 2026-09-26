@@ -1,10 +1,14 @@
 mod application;
 mod attachments;
 mod bases;
+mod deletion;
 mod domain;
+pub use deletion::{base_cleanup_handler, document_cleanup_handler};
 mod exports;
 mod grants;
-pub use exports::{ExportPolicy, FIELDS as CONFIG_FIELDS, export_handler, process_export};
+pub use exports::{
+    ExportPolicy, FIELDS as CONFIG_FIELDS, export_handler, export_maintenance, process_export,
+};
 mod pagination;
 
 use crate::{
@@ -268,7 +272,9 @@ pub fn router_with_policy(
         )
         .route(
             "/api/v1/knowledge/documents/{id}",
-            get(get_document).put(update_document),
+            get(get_document)
+                .put(update_document)
+                .delete(deletion::delete_document),
         )
         .layer(DefaultBodyLimit::max(8 * 1024 * 1024))
         .with_state(Knowledge {
@@ -358,6 +364,7 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     document.merge(bases::openapi());
     document.merge(grants::openapi());
     document.merge(attachments::openapi());
+    document.merge(deletion::openapi());
     document.merge(exports::openapi());
     document
 }

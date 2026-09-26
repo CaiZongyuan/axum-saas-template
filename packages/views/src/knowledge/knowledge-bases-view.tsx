@@ -31,6 +31,7 @@ import {
   NativeSelectOption,
 } from '@saas/ui/components/native-select';
 import { sessionKey, sessionQuery } from '../identity';
+import { DeleteResource } from './delete-resource';
 import { Input } from '@saas/ui/components/input';
 import {
   Empty,
@@ -396,6 +397,18 @@ export function KnowledgeBaseView({
           />
           {base.data.can_manage ? (
             <>
+              <DeleteResource
+                key={`delete:${session.data.user.id}:${baseId}`}
+                apiClient={apiClient}
+                identity={session.data}
+                resource={{
+                  kind: 'base',
+                  id: baseId,
+                  name: base.data.name,
+                  personal: base.data.personal,
+                }}
+                onDeleted={onBack}
+              />
               <RenameBase
                 key={`name:${session.data.user.id}:${baseId}`}
                 apiClient={apiClient}

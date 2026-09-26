@@ -76,6 +76,7 @@ pub trait ObjectStorage: Send + Sync {
         headers: &UploadHeaders,
         deadline: SystemTime,
     ) -> Result<SignedRequest, StorageError>;
+    async fn delete(&self, location: &ObjectLocation) -> Result<(), StorageError>;
     async fn head(&self, location: &ObjectLocation) -> Result<ObjectInfo, StorageError>;
     async fn copy_if_absent(
         &self,
@@ -255,6 +256,23 @@ impl ObjectStorage for S3ObjectStorage {
             .await
             .map_err(|_| StorageError::Unavailable)?;
         signed(request, expires_at)
+    }
+
+    async fn delete(&self, location: &ObjectLocation) -> Result<(), StorageError> {
+        match self
+            .internal
+            .delete_object()
+            .bucket(&location.bucket)
+            .key(&location.key)
+            .send()
+            .await
+        {
+            Ok(_) => Ok(()),
+            Err(error) => match failure(error.raw_response().map(|r| r.status().as_u16())) {
+                StorageError::NotFound => Ok(()),
+                other => Err(other),
+            },
+        }
     }
 
     async fn head(&self, location: &ObjectLocation) -> Result<ObjectInfo, StorageError> {

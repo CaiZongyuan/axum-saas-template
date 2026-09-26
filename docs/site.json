@@ -82,6 +82,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/12-deletion-cleanup.md",
+      "route": "tutorials/deletion-cleanup.md",
+      "title": "删除与可靠对象清理",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

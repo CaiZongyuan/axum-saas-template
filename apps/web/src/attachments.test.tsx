@@ -107,6 +107,7 @@ test('upload progress, failure and retry preserve the upload identity until publ
         HttpResponse.json({
           data: published ? [attachment] : [],
           can_upload: true,
+          can_delete: true,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,
@@ -188,6 +189,7 @@ test('a file above the returned limit is rejected before hashing or sending byte
         HttpResponse.json({
           data: [],
           can_upload: true,
+          can_delete: true,
           max_upload_bytes: 4,
           next_cursor: null,
           has_more: false,
@@ -216,6 +218,7 @@ test('a Reader can see the attachment download action without upload controls', 
         HttpResponse.json({
           data: [attachment],
           can_upload: false,
+          can_delete: false,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,
@@ -249,6 +252,7 @@ test('a revoked Reader sees a recoverable download denial and refreshed attachme
           : HttpResponse.json({
               data: [attachment],
               can_upload: false,
+              can_delete: false,
               max_upload_bytes: 20971520,
               next_cursor: null,
               has_more: false,
@@ -296,6 +300,7 @@ test('an uploaded attachment can be inserted into the unsaved Markdown draft', a
         HttpResponse.json({
           data: [attachment],
           can_upload: true,
+          can_delete: true,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,
@@ -319,6 +324,7 @@ test('Markdown attachment images obtain an authorized URL while arbitrary images
         HttpResponse.json({
           data: [],
           can_upload: false,
+          can_delete: false,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,
@@ -373,6 +379,7 @@ test('a failed image waits for a fresh authorized URL before retrying the browse
         HttpResponse.json({
           data: [],
           can_upload: false,
+          can_delete: false,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,
@@ -424,6 +431,7 @@ test('a stalled upload times out and permits retrying the same upload resource',
         HttpResponse.json({
           data: [],
           can_upload: true,
+          can_delete: true,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,
@@ -501,6 +509,7 @@ test('a stalled download releases its controls after the transfer deadline', asy
         HttpResponse.json({
           data: [attachment],
           can_upload: false,
+          can_delete: false,
           max_upload_bytes: 20971520,
           next_cursor: null,
           has_more: false,

@@ -29,7 +29,12 @@
     "tests/e2e/exports.spec.ts",
     "docs/tutorials/10-document-exports.md",
     "tests/e2e/job-recovery.spec.ts",
-    "docs/tutorials/11-job-recovery.md"
+    "docs/tutorials/11-job-recovery.md",
+    "migrations/0012_knowledge_deletion.sql",
+    "apps/api/tests/deletion.rs",
+    "apps/web/src/deletion.test.tsx",
+    "tests/e2e/deletion.spec.ts",
+    "docs/tutorials/12-deletion-cleanup.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

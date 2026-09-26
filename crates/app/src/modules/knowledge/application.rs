@@ -22,18 +22,36 @@ pub(super) async fn lock_document(
     document_id: uuid::Uuid,
     write: bool,
 ) -> Result<bool, Failure> {
+    lock_document_row(connection, actor_id, document_id, write, false).await
+}
+pub(super) async fn lock_document_exclusive(
+    connection: &mut sqlx::PgConnection,
+    actor_id: &str,
+    document_id: uuid::Uuid,
+) -> Result<(), Failure> {
+    lock_document_row(connection, actor_id, document_id, true, true)
+        .await
+        .map(|_| ())
+}
+async fn lock_document_row(
+    connection: &mut sqlx::PgConnection,
+    actor_id: &str,
+    document_id: uuid::Uuid,
+    write: bool,
+    exclusive: bool,
+) -> Result<bool, Failure> {
     let role = organization::active_role_in(connection, actor_id)
         .await?
         .ok_or(Failure::Forbidden)?;
     let base: String = sqlx::query_scalar(
-        "SELECT knowledge_base_id::text FROM knowledge.documents WHERE id = $1::uuid",
+        "SELECT knowledge_base_id::text FROM knowledge.documents WHERE id = $1::uuid AND deleted_at IS NULL",
     )
     .bind(document_id.to_string())
     .fetch_optional(&mut *connection)
     .await?
     .ok_or(Failure::NotFound)?;
     let exists: Option<String> = sqlx::query_scalar(
-        "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid FOR SHARE",
+        "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid AND deleted_at IS NULL FOR SHARE",
     )
     .bind(&base)
     .fetch_optional(&mut *connection)
@@ -41,8 +59,16 @@ pub(super) async fn lock_document(
     if exists.is_none() {
         return Err(Failure::NotFound);
     }
-    let exists: Option<String> = sqlx::query_scalar("SELECT id::text FROM knowledge.documents WHERE id = $1::uuid AND knowledge_base_id = $2::uuid FOR SHARE")
-        .bind(document_id.to_string()).bind(&base).fetch_optional(&mut *connection).await?;
+    let row_query = if exclusive {
+        "SELECT id::text FROM knowledge.documents WHERE id = $1::uuid AND knowledge_base_id = $2::uuid AND deleted_at IS NULL FOR UPDATE"
+    } else {
+        "SELECT id::text FROM knowledge.documents WHERE id = $1::uuid AND knowledge_base_id = $2::uuid AND deleted_at IS NULL FOR SHARE"
+    };
+    let exists: Option<String> = sqlx::query_scalar(row_query)
+        .bind(document_id.to_string())
+        .bind(&base)
+        .fetch_optional(&mut *connection)
+        .await?;
     if exists.is_none() {
         return Err(Failure::NotFound);
     }
@@ -77,7 +103,7 @@ pub(super) async fn create(
         .ok_or(Failure::Forbidden)?;
     let base = if let Some(id) = base_id {
         let base: String = sqlx::query_scalar(
-            "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid FOR SHARE",
+            "SELECT id::text FROM knowledge.knowledge_bases WHERE id = $1::uuid AND deleted_at IS NULL FOR SHARE",
         )
         .bind(id.to_string())
         .fetch_optional(&mut *tx)
@@ -108,11 +134,11 @@ pub(super) async fn create(
             .await?;
         }
         let base: String = sqlx::query_scalar(
-        "SELECT id::text FROM knowledge.knowledge_bases WHERE personal_owner = $1::uuid FOR SHARE",
+        "SELECT id::text FROM knowledge.knowledge_bases WHERE personal_owner = $1::uuid AND deleted_at IS NULL FOR SHARE",
     )
     .bind(&actor.id)
-    .fetch_one(&mut *tx)
-    .await?;
+    .fetch_optional(&mut *tx)
+    .await?.ok_or(Failure::NotFound)?;
         // Default personal-space initialization keeps its established forbidden response.
         require_edit(&mut tx, &actor.id, role, &base)
             .await
@@ -131,9 +157,12 @@ pub(super) async fn create(
         fingerprint: &fingerprint,
     };
     if let Some(response) = idempotency::claim(&mut tx, &attempt).await? {
-        let mut document: Document =
-            serde_json::from_value(response).map_err(|_| Failure::Unavailable)?;
-        document.can_edit = true;
+        let saved_id = response["document_id"]
+            .as_str()
+            .or_else(|| response["id"].as_str())
+            .ok_or(Failure::Unavailable)?;
+        let document: Document = sqlx::query_as(&format!("SELECT {COLUMNS}, true AS can_edit FROM knowledge.documents WHERE id = $1::uuid AND knowledge_base_id = $2::uuid AND deleted_at IS NULL"))
+            .bind(saved_id).bind(&base).fetch_optional(&mut *tx).await?.ok_or(Failure::NotFound)?;
         tx.commit().await?;
         return Ok(document);
     }
@@ -150,7 +179,7 @@ pub(super) async fn create(
     idempotency::complete(
         &mut tx,
         &attempt,
-        serde_json::to_value(&document).map_err(|_| Failure::Unavailable)?,
+        serde_json::json!({"document_id":document.id}),
     )
     .await?;
     tx.commit().await?;
@@ -162,7 +191,7 @@ pub(super) async fn read(
     actor: &CurrentUser,
     id: uuid::Uuid,
 ) -> Result<Document, Failure> {
-    let document = sqlx::query_as::<_, Document>(&format!("SELECT {COLUMNS}, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid AND g.access = 'editor')) AS can_edit FROM knowledge.documents WHERE id = $1::uuid AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid))"))
+    let document = sqlx::query_as::<_, Document>(&format!("SELECT {COLUMNS}, ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid AND g.access = 'editor')) AS can_edit FROM knowledge.documents WHERE id = $1::uuid AND deleted_at IS NULL AND EXISTS (SELECT 1 FROM knowledge.knowledge_bases b WHERE b.id = documents.knowledge_base_id AND b.deleted_at IS NULL) AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = documents.knowledge_base_id AND g.user_id = $3::uuid))"))
         .bind(id.to_string()).bind(manager(actor.role)).bind(&actor.id).fetch_optional(pool).await?;
     document.ok_or(Failure::NotFound)
 }
@@ -198,10 +227,10 @@ pub(super) async fn update(
     let role = organization::active_role_in(&mut tx, &actor.id)
         .await?
         .ok_or(Failure::Forbidden)?;
-    let base: String = sqlx::query_scalar("SELECT b.id::text FROM knowledge.knowledge_bases b JOIN knowledge.documents d ON d.knowledge_base_id = b.id WHERE d.id = $1::uuid FOR SHARE OF b")
+    let base: String = sqlx::query_scalar("SELECT b.id::text FROM knowledge.knowledge_bases b JOIN knowledge.documents d ON d.knowledge_base_id = b.id WHERE d.id = $1::uuid AND d.deleted_at IS NULL AND b.deleted_at IS NULL FOR SHARE OF b")
         .bind(id.to_string()).fetch_optional(&mut *tx).await?.ok_or(Failure::NotFound)?;
     require_edit(&mut tx, &actor.id, role, &base).await?;
-    let document = sqlx::query_as::<_, Document>(&format!("UPDATE knowledge.documents SET title = $1, markdown = $2, version = version + 1, updated_by = $3::uuid, updated_at = clock_timestamp() WHERE id = $4::uuid AND knowledge_base_id = $5::uuid AND version = $6 RETURNING {COLUMNS}, true AS can_edit"))
+    let document = sqlx::query_as::<_, Document>(&format!("UPDATE knowledge.documents SET title = $1, markdown = $2, version = version + 1, updated_by = $3::uuid, updated_at = clock_timestamp() WHERE id = $4::uuid AND knowledge_base_id = $5::uuid AND version = $6 AND deleted_at IS NULL RETURNING {COLUMNS}, true AS can_edit"))
         .bind(content.title).bind(content.markdown).bind(&actor.id).bind(id.to_string()).bind(base).bind(version)
         .fetch_optional(&mut *tx).await?.ok_or(Failure::VersionConflict)?;
     audit::append(
@@ -242,7 +271,7 @@ pub(super) async fn list(
             .await?
             .can_edit
     } else {
-        sqlx::query_scalar::<_, bool>("SELECT $2 OR NOT EXISTS (SELECT 1 FROM knowledge.knowledge_bases WHERE personal_owner = $1::uuid) OR EXISTS (SELECT 1 FROM knowledge.knowledge_bases b JOIN knowledge.grants g ON g.knowledge_base_id = b.id WHERE b.personal_owner = $1::uuid AND g.user_id = $1::uuid AND g.access = 'editor')")
+        sqlx::query_scalar::<_, bool>("SELECT NOT EXISTS (SELECT 1 FROM knowledge.knowledge_bases WHERE personal_owner = $1::uuid) OR EXISTS (SELECT 1 FROM knowledge.knowledge_bases b WHERE b.personal_owner = $1::uuid AND b.deleted_at IS NULL AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid AND g.access = 'editor')))")
             .bind(&actor.id).bind(manager(actor.role)).fetch_one(pool).await?
     };
     let base_id = base_id.map(|base| base.to_string());
@@ -259,7 +288,7 @@ pub(super) async fn list(
         .as_deref()
         .map(|token| Cursor::decode(token, &actor.id, &filter))
         .transpose()?;
-    let mut data = sqlx::query_as::<_, DocumentSummary>("SELECT d.id::text, d.knowledge_base_id::text, d.title, d.version, d.created_at, d.updated_at FROM knowledge.documents d JOIN knowledge.knowledge_bases b ON b.id = d.knowledge_base_id WHERE (($7::uuid IS NULL AND b.personal_owner = $1::uuid) OR b.id = $7::uuid) AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::timestamptz IS NULL OR (d.created_at, d.id) < ($3::timestamptz, $4::uuid)) AND d.title ILIKE $6 ORDER BY d.created_at DESC, d.id DESC LIMIT $5")
+    let mut data = sqlx::query_as::<_, DocumentSummary>("SELECT d.id::text, d.knowledge_base_id::text, d.title, d.version, d.created_at, d.updated_at FROM knowledge.documents d JOIN knowledge.knowledge_bases b ON b.id = d.knowledge_base_id WHERE d.deleted_at IS NULL AND b.deleted_at IS NULL AND (($7::uuid IS NULL AND b.personal_owner = $1::uuid) OR b.id = $7::uuid) AND ($2 OR EXISTS (SELECT 1 FROM knowledge.grants g WHERE g.knowledge_base_id = b.id AND g.user_id = $1::uuid)) AND ($3::timestamptz IS NULL OR (d.created_at, d.id) < ($3::timestamptz, $4::uuid)) AND d.title ILIKE $6 ORDER BY d.created_at DESC, d.id DESC LIMIT $5")
         .bind(&actor.id).bind(manager(actor.role)).bind(cursor.as_ref().map(|cursor| cursor.at)).bind(cursor.as_ref().map(|cursor| cursor.id.as_str())).bind(i64::from(limit) + 1).bind(pattern).bind(base_id).fetch_all(pool).await?;
     let has_more = data.len() > limit as usize;
     data.truncate(limit as usize);

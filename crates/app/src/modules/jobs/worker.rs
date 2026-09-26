@@ -7,6 +7,7 @@ pub struct WorkerPolicy {
     pub lease_secs: u32,
     pub heartbeat_secs: u32,
     pub shutdown_secs: u32,
+    pub maintenance_secs: u32,
 }
 impl Default for WorkerPolicy {
     fn default() -> Self {
@@ -14,6 +15,7 @@ impl Default for WorkerPolicy {
             lease_secs: 60,
             heartbeat_secs: 20,
             shutdown_secs: 10,
+            maintenance_secs: 30,
         }
     }
 }
@@ -43,6 +45,12 @@ pub const FIELDS: &[saas_platform::config::Setting] = &[
         secret: false,
         description: "Maximum active-work drain before process exit (1..60 seconds).",
     },
+    saas_platform::config::Setting {
+        name: "JOB_MAINTENANCE_SECS",
+        default: Some("30"),
+        secret: false,
+        description: "Interval for bounded maintenance scheduling (1..3600 seconds).",
+    },
 ];
 impl WorkerPolicy {
     pub fn from_env() -> Result<Self, saas_platform::config::ConfigError> {
@@ -52,6 +60,7 @@ impl WorkerPolicy {
             lease_secs,
             heartbeat_secs: bounded_u32(&FIELDS[2], 1, lease_secs / 2)?,
             shutdown_secs: bounded_u32(&FIELDS[3], 1, 60)?,
+            maintenance_secs: bounded_u32(&FIELDS[4], 1, 3600)?,
         })
     }
 }
