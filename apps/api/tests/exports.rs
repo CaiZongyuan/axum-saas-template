@@ -761,3 +761,214 @@ async fn new_exports_appear_on_the_first_page_after_twenty_history_entries(pool:
     assert_eq!(second["data"].as_array().unwrap().len(), 1);
     assert_ne!(second["data"][0]["id"], latest["id"]);
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn a_real_export_notifies_its_requester_once_and_the_notice_cannot_bypass_source_access(
+    pool: PgPool,
+) {
+    let (app, files) = application(pool.clone()).await;
+    let actor = register(&app, "notified-export@example.com").await;
+    let doc = data(
+        request(
+            &app,
+            &actor,
+            "POST",
+            "/api/v1/knowledge/documents",
+            json!({"title":"Private title never copied into inbox", "markdown":"secret"}),
+        )
+        .await,
+    )
+    .await;
+    let document_path = format!(
+        "/api/v1/knowledge/documents/{}",
+        doc["id"].as_str().unwrap()
+    );
+    let exports = format!("{document_path}/exports");
+    let export =
+        data(request_key(&app, &actor, "POST", &exports, json!({}), "notify-export").await).await;
+    let worker = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![saas_app::modules::knowledge::export_handler(
+            pool,
+            files,
+            Default::default(),
+            Default::default(),
+        )],
+        Default::default(),
+    );
+    assert!(worker.run_once().await.unwrap());
+    assert_eq!(
+        data(request_key(&app, &actor, "POST", &exports, json!({}), "notify-export").await).await["id"],
+        export["id"]
+    );
+    assert!(!worker.run_once().await.unwrap());
+    let notices =
+        data(request(&app, &actor, "GET", "/api/v1/notifications", json!(null)).await).await;
+    assert_eq!(notices["data"].as_array().unwrap().len(), 1);
+    let notice = &notices["data"][0];
+    assert_eq!(notice["subject"], "文档导出");
+    assert_eq!(notice["outcome"], "succeeded");
+    assert_eq!(notice["target"]["kind"], "knowledge.export");
+    assert_eq!(notice["target"]["resource_id"], export["id"]);
+    assert_eq!(notice["target"]["context"]["document_id"], doc["id"]);
+    assert!(!notice.to_string().contains("secret"));
+    let result = format!("{exports}/{}", export["id"].as_str().unwrap());
+    assert_eq!(
+        request(&app, &actor, "GET", &result, json!(null))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        request(&app, &actor, "DELETE", &document_path, json!(null))
+            .await
+            .status(),
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        request(&app, &actor, "GET", &result, json!(null))
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        request(
+            &app,
+            &actor,
+            "GET",
+            &format!("{result}/download"),
+            json!(null)
+        )
+        .await
+        .status(),
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        data(request(&app, &actor, "GET", "/api/v1/notifications", json!(null)).await).await,
+        notices
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn notification_publication_failure_rolls_back_export_result_and_recovers_without_duplicates(
+    pool: PgPool,
+) {
+    let (app, files) = application(pool.clone()).await;
+    let actor = register(&app, "atomic-notice@example.com").await;
+    let doc = data(
+        request(
+            &app,
+            &actor,
+            "POST",
+            "/api/v1/knowledge/documents",
+            json!({"title":"Atomic", "markdown":"text"}),
+        )
+        .await,
+    )
+    .await;
+    let exports = format!(
+        "/api/v1/knowledge/documents/{}/exports",
+        doc["id"].as_str().unwrap()
+    );
+    let export = data(request(&app, &actor, "POST", &exports, json!({})).await).await;
+    sqlx::raw_sql("CREATE FUNCTION reject_notice() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'test notification failure'; END $$; CREATE TRIGGER reject_notice BEFORE INSERT ON saas_core.notifications FOR EACH ROW EXECUTE FUNCTION reject_notice();").execute(&pool).await.unwrap();
+    let worker = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![saas_app::modules::knowledge::export_handler(
+            pool.clone(),
+            files,
+            Default::default(),
+            Default::default(),
+        )],
+        Default::default(),
+    );
+    assert!(worker.run_once().await.unwrap());
+    let result = format!("{exports}/{}", export["id"].as_str().unwrap());
+    let after = data(request(&app, &actor, "GET", &result, json!(null)).await).await;
+    assert_eq!(after["status"], "retry_wait");
+    assert_eq!(after["can_download"], false);
+    assert_eq!(
+        request(
+            &app,
+            &actor,
+            "GET",
+            &format!("{result}/download"),
+            json!(null)
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+    assert_eq!(
+        data(request(&app, &actor, "GET", "/api/v1/notifications", json!(null)).await).await["data"],
+        json!([])
+    );
+    sqlx::query("DROP TRIGGER reject_notice ON saas_core.notifications")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE saas_core.jobs SET scheduled_at = clock_timestamp() WHERE kind = 'knowledge.export'").execute(&pool).await.unwrap();
+    assert!(worker.run_once().await.unwrap());
+    let after = data(request(&app, &actor, "GET", &result, json!(null)).await).await;
+    assert_eq!(after["status"], "succeeded");
+    assert_eq!(after["can_download"], true);
+    assert_eq!(
+        data(request(&app, &actor, "GET", "/api/v1/notifications", json!(null)).await).await["unread_count"],
+        1
+    );
+    assert!(!worker.run_once().await.unwrap());
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn deleted_export_sources_still_produce_a_failure_notice_without_a_resource_leak(
+    pool: PgPool,
+) {
+    let (app, files) = application(pool.clone()).await;
+    let actor = register(&app, "deleted-notice@example.com").await;
+    let doc = data(
+        request(
+            &app,
+            &actor,
+            "POST",
+            "/api/v1/knowledge/documents",
+            json!({"title":"Private removed title", "markdown":"text"}),
+        )
+        .await,
+    )
+    .await;
+    let path = format!(
+        "/api/v1/knowledge/documents/{}",
+        doc["id"].as_str().unwrap()
+    );
+    request(&app, &actor, "POST", &format!("{path}/exports"), json!({})).await;
+    assert_eq!(
+        request(&app, &actor, "DELETE", &path, json!(null))
+            .await
+            .status(),
+        StatusCode::NO_CONTENT
+    );
+    let worker = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![saas_app::modules::knowledge::document_cleanup_handler(
+            pool.clone(),
+        )],
+        Default::default(),
+    );
+    assert!(worker.run_once().await.unwrap());
+    let worker = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![saas_app::modules::knowledge::export_handler(
+            pool,
+            files,
+            Default::default(),
+            Default::default(),
+        )],
+        Default::default(),
+    );
+    assert!(worker.run_once().await.unwrap());
+    let notices =
+        data(request(&app, &actor, "GET", "/api/v1/notifications", json!(null)).await).await;
+    assert_eq!(notices["data"].as_array().unwrap().len(), 1);
+    assert_eq!(notices["data"][0]["outcome"], "failed");
+    assert_eq!(notices["data"][0]["subject"], "文档导出");
+}

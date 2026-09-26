@@ -4,6 +4,7 @@ pub mod files;
 pub mod idempotency;
 pub mod identity;
 pub mod jobs;
+pub mod notifications;
 pub mod organization;
 pub mod system;
 // example:knowledge:module:start

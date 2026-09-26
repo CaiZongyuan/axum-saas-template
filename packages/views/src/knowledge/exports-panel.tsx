@@ -1,58 +1,26 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
   useQueryClient,
 } from '@tanstack/react-query';
 import {
-  downloadDocumentExport,
   listDocumentExports,
   requestDocumentExport,
   type ApiClient,
   type CurrentSession,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
-import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
 import type { FileTransfer } from './file-transfer';
+import { useExportDownload } from './export-download';
+import {
+  ExportFailure,
+  exportLabels,
+  exportPending,
+  exportErrorCode,
+} from './export-feedback';
 import { sessionKey } from '../identity/session';
-
-const pending = new Set(['queued', 'running', 'retry_wait']);
-const labels: Record<string, string> = {
-  queued: '等待处理',
-  running: '正在生成',
-  retry_wait: '等待重试',
-  succeeded: '导出完成',
-  failed: '导出失败',
-  expired: '已过期',
-};
-function errorCode(error: unknown): string | undefined {
-  return error && typeof error === 'object' && 'error' in error
-    ? (error.error as { code?: string }).code
-    : undefined;
-}
-function Failure({ error }: { error: unknown }) {
-  const code = errorCode(error);
-  const messages: Record<string, string> = {
-    'knowledge.export_too_large': '文档和附件超过导出上限。',
-    'knowledge.export_expired': '导出已过期，请重新申请。',
-    'knowledge.export_not_ready': '导出尚未完成，请刷新进度。',
-    'knowledge.not_found': '文档不存在或访问权限已失效。',
-    'knowledge.forbidden': '当前无权操作这份文档。',
-    'auth.unauthorized': '会话已失效，请重新登录。',
-  };
-  const id = requestIdFromError(error);
-  return (
-    <Alert variant="destructive">
-      <AlertTitle>导出操作未完成</AlertTitle>
-      <AlertDescription>
-        {messages[code ?? ''] ?? '暂时无法处理，请重试。'}
-        {id ? <p>请求编号：{id}</p> : null}
-      </AlertDescription>
-    </Alert>
-  );
-}
 
 export function ExportsPanel({
   apiClient,
@@ -86,13 +54,13 @@ export function ExportsPanel({
     refetchInterval: (query) =>
       !query.state.error &&
       query.state.data?.pages.some((page) =>
-        page.data.some((item) => pending.has(item.status)),
+        page.data.some((item) => exportPending.has(item.status)),
       )
         ? 1500
         : false,
   });
   function refreshAccess(error: unknown) {
-    const code = errorCode(error);
+    const code = exportErrorCode(error);
     if (
       [
         'knowledge.forbidden',
@@ -131,40 +99,15 @@ export function ExportsPanel({
       await queryClient.resetQueries({ queryKey, exact: true });
     },
   });
-  const [error, setError] = useState<unknown>();
-  const [downloading, setDownloading] = useState<string>();
-  const downloadAbort = useRef<AbortController | null>(null);
-  useEffect(() => () => downloadAbort.current?.abort(), []);
-  async function download(exportId: string) {
-    if (downloadAbort.current) return;
-    const controller = new AbortController();
-    downloadAbort.current = controller;
-    setDownloading(exportId);
-    setError(undefined);
-    try {
-      const capability = (
-        await downloadDocumentExport({
-          client: apiClient,
-          path: { id: documentId, export_id: exportId },
-          signal: AbortSignal.any([
-            controller.signal,
-            AbortSignal.timeout(10_000),
-          ]),
-          throwOnError: true,
-        })
-      ).data;
-      await transfer.download(capability, capability.file, controller.signal);
-    } catch (error) {
-      if (!controller.signal.aborted) {
-        setError(error);
-        refreshAccess(error);
-        void exports.refetch();
-      }
-    } finally {
-      downloadAbort.current = null;
-      if (!controller.signal.aborted) setDownloading(undefined);
-    }
-  }
+  const { error, clearError, downloading, download } = useExportDownload({
+    apiClient,
+    documentId,
+    transfer,
+    onFailure: (error) => {
+      refreshAccess(error);
+      void exports.refetch();
+    },
+  });
   const items = exports.data?.pages.flatMap((page) => page.data) ?? [];
   return (
     <section aria-label="文档导出" className="flex flex-col gap-4">
@@ -176,7 +119,7 @@ export function ExportsPanel({
         <Button
           disabled={create.isPending || exports.isPending || exports.isError}
           onClick={() => {
-            setError(undefined);
+            clearError();
             create.mutate();
           }}
         >
@@ -197,9 +140,9 @@ export function ExportsPanel({
         </Button>
       </div>
       {exports.isPending ? <p role="status">正在读取导出记录…</p> : null}
-      {exports.isError ? <Failure error={exports.error} /> : null}
-      {create.isError ? <Failure error={create.error} /> : null}
-      {error ? <Failure error={error} /> : null}
+      {exports.isError ? <ExportFailure error={exports.error} /> : null}
+      {create.isError ? <ExportFailure error={create.error} /> : null}
+      {error ? <ExportFailure error={error} /> : null}
       {!exports.isPending && !exports.isError && items.length === 0 ? (
         <p className="text-sm text-muted-foreground">暂无导出记录。</p>
       ) : null}
@@ -214,7 +157,7 @@ export function ExportsPanel({
               <Badge
                 variant={item.status === 'failed' ? 'destructive' : 'secondary'}
               >
-                {labels[item.status] ?? '状态更新中'}
+                {exportLabels[item.status] ?? '状态更新中'}
               </Badge>
               {item.status === 'failed' ? (
                 <span className="text-sm">本次导出未完成，可重新申请。</span>

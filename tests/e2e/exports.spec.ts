@@ -44,6 +44,15 @@ test('a real Worker creates a downloadable document ZIP with its attachment byte
   );
   expect(attachment).toBeTruthy();
   expect(Buffer.from(archive[attachment!])).toEqual(bytes);
-  await page.reload();
+  await page.goto('/notifications');
+  await expect(page.getByText('文档导出完成', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 条未读')).toBeVisible();
+  await page.getByRole('button', { name: '查看结果' }).click();
+  await expect(page.getByRole('heading', { name: '导出详情' })).toBeVisible();
   await expect(page.getByRole('button', { name: '下载 ZIP' })).toBeVisible();
+  await page.getByRole('button', { name: '返回通知' }).click();
+  await expect(page.getByText('0 条未读')).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('已读', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '查看结果' })).toHaveCount(1);
 });

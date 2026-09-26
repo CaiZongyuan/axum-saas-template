@@ -8,6 +8,8 @@ import {
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
 import {
+  NotificationsView,
+  type NotificationTargetResolver,
   StatusView,
   RegisterView,
   HomeView,
@@ -20,6 +22,7 @@ import {
 import { browserFileTransfer } from './knowledge-files';
 import { useDocumentNavigationGuard } from './knowledge-navigation';
 import {
+  DocumentExportView,
   KnowledgeBaseView,
   KnowledgeBasesView,
   DocumentsView,
@@ -68,6 +71,9 @@ function HomePage() {
         </a>
       }
     >
+      <a href="/notifications" className="text-sm underline">
+        通知
+      </a>
       <a href="/members" className="text-sm underline">
         企业成员
       </a>
@@ -168,7 +174,67 @@ const jobRoute = createRoute({
   path: '/jobs/$jobId',
   component: JobPage,
 });
+function NotificationsPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  const navigation: { resolveTarget?: NotificationTargetResolver } = {};
+  // example:knowledge:notification-target:start
+  navigation.resolveTarget = (target) => {
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const documentId = target.context.document_id;
+    const exportId = target.resource_id;
+    if (
+      target.kind !== 'knowledge.export' ||
+      !uuid.test(documentId ?? '') ||
+      !uuid.test(exportId)
+    )
+      return;
+    return () => {
+      void navigate({
+        to: '/documents/$documentId/exports/$exportId',
+        params: { documentId, exportId },
+      });
+    };
+  };
+  // example:knowledge:notification-target:end
+  return (
+    <NotificationsView
+      apiClient={apiClient}
+      {...navigation}
+      onBack={() => {
+        void navigate({ to: '/' });
+      }}
+    />
+  );
+}
+const notificationsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/notifications',
+  component: NotificationsPage,
+});
 // example:knowledge:routes:start
+function DocumentExportPage() {
+  const { apiClient } = rootRoute.useRouteContext();
+  const { documentId, exportId } = documentExportRoute.useParams();
+  const navigate = useNavigate();
+  return (
+    <DocumentExportView
+      apiClient={apiClient}
+      documentId={documentId}
+      exportId={exportId}
+      transfer={browserFileTransfer}
+      onBack={() => {
+        void navigate({ to: '/notifications' });
+      }}
+    />
+  );
+}
+const documentExportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/documents/$documentId/exports/$exportId',
+  component: DocumentExportPage,
+});
 function KnowledgeBasePage() {
   const { apiClient } = rootRoute.useRouteContext();
   const { baseId } = knowledgeBaseRoute.useParams();
@@ -371,6 +437,7 @@ const documentRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   // example:knowledge:route-tree:start
+  documentExportRoute,
   knowledgeBaseRoute,
   knowledgeBasesRoute,
   newLibraryDocumentRoute,
@@ -379,6 +446,7 @@ const routeTree = rootRoute.addChildren([
   newDocumentRoute,
   documentRoute,
   // example:knowledge:route-tree:end
+  notificationsRoute,
   loginRoute,
   membersRoute,
   jobsRoute,

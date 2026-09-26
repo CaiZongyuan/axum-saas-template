@@ -2,7 +2,7 @@ use super::{
     COLUMNS, DocumentExport, ExportPayload, ExportPolicy, ExportRow, Failure, Snapshot,
     application, information,
 };
-use crate::modules::{audit, files, idempotency, identity, jobs};
+use crate::modules::{audit, files, idempotency, identity, jobs, notifications};
 use saas_platform::config::AuthSettings;
 use sqlx::PgPool;
 
@@ -78,6 +78,21 @@ pub(super) async fn create(
                 })
                 .map_err(|_| Failure::Unavailable)?,
                 correlation_id: request_id,
+            },
+        )
+        .await?;
+        notifications::on_job_outcome(
+            &mut tx,
+            &job_id,
+            notifications::JobNotification {
+                recipient_id: actor_id,
+                event_key: &format!("knowledge.export:{export_id}"),
+                subject: "文档导出",
+                target: notifications::NotificationTarget {
+                    kind: "knowledge.export".into(),
+                    resource_id: export_id.clone(),
+                    context: [("document_id".into(), document_id.to_string())].into(),
+                },
             },
         )
         .await?;

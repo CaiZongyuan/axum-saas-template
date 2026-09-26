@@ -34,7 +34,9 @@
     "apps/api/tests/deletion.rs",
     "apps/web/src/deletion.test.tsx",
     "tests/e2e/deletion.spec.ts",
-    "docs/tutorials/12-deletion-cleanup.md"
+    "docs/tutorials/12-deletion-cleanup.md",
+    "apps/web/src/export-notifications.test.tsx",
+    "docs/tutorials/13-export-notifications.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
@@ -52,7 +54,13 @@
   "registrationMarkers": {
     "apps/api/src/lib.rs": ["routes", "openapi", "configured-routes"],
     "crates/app/src/modules/mod.rs": ["module"],
-    "apps/web/src/router.tsx": ["imports", "home", "routes", "route-tree"],
+    "apps/web/src/router.tsx": [
+      "imports",
+      "home",
+      "routes",
+      "route-tree",
+      "notification-target"
+    ],
     "packages/views/src/index.ts": ["views"],
     "docs/getting-started/quickstart.md": ["quickstart"],
     "README.md": ["readme"],

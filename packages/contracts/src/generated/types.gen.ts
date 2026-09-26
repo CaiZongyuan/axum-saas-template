@@ -225,6 +225,34 @@ export type MemberPage = {
 
 export type MemberRole = 'owner' | 'admin' | 'member';
 
+export type Notification = {
+    created_at: string;
+    id: string;
+    outcome: Outcome;
+    read_at?: string | null;
+    subject: string;
+    target: NotificationTarget;
+};
+
+export type NotificationPage = {
+    data: Array<Notification>;
+    has_more: boolean;
+    next_cursor?: string | null;
+    unread_count: number;
+};
+
+/**
+ * A navigation hint, never an authorization capability or a signed URL.
+ * The application shell resolves known kinds; the destination checks current access.
+ */
+export type NotificationTarget = {
+    context: {
+        [key: string]: string;
+    };
+    kind: string;
+    resource_id: string;
+};
+
 export type ObjectCapability = {
     expires_at: string;
     headers: {
@@ -233,6 +261,8 @@ export type ObjectCapability = {
     method: string;
     url: string;
 };
+
+export type Outcome = 'succeeded' | 'failed';
 
 export type Registration = {
     display_name?: string | null;
@@ -1089,6 +1119,58 @@ export type CompleteAttachmentUploadResponses = {
 };
 
 export type CompleteAttachmentUploadResponse = CompleteAttachmentUploadResponses[keyof CompleteAttachmentUploadResponses];
+
+export type ListNotificationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        cursor?: string;
+        unread_only?: boolean;
+    };
+    url: '/api/v1/notifications';
+};
+
+export type ListNotificationsErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ListNotificationsError = ListNotificationsErrors[keyof ListNotificationsErrors];
+
+export type ListNotificationsResponses = {
+    200: NotificationPage;
+};
+
+export type ListNotificationsResponse = ListNotificationsResponses[keyof ListNotificationsResponses];
+
+export type ReadNotificationData = {
+    body?: never;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/notifications/{id}/read';
+};
+
+export type ReadNotificationErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    404: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type ReadNotificationError = ReadNotificationErrors[keyof ReadNotificationErrors];
+
+export type ReadNotificationResponses = {
+    200: Notification;
+};
+
+export type ReadNotificationResponse = ReadNotificationResponses[keyof ReadNotificationResponses];
 
 export type ListMembersData = {
     body?: never;
