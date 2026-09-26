@@ -39,7 +39,9 @@
     "docs/tutorials/13-export-notifications.md",
     "apps/api/tests/audit_knowledge.rs",
     "tests/e2e/audit.spec.ts",
-    "docs/tutorials/14-audit-history.md"
+    "docs/tutorials/14-audit-history.md",
+    "apps/api/tests/key_documents.rs",
+    "docs/tutorials/15-api-keys.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

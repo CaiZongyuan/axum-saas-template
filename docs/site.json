@@ -100,6 +100,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/15-api-keys.md",
+      "route": "tutorials/api-keys.md",
+      "title": "API Key 与当前资源权限",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

@@ -1,3 +1,4 @@
+export { ApiKeysView } from './api-keys/api-keys-view';
 export { AuditView } from './audit/audit-view';
 export {
   NotificationsView,
