@@ -1,3 +1,7 @@
+export {
+  NotificationsView,
+  type NotificationTargetResolver,
+} from './notifications/notifications-view';
 export { StatusView } from './system/status-view';
 export { RegisterView } from './identity/register-view';
 export { HomeView } from './identity/home-view';
@@ -6,6 +10,7 @@ export { JobsView, JobView } from './jobs/jobs-view';
 export { MembersView } from './organization/members-view';
 // example:knowledge:views:start
 export {
+  DocumentExportView,
   KnowledgeBaseView,
   KnowledgeBasesView,
   DocumentsView,

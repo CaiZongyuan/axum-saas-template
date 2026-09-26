@@ -1,3 +1,4 @@
+export { DocumentExportView } from './export-detail-view';
 export {
   DocumentsView,
   NewDocumentView,

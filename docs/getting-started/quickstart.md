@@ -37,6 +37,8 @@ Owner/Admin 可从首页“知识库”创建共享库、修改名称、授予�
 
 有权编辑时可以确认删除文档或附件；管理员可删除整个库，后台任务负责对象清理。详见[删除与可靠清理](../tutorials/12-deletion-cleanup.md)。
 
+导出完成或最终失败后，从首页“通知”查看结果，标记已读或打开导出详情。详见[导出通知与已读状态](../tutorials/13-export-notifications.md)。
+
 <!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：

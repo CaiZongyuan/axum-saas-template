@@ -1,0 +1,4 @@
+{
+  "kind": "core",
+  "tables": ["saas_core.notifications", "saas_core.job_notifications"]
+}

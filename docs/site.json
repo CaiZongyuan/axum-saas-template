@@ -88,6 +88,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/13-export-notifications.md",
+      "route": "tutorials/export-notifications.md",
+      "title": "导出通知与已读状态",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
