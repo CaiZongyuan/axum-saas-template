@@ -118,18 +118,26 @@ pub(super) async fn create(
             sqlx::query("INSERT INTO knowledge.grants (knowledge_base_id, user_id, access) VALUES ($1::uuid, $2::uuid, 'editor')").bind(base).bind(&actor.id).execute(&mut *tx).await?;
             audit::append(
                 &mut tx,
-                &actor.id,
-                "knowledge.base.create",
-                base,
-                request_id,
+                audit::Event {
+                    actor_id: &actor.id,
+                    action: "knowledge.base.create",
+                    resource_type: "knowledge.base",
+                    resource_id: base,
+                    source: audit::Source::Request(request_id),
+                    subject_user_id: None,
+                },
             )
             .await?;
             audit::append(
                 &mut tx,
-                &actor.id,
-                "knowledge.grant.assign",
-                base,
-                request_id,
+                audit::Event {
+                    actor_id: &actor.id,
+                    action: "knowledge.grant.assign",
+                    resource_type: "knowledge.grant",
+                    resource_id: base,
+                    source: audit::Source::Request(request_id),
+                    subject_user_id: Some(&actor.id),
+                },
             )
             .await?;
         }
@@ -170,10 +178,14 @@ pub(super) async fn create(
         .bind(uuid::Uuid::now_v7().to_string()).bind(base).bind(content.title).bind(content.markdown).bind(&actor.id).fetch_one(&mut *tx).await?;
     audit::append(
         &mut tx,
-        &actor.id,
-        "knowledge.document.create",
-        &document.id,
-        request_id,
+        audit::Event {
+            actor_id: &actor.id,
+            action: "knowledge.document.create",
+            resource_type: "knowledge.document",
+            resource_id: &document.id,
+            source: audit::Source::Request(request_id),
+            subject_user_id: None,
+        },
     )
     .await?;
     idempotency::complete(
@@ -235,10 +247,14 @@ pub(super) async fn update(
         .fetch_optional(&mut *tx).await?.ok_or(Failure::VersionConflict)?;
     audit::append(
         &mut tx,
-        &actor.id,
-        "knowledge.document.update",
-        &document.id,
-        request_id,
+        audit::Event {
+            actor_id: &actor.id,
+            action: "knowledge.document.update",
+            resource_type: "knowledge.document",
+            resource_id: &document.id,
+            source: audit::Source::Request(request_id),
+            subject_user_id: None,
+        },
     )
     .await?;
     tx.commit().await?;

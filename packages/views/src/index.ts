@@ -1,3 +1,4 @@
+export { AuditView } from './audit/audit-view';
 export {
   NotificationsView,
   type NotificationTargetResolver,

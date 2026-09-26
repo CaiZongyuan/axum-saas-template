@@ -94,6 +94,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/14-audit-history.md",
+      "route": "tutorials/audit-history.md",
+      "title": "管理员审计与业务追溯",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

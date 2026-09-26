@@ -36,7 +36,10 @@
     "tests/e2e/deletion.spec.ts",
     "docs/tutorials/12-deletion-cleanup.md",
     "apps/web/src/export-notifications.test.tsx",
-    "docs/tutorials/13-export-notifications.md"
+    "docs/tutorials/13-export-notifications.md",
+    "apps/api/tests/audit_knowledge.rs",
+    "tests/e2e/audit.spec.ts",
+    "docs/tutorials/14-audit-history.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

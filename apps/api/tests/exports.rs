@@ -972,3 +972,95 @@ async fn deleted_export_sources_still_produce_a_failure_notice_without_a_resourc
     assert_eq!(notices["data"][0]["outcome"], "failed");
     assert_eq!(notices["data"][0]["subject"], "文档导出");
 }
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn export_completion_audit_identifies_the_actual_job_and_original_request(pool: PgPool) {
+    let (app, files) = application(pool.clone()).await;
+    let actor = register(&app, "audit-export@example.com").await;
+    let doc = data(
+        request(
+            &app,
+            &actor,
+            "POST",
+            "/api/v1/knowledge/documents",
+            json!({"title":"Audit export", "markdown":"private-body"}),
+        )
+        .await,
+    )
+    .await;
+    let response = request(
+        &app,
+        &actor,
+        "POST",
+        &format!(
+            "/api/v1/knowledge/documents/{}/exports",
+            doc["id"].as_str().unwrap()
+        ),
+        json!({}),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::ACCEPTED);
+    let request_id = response.headers()["x-request-id"]
+        .to_str()
+        .unwrap()
+        .to_owned();
+    let export = data(response).await;
+    let worker = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![saas_app::modules::knowledge::export_handler(
+            pool,
+            files,
+            Default::default(),
+            Default::default(),
+        )],
+        Default::default(),
+    );
+    assert!(worker.run_once().await.unwrap());
+    let page = data(
+        request(
+            &app,
+            &actor,
+            "GET",
+            &format!(
+                "/api/v1/audit-events?correlation_id={request_id}&action=knowledge.export.complete"
+            ),
+            json!(null),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(page["data"].as_array().unwrap().len(), 1);
+    let event = &page["data"][0];
+    assert_eq!(event["resource_id"], export["id"]);
+    assert_eq!(event["resource_type"], "knowledge.export");
+    assert_eq!(event["actor_id"], actor.id);
+    assert_eq!(event["request_id"], Value::Null);
+    assert_eq!(event["trace_id"], Value::Null);
+    let job_id = event["job_id"].as_str().unwrap();
+    let job = data(
+        request(
+            &app,
+            &actor,
+            "GET",
+            &format!("/api/v1/jobs/{job_id}"),
+            json!(null),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(job["job"]["kind"], "knowledge.export");
+    assert_eq!(job["job"]["status"], "succeeded");
+    assert_eq!(job["job"]["correlation_id"], request_id);
+    let by_job = data(
+        request(
+            &app,
+            &actor,
+            "GET",
+            &format!("/api/v1/audit-events?job_id={job_id}"),
+            json!(null),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(by_job["data"][0]["id"], event["id"]);
+}

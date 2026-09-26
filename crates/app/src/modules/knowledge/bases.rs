@@ -220,10 +220,14 @@ async fn create(
             .bind(uuid::Uuid::now_v7().to_string()).bind(name).bind(&actor.id).fetch_one(&mut *tx).await?;
     audit::append(
         &mut tx,
-        &actor.id,
-        "knowledge.base.create",
-        &base.id,
-        request_id,
+        audit::Event {
+            actor_id: &actor.id,
+            action: "knowledge.base.create",
+            resource_type: "knowledge.base",
+            resource_id: &base.id,
+            source: audit::Source::Request(request_id),
+            subject_user_id: None,
+        },
     )
     .await?;
     idempotency::complete(&mut tx, &attempt, serde_json::json!({"base_id":base.id})).await?;
@@ -335,10 +339,14 @@ async fn rename(
             .await?;
         audit::append(
             &mut tx,
-            actor_id,
-            "knowledge.base.rename",
-            &base.id,
-            request_id,
+            audit::Event {
+                actor_id,
+                action: "knowledge.base.rename",
+                resource_type: "knowledge.base",
+                resource_id: &base.id,
+                source: audit::Source::Request(request_id),
+                subject_user_id: None,
+            },
         )
         .await?;
         base.name = name.to_owned();

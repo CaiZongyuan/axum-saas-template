@@ -357,10 +357,14 @@ async fn publish(
             sqlx::query("INSERT INTO knowledge.attachments (file_id, document_id) VALUES ($1::uuid, $2::uuid)").bind(&file.id).bind(document_id.to_string()).execute(&mut *tx).await?;
             audit::append(
                 &mut tx,
-                actor_id,
-                "knowledge.attachment.complete",
-                &file.id,
-                request_id,
+                audit::Event {
+                    actor_id,
+                    action: "knowledge.attachment.complete",
+                    resource_type: "knowledge.attachment",
+                    resource_id: &file.id,
+                    source: audit::Source::Request(request_id),
+                    subject_user_id: None,
+                },
             )
             .await?;
             Some(file)
@@ -486,10 +490,14 @@ async fn remove_attachment_in(
     files::mark_deleting(&mut tx, &file_id.to_string(), request_id).await?;
     audit::append(
         &mut tx,
-        actor,
-        "knowledge.attachment.delete",
-        &file_id.to_string(),
-        request_id,
+        audit::Event {
+            actor_id: actor,
+            action: "knowledge.attachment.delete",
+            resource_type: "knowledge.attachment",
+            resource_id: &file_id.to_string(),
+            source: audit::Source::Request(request_id),
+            subject_user_id: None,
+        },
     )
     .await?;
     tx.commit().await?;

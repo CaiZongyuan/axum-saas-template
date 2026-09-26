@@ -280,7 +280,18 @@ async fn create_account(
         .execute(&mut *tx)
         .await?;
         let role = organization::enroll(&mut tx, &user_id).await?;
-        audit::append(&mut tx, &user_id, "identity.register", &user_id, &id.0).await?;
+        audit::append(
+            &mut tx,
+            audit::Event {
+                actor_id: &user_id,
+                action: "identity.register",
+                resource_type: "identity.user",
+                resource_id: &user_id,
+                source: audit::Source::Request(&id.0),
+                subject_user_id: None,
+            },
+        )
+        .await?;
         tx.commit().await?;
         Ok::<_, sqlx::Error>(role)
     };

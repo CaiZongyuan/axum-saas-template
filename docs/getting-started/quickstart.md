@@ -39,6 +39,8 @@ Owner/Admin 可从首页“知识库”创建共享库、修改名称、授予�
 
 导出完成或最终失败后，从首页“通知”查看结果，标记已读或打开导出详情。详见[导出通知与已读状态](../tutorials/13-export-notifications.md)。
 
+Owner/Admin 可以从“审计记录”按文档 ID、动作和请求 ID 追溯实际操作，参见[管理员审计](../tutorials/14-audit-history.md)。
+
 <!-- example:knowledge:quickstart:end -->
 
 API 默认监听 `127.0.0.1:3000`：

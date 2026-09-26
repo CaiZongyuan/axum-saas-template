@@ -64,7 +64,8 @@ pub fn compose_routes(
         .merge(modules::identity::router(pool.clone(), auth.clone()))
         .merge(modules::organization::router(pool.clone(), auth.clone()))
         .merge(modules::jobs::router(pool.clone(), auth.clone()))
-        .merge(modules::notifications::router(pool, auth))
+        .merge(modules::notifications::router(pool.clone(), auth.clone()))
+        .merge(modules::audit::router(pool, auth))
         .merge(domain_routes)
         .fallback(http::not_found)
         .method_not_allowed_fallback(http::method_not_allowed)
@@ -97,5 +98,6 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     document.merge(modules::organization::openapi());
     document.merge(modules::jobs::openapi());
     document.merge(modules::notifications::openapi());
+    document.merge(modules::audit::openapi());
     document
 }
