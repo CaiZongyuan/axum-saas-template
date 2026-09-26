@@ -1,8 +1,11 @@
+import { observabilityEnv, startObservability } from './lib/observability.mjs';
 import { watch } from 'node:fs';
 import { join } from 'node:path';
 import { developmentEnv, launch, root, run, stop } from './lib/process.mjs';
 
-const env = developmentEnv();
+const observing = process.argv.includes('--observability');
+const env = observing ? observabilityEnv(developmentEnv()) : developmentEnv();
+if (observing) await startObservability(env);
 run(
   'docker',
   ['compose', 'up', '-d', '--wait', 'postgres', 'rustfs', 'redis', 'mailpit'],
@@ -20,7 +23,10 @@ let api = launch(
   env,
 );
 let worker = launch('cargo', ['run', '--locked', '-p', 'saas-worker'], env);
-const workerGrace = (Number(env.JOB_SHUTDOWN_SECS ?? 10) + 3) * 1000;
+const telemetryGrace = env.TELEMETRY_ENDPOINT ? 10_000 : 1500;
+const apiGrace = 5000 + telemetryGrace;
+const workerGrace =
+  (Number(env.JOB_SHUTDOWN_SECS ?? 10) + 3) * 1000 + telemetryGrace;
 const web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);
 let closing = false;
 let restarting = false;
@@ -33,7 +39,7 @@ async function restartRust() {
   restarting = true;
   while (changed && !closing) {
     changed = false;
-    await Promise.all([stop(api), stop(worker, workerGrace)]);
+    await Promise.all([stop(api, apiGrace), stop(worker, workerGrace)]);
     if (!closing) {
       worker = launch('cargo', ['run', '--locked', '-p', 'saas-worker'], env);
       api = launch(
@@ -60,7 +66,11 @@ async function close() {
   closing = true;
   clearTimeout(debounce);
   watchers.forEach((watcher) => watcher.close());
-  await Promise.all([stop(api), stop(worker, workerGrace), stop(web)]);
+  await Promise.all([
+    stop(api, apiGrace),
+    stop(worker, workerGrace),
+    stop(web),
+  ]);
   console.log(
     'API, Worker and Web stopped. Data is preserved; use just services-down to stop PostgreSQL/RustFS/Redis/Mailpit.',
   );

@@ -25,7 +25,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let settings = Settings::from_env()?;
     let policy = WorkerPolicy::from_env()?;
     let bind = jobs::worker_bind()?;
-    telemetry::init(settings.log_filter);
+    let telemetry = telemetry::init(settings.log_filter, "saas-worker").await?;
     let pool = postgres::connect_lazy(settings.database);
     let _files = settings.storage.as_ref().map(|storage| {
         FileService::new(
@@ -137,6 +137,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         let _ = tokio::time::timeout(Duration::from_secs(1), server).await;
     }
     let _ = tokio::time::timeout(Duration::from_secs(1), pool.close()).await;
+    let _ = tokio::task::spawn_blocking(move || telemetry.shutdown()).await;
     Ok(())
 }
 async fn shutdown_signal() {

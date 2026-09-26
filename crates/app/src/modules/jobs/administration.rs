@@ -140,8 +140,8 @@ pub(super) async fn retry(
         }
         let next = job.batch.checked_add(1).ok_or(Error::Unavailable)?;
         sqlx::query("INSERT INTO saas_core.job_batches (job_id, number, max_attempts, status, requested_by) VALUES ($1::uuid, $2, $3, 'queued', $4::uuid)").bind(id).bind(next).bind(job.max_attempts).bind(actor).execute(&mut *tx).await?;
-        sqlx::query("UPDATE saas_core.jobs SET status = 'queued', batch = $2, attempts = 0, scheduled_at = clock_timestamp(), lease_token = NULL, locked_by = NULL, lease_expires_at = NULL, last_error = NULL, causation_id = $3, updated_at = now() WHERE id = $1::uuid")
-            .bind(id).bind(next).bind(request_id).execute(&mut *tx).await?;
+        sqlx::query("UPDATE saas_core.jobs SET status = 'queued', batch = $2, attempts = 0, scheduled_at = clock_timestamp(), lease_token = NULL, locked_by = NULL, lease_expires_at = NULL, last_error = NULL, causation_id = $3, traceparent = $4, updated_at = now() WHERE id = $1::uuid")
+            .bind(id).bind(next).bind(request_id).bind(saas_platform::telemetry::current_traceparent()).execute(&mut *tx).await?;
         audit::append(
             &mut tx,
             audit::Event {

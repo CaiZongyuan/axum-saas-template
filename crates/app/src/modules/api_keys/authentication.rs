@@ -94,10 +94,13 @@ pub async fn require_read(
     )
     .await
     {
-        Ok(Ok(user)) => Ok(ReadActor {
-            user,
-            is_api_key: true,
-        }),
+        Ok(Ok(user)) => {
+            saas_platform::telemetry::record_actor(&user.id);
+            Ok(ReadActor {
+                user,
+                is_api_key: true,
+            })
+        }
         Ok(Err(error)) => Err(error.response(id.clone())),
         Err(_) => Err(Failure::Unavailable.response(id.clone())),
     }

@@ -139,20 +139,50 @@ pub async fn request_context(mut request: Request, next: Next) -> Response {
         .extensions()
         .get::<MatchedPath>()
         .map_or("unmatched", |path| path.as_str());
-    let span =
-        tracing::info_span!("http.request", request_id = %id, method = %request.method(), route);
+    let method = saas_platform::telemetry::method_name(request.method().as_str());
+    let metric_route = route.to_owned();
+    let started = std::time::Instant::now();
+    let span = saas_platform::telemetry::http_span(
+        &id,
+        method,
+        route,
+        request
+            .headers()
+            .get("traceparent")
+            .and_then(|v| v.to_str().ok()),
+    );
+    let trace_id = saas_platform::telemetry::trace_id(&span);
     request.extensions_mut().insert(RequestId(id.clone()));
-    let mut response = async move {
-        let response = next.run(request).await;
-        tracing::info!(status = response.status().as_u16(), "request completed");
-        response
-    }
-    .instrument(span)
+    let correlation = saas_platform::telemetry::Correlation {
+        request_id: Some(id.clone()),
+        ..Default::default()
+    };
+    let mut response = saas_platform::telemetry::scope(
+        correlation,
+        async move {
+            let response = next.run(request).await;
+            saas_platform::telemetry::http_completed(
+                method,
+                metric_route,
+                response.status().as_u16(),
+                started.elapsed(),
+            );
+            tracing::info!(status = response.status().as_u16(), "request completed");
+            response
+        }
+        .instrument(span),
+    )
     .await;
     response.headers_mut().insert(
         "x-request-id",
         HeaderValue::from_str(&id).expect("UUID is a valid header"),
     );
+    if let Some(trace_id) = trace_id {
+        response.headers_mut().insert(
+            "x-trace-id",
+            HeaderValue::from_str(&trace_id).expect("trace ID is a valid header"),
+        );
+    }
     response
         .headers_mut()
         .entry("cache-control")

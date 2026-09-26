@@ -31,3 +31,7 @@ CoreOptions 在应用组装点传递 scope 注册和共享 Cache。Cache 只处�
 RateLimit 在 Core 中分类请求、维护有界本地回退和固定策略计量；Platform WindowCounter 执行有限 Redis 原子操作。缓存与计数共享私有 transport 实现，各自持有容量和超时预算；业务模块不直接发送任意 Redis 命令。
 
 Identity 拥有重置有效性、hash、短期密文表与邮件 Handler；Mail 提供有界加密/解密与投递能力，Platform 封装 SMTP。Jobs 只保存 reset ID，并负责租约和重试。Core 的密码重置页面、教程与浏览器测试独立于知识库所有权，删例后保留。
+
+Platform Telemetry 封装可选 OTel exporter、W3C 传播、有限计量与有损 JSON 日志出口。Application 使用 tracing 与公开 scope；HTTP 的认证成功点记录 actor，Jobs 在同一事务保存观测 metadata，Worker 从持久 parent 建立新 attempt span，Audit 记录当前有效 trace ID。Domain 不依赖 OTel，业务 payload 不携带运行时 Context。
+
+`just dev-observability` 将通用 Collector/Prometheus/Loki/Tempo/Grafana profile 与正常开发入口一起启动；`just observability-down` 只停止观测服务并保留卷。Core 的配置参考、HTTP/Job/存储计量、审计关联、看板和协议/故障测试在删例后仍保留。trace ID 不用于授权，采样和观测出口失败不改变业务状态。原始请求内容、凭据、签名 URL 与第三方 transport debug 输出不进入观测管线。

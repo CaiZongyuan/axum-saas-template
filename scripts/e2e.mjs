@@ -26,6 +26,8 @@ await withTestPostgres(async ({ name, url }) => {
           ...storage,
           ...cacheEnv,
           ...mailEnv,
+          TELEMETRY_ENDPOINT: '',
+          TELEMETRY_LOG_DIRECTORY: '',
           CACHE_PREFIX: `e2e:${name}`,
           DATABASE_URL: url,
           APP_BIND: `127.0.0.1:${apiPort}`,

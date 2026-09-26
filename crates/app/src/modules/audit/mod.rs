@@ -37,7 +37,7 @@ pub async fn append(connection: &mut PgConnection, event: Event<'_>) -> Result<(
     let metadata = Metadata {
         subject_user_id: event.subject_user_id.map(str::to_owned),
     };
-    sqlx::query("INSERT INTO saas_core.audit_events (id, actor_id, action, resource_type, resource_id, request_id, correlation_id, job_id, metadata) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8::uuid, $9)")
-        .bind(uuid::Uuid::now_v7().to_string()).bind(event.actor_id).bind(event.action).bind(event.resource_type).bind(event.resource_id).bind(request).bind(correlation).bind(job).bind(sqlx::types::Json(metadata)).execute(connection).await?;
+    sqlx::query("INSERT INTO saas_core.audit_events (id, actor_id, action, resource_type, resource_id, request_id, correlation_id, job_id, metadata, trace_id) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8::uuid, $9, $10)")
+        .bind(uuid::Uuid::now_v7().to_string()).bind(event.actor_id).bind(event.action).bind(event.resource_type).bind(event.resource_id).bind(request).bind(correlation).bind(job).bind(sqlx::types::Json(metadata)).bind(saas_platform::telemetry::trace_id(&tracing::Span::current())).execute(connection).await?;
     Ok(())
 }
