@@ -55,7 +55,19 @@ export async function launchApp(): Promise<{
   });
   const window = await app.firstWindow();
   const cleanup = async () => {
-    await app.close();
+    // Quit gracefully first; on headless CI a stalled quit must not hang the
+    // whole Playwright worker, so force-kill the shell as a fallback. The
+    // warning keeps that path visible instead of silently papering over it.
+    await Promise.race([
+      app.close(),
+      new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.warn('[desktop-smoke] shell did not exit in time; killing');
+          app.process().kill('SIGKILL');
+          resolve();
+        }, 20_000);
+      }),
+    ]);
     rmSync(userDataDir, { recursive: true, force: true });
   };
   return { app, window, cleanup };
