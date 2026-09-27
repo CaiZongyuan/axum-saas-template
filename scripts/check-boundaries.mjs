@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
+import { retainedHistoryPaths } from './lib/example-remove.mjs';
 import { root } from './lib/process.mjs';
 
 const metadata = JSON.parse(
@@ -56,7 +57,12 @@ for (const module of modules) {
     tableOwners.set(table, module.name);
   }
 }
+// A removed example may keep its migration files as history (manifest
+// retainedMigrations); its tables outlive the code there, so exactly those
+// files are exempt from ownership. Everything else still needs an owner.
+const retainedHistory = retainedHistoryPaths(example);
 for (const path of files(join(root, 'migrations'), /\.sql$/)) {
+  if (retainedHistory.has(relative(root, path))) continue;
   const source = readFileSync(path, 'utf8');
   for (const match of source.matchAll(
     /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*)/gi,

@@ -23,6 +23,26 @@ worker:
 bootstrap-storage:
     node scripts/bootstrap-storage.mjs
 
+# Remove the knowledge example from a clean working copy, as registered in
+# examples/knowledge-base/manifest.json (see docs/tutorials/23-example-removal.md).
+example-remove *ARGS:
+    node scripts/example-remove.mjs {{ARGS}}
+
+# Core-only gate for a copy after the example was removed: compile, public
+# behavior, contracts, boundaries, web and docs. lint/format stay part of
+# `just check` — the removal contract gates the shippable product, not the
+# dev loop.
+check-core:
+    cargo fmt --all -- --check
+    cargo clippy --locked --workspace --all-targets -- -D warnings
+    just test-backend
+    pnpm contracts:check
+    pnpm boundaries:check
+    pnpm typecheck
+    pnpm test:frontend
+    pnpm build
+    pnpm docs:check
+
 generate:
     pnpm generate
 

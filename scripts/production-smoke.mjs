@@ -6,6 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { unzipSync, strFromU8 } from 'fflate';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
+import { exampleActive } from './lib/example-remove.mjs';
 import { root } from './lib/process.mjs';
 
 // Single-machine production smoke: the real composition from
@@ -15,6 +16,22 @@ import { root } from './lib/process.mjs';
 
 const composeFile = join(root, 'compose.production.yaml');
 const project = `saas-prod-smoke-${process.pid}`;
+
+// The journey below exercises the knowledge example (documents, attachments,
+// exports). After the example is removed from this copy, the journey has
+// nothing honest to click on: bow out instead of failing halfway, and leave
+// the operator commands — production-backup and production-restore, which
+// are journey-agnostic — fully usable.
+if (!exampleActive(root)) {
+  console.log(
+    [
+      'The knowledge example is removed, so this example journey has nothing to exercise.',
+      'production-backup and production-restore still work as-is; model your own smoke on this',
+      'script against your own business (see docs/tutorials/23-example-removal.md).',
+    ].join('\n'),
+  );
+  process.exit(0);
+}
 const scratch = mkdtempSync(join(root, '.scratch/production-smoke-'));
 const password = randomBytes(18).toString('base64url');
 const composeArgs = (envPath, profile) => [

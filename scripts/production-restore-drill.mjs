@@ -17,7 +17,23 @@ import {
   stopWithBudget,
 } from './lib/production-stack.mjs';
 import { renderReport, verifyObjects } from './lib/backup-manifest.mjs';
+import { exampleActive } from './lib/example-remove.mjs';
 import { root } from './lib/process.mjs';
+
+// The seeded journey below exercises the knowledge example (documents,
+// attachments, exports). After the example is removed from this copy, the
+// drill bows out honestly: production-backup and production-restore remain
+// journey-agnostic and fully usable for whatever business this copy serves.
+if (!exampleActive(root)) {
+  console.log(
+    [
+      'The knowledge example is removed, so this example drill has nothing to seed or verify.',
+      'production-backup and production-restore still work as-is; model your own drill on this',
+      'script against your own business (see docs/tutorials/23-example-removal.md).',
+    ].join('\n'),
+  );
+  process.exit(0);
+}
 
 // The automatic restore drill, run against the single-machine production
 // composition: seed a real journey, take a maintenance-window backup with

@@ -148,6 +148,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/23-example-removal.md",
+      "route": "tutorials/example-removal.md",
+      "title": "移除示例，接入自己的业务",
+      "group": "替换示例"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

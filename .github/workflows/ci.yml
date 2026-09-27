@@ -103,6 +103,54 @@ jobs:
           path: test-results/desktop/
           if-no-files-found: ignore
           retention-days: 7
+  example-removal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_BUILD_JOBS: '4'
+      CARGO_TARGET_DIR: /tmp/cargo-target
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
+        with:
+          version: 11.17.0
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            /tmp/cargo-target
+          key: ${{ runner.os }}-rust-example-removal-${{ github.sha }}
+          restore-keys: ${{ runner.os }}-rust-example-removal-
+      - name: Prepare Rust and just
+        run: |
+          rustup show
+          cargo install just --version 1.58.0 --locked
+      - run: pnpm install --frozen-lockfile
+      - name: Copy the template to a disposable working copy
+        run: git clone --quiet . /tmp/template-copy
+      - name: Protection — a dirty copy is refused without changes
+        working-directory: /tmp/template-copy
+        run: |
+          printf '\n<!-- a user tweak the tool must not overwrite -->\n' >> README.md
+          if node scripts/example-remove.mjs --root /tmp/template-copy >/tmp/refusal.log 2>&1; then
+            echo 'the removal must refuse a copy with uncommitted changes' && exit 1
+          fi
+          grep -q 'uncommitted' /tmp/refusal.log
+          git checkout -- README.md
+      - name: Remove the example as registered (fresh-database path)
+        run: node scripts/example-remove.mjs --root /tmp/template-copy --trim-migrations
+      - name: Core-only copy passes its gate
+        working-directory: /tmp/template-copy
+        run: |
+          just check-core
+          just docs-build
+      - name: A new business joins through the same public interfaces
+        working-directory: /tmp/template-copy
+        run: node scripts/example-new-business.mjs --root /tmp/template-copy
   publish-docs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: verify
