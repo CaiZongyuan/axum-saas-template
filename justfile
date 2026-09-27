@@ -86,3 +86,24 @@ observability-down:
 
 observability-validate:
     node scripts/observability.mjs validate
+
+# Single-machine production stack. ENV_FILE points at the operator's
+# untracked environment file; see docs/tutorials/21.
+production-build:
+    pnpm --filter @saas/web build
+    docker build -f deploy/production/Dockerfile -t axum-saas-production:local .
+
+production-migrate ENV_FILE=".env.production":
+    ENV_FILE={{ENV_FILE}} docker compose -f compose.production.yaml --env-file {{ENV_FILE}} --profile ops run --rm migrate
+    ENV_FILE={{ENV_FILE}} docker compose -f compose.production.yaml --env-file {{ENV_FILE}} --profile ops run --rm storage-init
+
+production-up ENV_FILE=".env.production":
+    ENV_FILE={{ENV_FILE}} docker compose -f compose.production.yaml --env-file {{ENV_FILE}} up -d --wait postgres redis rustfs
+    just production-migrate {{ENV_FILE}}
+    ENV_FILE={{ENV_FILE}} docker compose -f compose.production.yaml --env-file {{ENV_FILE}} up -d --wait --wait-timeout 180 api worker caddy
+
+production-down ENV_FILE=".env.production":
+    ENV_FILE={{ENV_FILE}} docker compose -f compose.production.yaml --env-file {{ENV_FILE}} down
+
+production-smoke:
+    node scripts/production-smoke.mjs
