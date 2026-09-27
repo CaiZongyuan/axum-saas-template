@@ -80,7 +80,7 @@ just production-up ENV_FILE=.env.production
 
 失败处理是同一条命令的自然结果：`migrate` 一次性容器以非零退出时，`production-up` 在启动应用之前中止，数据库停留在上一个成功迁移，旧容器停止、新容器尚未接管——排除问题（最常见是环境文件缺键或数据库不可达）后重跑 `production-migrate` 即可，已成功的迁移不会重复执行。
 
-`docker compose up -d` 只重建镜像或配置变化的服务；数据卷（PostgreSQL 数据、对象存储、Caddy 证书）在升级之间持久。任何时刻不要手工进入容器改数据——恢复路径属于备份与恢复教程（T23）。
+`docker compose up -d` 只重建镜像或配置变化的服务；数据卷（PostgreSQL 数据、对象存储、Caddy 证书）在升级之间持久。任何时刻不要手工进入容器改数据——恢复路径见[备份与独立环境恢复演练](22-backup-restore.md)。
 
 ## 6. 运行本章检查
 
