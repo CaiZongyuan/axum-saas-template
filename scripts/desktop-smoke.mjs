@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { withTestPostgres } from './lib/postgres.mjs';
 import { withTestRustfs } from './lib/rustfs.mjs';
@@ -135,6 +136,15 @@ await withTestPostgres(async ({ name, url }) => {
               : {}),
             SAAS_DESKTOP_DOWNLOADS_DIR: downloadsDir,
           };
+          // Electron 44 downloads its binary lazily on first require; do it
+          // once here so test launches never race the download (ETXTBSY).
+          const requireElectron = createRequire(
+            join(root, 'apps/desktop/package.json'),
+          );
+          run('node', [
+            '-e',
+            `require(${JSON.stringify(requireElectron.resolve('electron'))});`,
+          ]);
           // Headless CI machines drive the shell under a fresh X server.
           const playwrightArgs = [
             'exec',
