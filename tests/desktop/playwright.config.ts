@@ -5,6 +5,9 @@ import { defineConfig } from '@playwright/test';
 export default defineConfig({
   testDir: '.',
   testMatch: '*.spec.ts',
+  // The desktop soak has its own config and runner (scripts/perf/
+  // desktop-soak.mjs); the smoke must never pick it up.
+  testIgnore: ['soak.spec.ts'],
   timeout: 120_000,
   // One worker: every spec shares the single real stack and each launch
   // starts an Electron process, so parallel workers only add contention.

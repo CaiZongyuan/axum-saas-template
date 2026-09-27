@@ -166,6 +166,12 @@
       "group": "性能"
     },
     {
+      "source": "docs/tutorials/26-desktop-soak.md",
+      "route": "tutorials/desktop-soak.md",
+      "title": "桌面壳资源长测",
+      "group": "性能"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
