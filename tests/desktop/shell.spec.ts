@@ -104,7 +104,11 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
       globalThis.location.href = 'https://blocked.example/away';
     });
     expect(new URL(window.url()).origin).toBe(appOrigin);
-    expect(await handedOff()).toEqual(['https://blocked.example/away']);
+    // The handoff happens asynchronously in the shell's main process, so
+    // poll for the capture instead of reading it once.
+    await expect
+      .poll(handedOff, { timeout: 5_000 })
+      .toEqual(['https://blocked.example/away']);
     // The refused navigation never commits, which leaves Playwright's frame
     // tracker waiting on it; reload the app entry before further locator
     // work. The persisted session must survive that reload untouched.
@@ -118,10 +122,12 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
     await window.evaluate(() => {
       globalThis.open('https://portal.example/external', '_blank');
     });
-    expect(await handedOff()).toEqual([
-      'https://blocked.example/away',
-      'https://portal.example/external',
-    ]);
+    await expect
+      .poll(handedOff, { timeout: 5_000 })
+      .toEqual([
+        'https://blocked.example/away',
+        'https://portal.example/external',
+      ]);
     expect(new URL(window.url()).origin).toBe(appOrigin);
 
     // Out-of-scheme targets are dropped before the system-browser handoff
@@ -129,6 +135,7 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
     await window.evaluate(() => {
       globalThis.location.href = 'chrome://version';
     });
+    await window.waitForTimeout(500);
     expect(await handedOff()).toEqual([
       'https://blocked.example/away',
       'https://portal.example/external',
