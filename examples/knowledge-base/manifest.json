@@ -85,8 +85,7 @@
       "react-markdown",
       "remark-gfm",
       "rehype-sanitize"
-    ],
-    "package.json": ["fflate"]
+    ]
   },
   "ownedCargoDependencies": {
     "crates/app/Cargo.toml": [

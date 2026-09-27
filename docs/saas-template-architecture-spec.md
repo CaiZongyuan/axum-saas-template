@@ -191,7 +191,7 @@ README.md
 
 示例的教学定位与可移除边界见 [ADR 0002](./adr/0002-executable-removable-reference.md)。
 
-`examples/knowledge-base/manifest.toml` 登记 Reference Domain 拥有的后端模块、前端 Views/routes、数据迁移、Job handler 注册、种子数据、测试、教程页与静态资源，以及少量需要改动的应用组装点。实际字段格式由实现确定，但不得只靠文件名关键词猜测删除范围。
+`examples/knowledge-base/manifest.json` 登记 Reference Domain 拥有的后端模块、前端 Views/routes、数据迁移、Job handler 注册、种子数据、测试、教程页与静态资源，以及少量需要改动的应用组装点。实际字段格式由实现确定，但不得只靠文件名关键词猜测删除范围。
 
 示例代码集中在 `crates/app/src/modules/knowledge` 与 `packages/views/src/knowledge` 等明确子目录。API/Web/Worker 只在公开组装点注册它们；Core、SDK transport、通用 UI 和平台客户端不直接 import Knowledge 的实体或实现。
 

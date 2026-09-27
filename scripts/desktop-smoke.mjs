@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
@@ -7,6 +7,7 @@ import { withTestPostgres } from './lib/postgres.mjs';
 import { withTestRustfs } from './lib/rustfs.mjs';
 import { withTestMailpit } from './lib/mailpit.mjs';
 import { withTestRedis } from './lib/redis.mjs';
+import { exampleActive } from './lib/example-remove.mjs';
 import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
 
 /**
@@ -27,19 +28,7 @@ function displayAvailable() {
 
 // The knowledge example seeds a document for the shell's shared-view browsing
 // step; when the example is removed the core shell smoke keeps running.
-function knowledgeExampleActive() {
-  try {
-    const manifest = JSON.parse(
-      readFileSync(
-        resolve(root, 'examples/knowledge-base/manifest.json'),
-        'utf8',
-      ),
-    );
-    return manifest.status === 'active';
-  } catch {
-    return false;
-  }
-}
+const knowledgeExampleActive = exampleActive(root);
 
 async function registerSmokeUser(apiUrl, webOrigin) {
   const response = await fetch(`${apiUrl}/api/v1/auth/register`, {
@@ -118,7 +107,7 @@ await withTestPostgres(async ({ name, url }) => {
           api = launch(resolve(root, 'target/debug/saas-api'), [], env);
           await waitFor(`${env.E2E_API_URL}/health/ready`, api);
           const session = await registerSmokeUser(env.E2E_API_URL, webOrigin);
-          const seedKnowledge = knowledgeExampleActive();
+          const seedKnowledge = knowledgeExampleActive;
           if (seedKnowledge)
             await createSmokeDocument(env.E2E_API_URL, webOrigin, session);
           web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);

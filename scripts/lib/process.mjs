@@ -2,11 +2,16 @@ import { developmentMailKey } from './development-mail-key.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
-import { resolve } from 'node:path';
+import { isAbsolute, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { parseEnv } from 'node:util';
 
 export const root = resolve(import.meta.dirname, '../..');
+
+// Resolve a user-supplied path (absolute, or relative to the repository).
+export function resolveRoot(path) {
+  return isAbsolute(path) ? path : resolve(root, path);
+}
 
 export function developmentEnv() {
   const defaults = parseEnv(
