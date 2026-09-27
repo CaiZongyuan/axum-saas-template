@@ -84,7 +84,8 @@
     "apps/worker/src/main.rs": ["worker"],
     "apps/api/src/bin/config-reference.rs": ["config-reference"],
     ".env.example": ["export-config"],
-    "scripts/e2e.mjs": ["e2e-policy"]
+    "scripts/e2e.mjs": ["e2e-policy"],
+    "docs/architecture/v1-coverage.md": ["coverage"]
   },
   "ownedDependencies": {
     "packages/views/package.json": [
