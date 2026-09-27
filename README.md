@@ -12,6 +12,8 @@ Rust/Axum + React 的模块化全栈模板，以可移除的知识库 example �
 
 [在线教程](https://caizongyuan.github.io/axum-saas-template/) · [实施计划](docs/plans/template-v1.md) · [架构规范](docs/saas-template-architecture-spec.md)
 
+在线教程随 `main` 持续发布：每个教程页脚的“源码版本”标注该页验收时对应的仓库提交，`git checkout <该提交>` 即可精确复现该页步骤；能力覆盖与 v1 验收记录见[覆盖与验收页](docs/architecture/v1-coverage.md)。
+
 ## 启动
 
 准备 Docker/Compose、Rust 1.96.0、Node 24.18.0、pnpm 11.17.0、just 1.58.0。
