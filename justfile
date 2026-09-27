@@ -94,6 +94,8 @@ perf:
     @echo "== just perf: deterministic performance gates (spec §17) =="
     @echo "Budgets + first baselines: scripts/perf/baselines.json"
     @echo "Reports: .scratch/perf/bundle-report.json, .scratch/perf/query-plans.json"
+    @echo "Load/saturation/trajectory/soak reports (nightly evidence, never a gate):"
+    @echo "  just perf-load | perf-saturation | perf-trajectory | perf-soak"
     @echo "1/2 budget contract tests (registration + documents)"
     node scripts/test-backend.mjs --test perf_registration --test perf_documents
     @echo "2/2 bundle gate + query-plan report"
@@ -105,6 +107,27 @@ perf:
 perf-ci:
     node scripts/perf-bundle.mjs
     node scripts/perf-query-plans.mjs
+
+# Load, saturation, trajectory and soak reports (spec §17.3). Each command
+# brings up a controlled, disposable stack on free ports (never your dev or
+# production data), seeds the fixture dataset, runs the k6 scenario and
+# writes .scratch/perf/<scenario>-report.json. Prerequisite tools: Docker
+# (for the stack) and k6 (https://grafana.com/docs/k6/latest/set-up/
+# install-k6/) — reports in this repository were produced with k6 v2.3.0.
+# The stack is torn down with its volumes when the command ends;
+# PERF_STACK_KEEP=1 keeps it up for inspection. Never part of `just check`:
+# these are nightly/release evidence, not PR gates.
+perf-load:
+    node scripts/perf/run-scenario.mjs load
+
+perf-saturation:
+    node scripts/perf/run-scenario.mjs saturation
+
+perf-trajectory:
+    node scripts/perf/run-scenario.mjs trajectory
+
+perf-soak:
+    node scripts/perf/run-scenario.mjs soak
 
 docs:
     pnpm docs:dev
