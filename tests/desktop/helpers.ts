@@ -56,18 +56,24 @@ export async function launchApp(): Promise<{
   const window = await app.firstWindow();
   const cleanup = async () => {
     // Quit gracefully first; on headless CI a stalled quit must not hang the
-    // whole Playwright worker, so force-kill the shell as a fallback. The
-    // warning keeps that path visible instead of silently papering over it.
-    await Promise.race([
-      app.close(),
-      new Promise<void>((resolve) => {
-        setTimeout(() => {
-          console.warn('[desktop-smoke] shell did not exit in time; killing');
+    // whole Playwright worker, so bound the wait and force-kill the shell.
+    // The warning keeps that path visible instead of silently hiding it.
+    const exited = new Promise<void>((resolve) => {
+      app.process().once('exit', () => resolve());
+      const timer = setTimeout(() => {
+        console.warn('[desktop-smoke] shell did not exit in time; killing');
+        try {
           app.process().kill('SIGKILL');
-          resolve();
-        }, 20_000);
-      }),
-    ]);
+        } catch {
+          // The process may already be gone.
+        }
+        resolve();
+      }, 20_000);
+      app.process().once('exit', () => clearTimeout(timer));
+    });
+    // Whichever side settles first wins; a rejected close must not become an
+    // unhandled error that crashes the worker after the kill.
+    await Promise.race([exited, app.close().catch(() => {})]);
     rmSync(userDataDir, { recursive: true, force: true });
   };
   return { app, window, cleanup };
