@@ -2722,6 +2722,7 @@ name = "saas-worker"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "reqwest 0.12.28",
  "saas-app",
  "saas-platform",
  "serde_json",

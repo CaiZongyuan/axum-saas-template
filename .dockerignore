@@ -10,3 +10,4 @@ apps/docs/.generated
 .env
 .env.*
 !.env.example
+.secrets
