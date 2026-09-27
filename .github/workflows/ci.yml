@@ -44,6 +44,14 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
         if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
       - run: just check
+      - name: Keep the performance report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: perf-report
+          path: .scratch/perf
+          if-no-files-found: ignore
+          retention-days: 7
       - run: just e2e
         if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
       - name: Keep browser evidence

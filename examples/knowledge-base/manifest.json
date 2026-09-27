@@ -47,7 +47,9 @@
     "docs/research/redis-cache-runtime.md",
     "scripts/knowledge-observability-smoke.mjs",
     "docs/tutorials/19-observability.md",
-    "tests/desktop/knowledge-shell.spec.ts"
+    "tests/desktop/knowledge-shell.spec.ts",
+    "apps/api/tests/perf_documents.rs",
+    "docs/tutorials/24-perf-gates.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
@@ -93,7 +95,12 @@
       "pulldown-cmark",
       "pulldown-cmark-to-cmark"
     ],
-    "apps/api/Cargo.toml": ["zip"],
-    "Cargo.toml": ["zip", "pulldown-cmark", "pulldown-cmark-to-cmark"]
+    "apps/api/Cargo.toml": ["zip", "tracing-core"],
+    "Cargo.toml": [
+      "zip",
+      "pulldown-cmark",
+      "pulldown-cmark-to-cmark",
+      "tracing-core"
+    ]
   }
 }
