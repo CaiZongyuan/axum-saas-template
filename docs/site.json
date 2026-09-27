@@ -154,6 +154,12 @@
       "group": "替换示例"
     },
     {
+      "source": "docs/tutorials/24-perf-gates.md",
+      "route": "tutorials/perf-gates.md",
+      "title": "确定性性能门禁",
+      "group": "性能"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",

@@ -55,6 +55,7 @@ check:
     pnpm contracts:check
     pnpm boundaries:check
     just test
+    just perf-ci
     pnpm docs:check
     pnpm build
     pnpm docs:build
@@ -84,6 +85,26 @@ test-frontend:
 
 e2e:
     pnpm test:e2e
+
+# The performance entry point of spec §21: print the command index and the
+# committed baselines, then run the deterministic evidence. No load,
+# saturation or soak belongs here — those are the later report tickets and
+# never run implicitly.
+perf:
+    @echo "== just perf: deterministic performance gates (spec §17) =="
+    @echo "Budgets + first baselines: scripts/perf/baselines.json"
+    @echo "Reports: .scratch/perf/bundle-report.json, .scratch/perf/query-plans.json"
+    @echo "1/2 budget contract tests (registration + documents)"
+    node scripts/test-backend.mjs --test perf_registration --test perf_documents
+    @echo "2/2 bundle gate + query-plan report"
+    just perf-ci
+
+# The bundle gate and the query-plan report — part of `just check`, so the
+# main gate covers perf-ci per spec §21. CI uploads the reports as an
+# artifact; the budget tests run with the backend suite inside `just test`.
+perf-ci:
+    node scripts/perf-bundle.mjs
+    node scripts/perf-query-plans.mjs
 
 docs:
     pnpm docs:dev

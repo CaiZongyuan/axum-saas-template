@@ -50,6 +50,8 @@ just docs-build    # 文档站构建，死链会在这里暴露
 
 示例教学的一些能力章节随示例退场（附件、导出、API Key 演示、缓存演示、可观测性演示都以知识库文档为载体）；能力本身和它们的测试留在 Core。生产工具分层清楚：`production-backup` 与 `production-restore` 与业务无关（它们只认数据库与对象清单），删例后照常可用；`production-smoke` 与 `production-restore-drill` 的种子旅程以示例数据为载体，删例后它们会诚实说明并退出，提示你按同样的骨架为自己的业务写演练——备份数据平面没有变，变的只是旅程。
 
+性能预算按同一条线分层：注册预算（`perf_registration.rs`）属于 Core，删例后继续被后端测试钉住；文档列表、创建与导出的预算（`perf_documents.rs`）和查询计划脚本里的示例列表 SQL 以示例为载体退场——`just perf` 里的测试选择要换成你自己业务的性能测试，`just perf-ci` 里的查询计划脚本会诚实说明并退出。
+
 CI 在每个 PR 上做真实演练：把模板克隆到临时副本，制造脏文件验证保护拒绝，实际执行 `--trim-migrations` 移除，跑 `check-core` 与 `docs-build`，再执行下一节的接入练习。
 
 ## 5. 接入你自己的业务
