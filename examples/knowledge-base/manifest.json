@@ -50,7 +50,10 @@
     "tests/desktop/knowledge-shell.spec.ts",
     "apps/api/tests/perf_documents.rs",
     "docs/tutorials/24-perf-gates.md",
-    "docs/tutorials/25-load-reports.md"
+    "docs/tutorials/25-load-reports.md",
+    "tests/desktop/soak.spec.ts",
+    "scripts/perf/desktop-soak.mjs",
+    "docs/tutorials/26-desktop-soak.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

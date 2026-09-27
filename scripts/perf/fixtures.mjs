@@ -35,7 +35,12 @@ export function scale() {
   };
 }
 
-const ORIGIN = 'http://127.0.0.1:5173';
+// The origin header must match a trusted app origin (the API rejects
+// others with auth.origin). The controlled load stack pins its app origin
+// to the default; other stacks (the desktop soak) override it. Read
+// lazily: callers that override PERF_ORIGIN do so after this module is
+// imported (ESM evaluates module state first).
+const origin = () => process.env.PERF_ORIGIN ?? 'http://127.0.0.1:5173';
 
 function markdown(index) {
   // Realistic reading weight: headings, paragraphs, lists — a few KiB each,
@@ -62,7 +67,7 @@ class Client {
     const response = await fetch(`${this.baseURL}${path}`, {
       method,
       headers: {
-        origin: ORIGIN,
+        origin: origin(),
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...(this.cookie ? { cookie: this.cookie } : {}),
         ...(this.csrf ? { 'x-csrf-token': this.csrf } : {}),

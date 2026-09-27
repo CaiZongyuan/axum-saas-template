@@ -96,6 +96,8 @@ perf:
     @echo "Reports: .scratch/perf/bundle-report.json, .scratch/perf/query-plans.json"
     @echo "Load/saturation/trajectory/soak reports (nightly evidence, never a gate):"
     @echo "  just perf-load | perf-saturation | perf-trajectory | perf-soak"
+    @echo "Desktop renderer soak (nightly evidence, never a gate):"
+    @echo "  just perf-desktop-soak"
     @echo "1/2 budget contract tests (registration + documents)"
     node scripts/test-backend.mjs --test perf_registration --test perf_documents
     @echo "2/2 bundle gate + query-plan report"
@@ -128,6 +130,20 @@ perf-trajectory:
 
 perf-soak:
     node scripts/perf/run-scenario.mjs soak
+
+# Desktop soak (spec §17.3): drives the real Electron shell over the shared
+# knowledge views and samples renderer RSS, heap, DOM nodes and listeners
+# into .scratch/perf/desktop-soak-report.json. Prerequisites: pnpm install
+# (the shell's pinned Electron downloads on first require) and either a
+# display or xvfb. Starts its own disposable PostgreSQL/Redis/RustFS/
+# Mailpit stack plus API and web on free ports — never your dev data — and
+# tears the containers down when the run ends. Duration/warm-up/sampling:
+# DESKTOP_SOAK_DURATION_SECS (300) / DESKTOP_SOAK_WARMUP_SECS (15) /
+# DESKTOP_SOAK_SAMPLE_MS (2000). Growth observations are report material:
+# they never fail the run. Never part of `just check` — nightly/release
+# evidence, not a PR gate.
+perf-desktop-soak:
+    node scripts/perf/desktop-soak.mjs
 
 docs:
     pnpm docs:dev

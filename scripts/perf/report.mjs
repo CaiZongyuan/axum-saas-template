@@ -1,19 +1,12 @@
 // Pure report shaping for the load scenarios: aggregation of stack samples,
 // the saturation-ladder hint, and the human-readable summary lines. No I/O
 // and no process effects, so tests/tooling can import this module directly.
+import { stats } from './stats.mjs';
 
 // Samples connection-pool usage, queue depth and process RSS into summary
 // statistics; raw samples stay in the report so a spike can be located in
 // time (the soak report's value is exactly that timeline).
 export function aggregate(samples, sampleMs) {
-  const stats = (values) =>
-    values.length === 0
-      ? null
-      : {
-          min: Math.min(...values),
-          avg: +(values.reduce((a, b) => a + b, 0) / values.length).toFixed(1),
-          max: Math.max(...values),
-        };
   const summary = {};
   for (const field of [
     'poolConnections',
