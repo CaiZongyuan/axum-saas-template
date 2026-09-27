@@ -190,12 +190,16 @@ export function StatusView({
                 <span className="font-mono text-sm text-muted-foreground">
                   03 / 扩展
                 </span>
-                <p>后续用简单知识库示例学习注册、Markdown 和附件。</p>
+                <p>
+                  跟随知识库示例教程学习注册、写作、附件、导出与权限，再照
+                  《移除示例》接入自己的业务。
+                </p>
               </li>
             </ol>
           </CardContent>
           <CardFooter>
-            当前阶段提供服务连接与入门文档；业务功能按 GitHub 实施票逐步交付。
+            服务连接、入门文档与完整教程已随 v1
+            交付；在线教程页脚的“源码版本”标注各页对应的提交。
           </CardFooter>
         </Card>
       </main>

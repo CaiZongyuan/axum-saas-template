@@ -6,9 +6,12 @@ Core 提供邮箱密码注册、登录/退出、成员管理、密码重置、�
 
 使用仓库固定的 Rust 1.96.0、Node 24.18.0、pnpm 11.17.0、just 1.58.0，以及能运行 Linux 容器的 Docker / Compose。版本记录在 `rust-toolchain.toml`、`.node-version`、`package.json` 和 `.tool-versions`。
 
-先取得本页对应的源码版本，在仓库根目录运行：
+每个在线页面的页脚都标注“源码版本”——该页验收时对应的仓库提交。要精确复现本页步骤，先取到该提交：
 
 ```bash
+git clone https://github.com/CaiZongyuan/axum-saas-template.git
+cd axum-saas-template
+git checkout <页脚源码版本>   # 例如 git checkout 18710ff9b5ab
 pnpm install --frozen-lockfile
 just dev
 ```
