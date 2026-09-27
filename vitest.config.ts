@@ -5,7 +5,11 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'jsdom',
-    include: ['packages/**/*.test.{ts,tsx}', 'apps/web/src/**/*.test.{ts,tsx}'],
+    include: [
+      'packages/**/*.test.{ts,tsx}',
+      'apps/web/src/**/*.test.{ts,tsx}',
+      'apps/desktop/src/**/*.test.{ts,tsx}',
+    ],
     setupFiles: ['tests/frontend/setup.ts'],
     restoreMocks: true,
     clearMocks: true,

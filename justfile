@@ -43,6 +43,14 @@ check:
 check-full: check
     just e2e
 
+# Electron shell GUI smoke against the real stack (also used by the CI job).
+desktop-smoke:
+    node scripts/desktop-smoke.mjs
+
+# Launch the Electron shell against a running dev web entry (just dev).
+desktop:
+    node scripts/desktop.mjs
+
 test:
     pnpm test:tooling
     just test-backend
