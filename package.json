@@ -9,7 +9,7 @@
   },
   "scripts": {
     "dev:web": "pnpm --filter @saas/web dev",
-    "build": "pnpm --filter @saas/web build",
+    "build": "pnpm --filter @saas/web build && pnpm --filter @saas/desktop build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",

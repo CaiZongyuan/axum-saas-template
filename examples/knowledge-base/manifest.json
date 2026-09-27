@@ -46,7 +46,8 @@
     "docs/tutorials/16-versioned-cache.md",
     "docs/research/redis-cache-runtime.md",
     "scripts/knowledge-observability-smoke.mjs",
-    "docs/tutorials/19-observability.md"
+    "docs/tutorials/19-observability.md",
+    "tests/desktop/knowledge-shell.spec.ts"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
