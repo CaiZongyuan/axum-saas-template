@@ -1,6 +1,7 @@
 node_modules/
 /target/
 .scratch/
+backups/
 .env
 .env.*
 !.env.example

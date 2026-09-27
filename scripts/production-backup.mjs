@@ -20,6 +20,7 @@ import {
   drainLogPresent,
   listObjects,
   originRootCa,
+  migrationState,
   psql,
   productionProjectName,
   readEnvFile,
@@ -144,13 +145,10 @@ const dumped = spawnSync(
 );
 closeSync(dumpFd);
 if (dumped.status !== 0) fail(`pg_dump failed with exit code ${dumped.status}`);
-const [migrationVersion, migrationCount] = psql(
+const { version: migrationVersion, count: migrationCount } = migrationState(
   project,
   envPath,
-  'SELECT max(version)::int, count(*) FROM _sqlx_migrations',
-)
-  .split('|')
-  .map(Number);
+);
 checks.push({
   name: '数据库快照',
   status: 'pass',

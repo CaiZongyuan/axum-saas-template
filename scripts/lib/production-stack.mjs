@@ -102,6 +102,17 @@ export function psql(project, envPath, sql) {
   ]).trim();
 }
 
+export function migrationState(project, envPath) {
+  const [version, count] = psql(
+    project,
+    envPath,
+    'SELECT max(version)::int, count(*) FROM _sqlx_migrations',
+  )
+    .split('|')
+    .map(Number);
+  return { version, count };
+}
+
 export function stopWithBudget(project, envPath, service, budgetSeconds) {
   const since = Date.now();
   runCompose(project, envPath, ['stop', service]);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { presign, signRequest } from '../../scripts/lib/sigv4.mjs';
+import { signRequest } from '../../scripts/lib/sigv4.mjs';
 
 // The signing vector is AWS's published "get-vanilla" example from the
 // official SigV4 test suite; it pins the canonical request, the string to
@@ -56,24 +56,6 @@ test('signs S3 requests with the payload hash header included', () => {
     service: 's3',
   });
   assert.equal(headers.authorization, again.headers.authorization);
-});
-
-test('presigns object URLs without moving the query into the signature', () => {
-  const url = new URL(
-    presign({
-      method: 'GET',
-      url: 'https://localhost/saas-files/ready/abc',
-      accessKeyId: 'AKIDEXAMPLE',
-      secretAccessKey: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
-      region: 'us-east-1',
-      service: 's3',
-      expiresSeconds: 60,
-      amzDate: '20260927T000000Z',
-    }),
-  );
-  assert.equal(url.searchParams.get('X-Amz-Algorithm'), 'AWS4-HMAC-SHA256');
-  assert.equal(url.searchParams.get('X-Amz-Expires'), '60');
-  assert.match(url.searchParams.get('X-Amz-Signature'), /^[0-9a-f]{64}$/);
 });
 
 function authorizationSignedHeaders(authorization) {

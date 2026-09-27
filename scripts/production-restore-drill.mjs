@@ -8,6 +8,7 @@ import { unzipSync, strFromU8 } from 'fflate';
 import {
   drainLogPresent,
   listObjects,
+  migrationState,
   originRootCa,
   psql,
   readEnvFile,
@@ -363,13 +364,10 @@ try {
   ensure(failedJobs === '0', `no job may end failed, got ${failedJobs}`);
 
   stage = 'drill report';
-  const [migrationVersion, migrationCount] = psql(
+  const { version: migrationVersion, count: migrationCount } = migrationState(
     restore,
     envPath,
-    'SELECT max(version)::int, count(*) FROM _sqlx_migrations',
-  )
-    .split('|')
-    .map(Number);
+  );
   const restoreVerification = verifyObjects(
     manifest,
     await listObjects(env, rootCa),

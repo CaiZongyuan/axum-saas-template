@@ -8,8 +8,8 @@ import {
   composeArgs,
   dockerEnv,
   listObjects,
+  migrationState,
   originRootCa,
-  psql,
   productionProjectName,
   readEnvFile,
   request,
@@ -183,13 +183,10 @@ checks.push({
   detail: '恢复栈经入口达到 ready',
 });
 
-const [migrationVersion, migrationCount] = psql(
+const { version: migrationVersion, count: migrationCount } = migrationState(
   restore,
   envPath,
-  'SELECT max(version)::int, count(*) FROM _sqlx_migrations',
-)
-  .split('|')
-  .map(Number);
+);
 checks.push({
   name: '数据库恢复',
   status:

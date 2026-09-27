@@ -72,59 +72,6 @@ export function signRequest({
   };
 }
 
-// Query-string authentication for one-off object transfers; the signature
-// covers the canonical request built from the URL's own query so callers
-// only need to append the returned parameters.
-export function presign({
-  method,
-  url,
-  accessKeyId,
-  secretAccessKey,
-  region,
-  service,
-  expiresSeconds = 300,
-  amzDate = amzDateNow(),
-}) {
-  const target = new URL(url);
-  const scope = `${amzDate.slice(0, 8)}/${region}/${service}/aws4_request`;
-  const payloadHash = 'UNSIGNED-PAYLOAD';
-  const query = new URLSearchParams(target.searchParams);
-  query.set('X-Amz-Algorithm', 'AWS4-HMAC-SHA256');
-  query.set('X-Amz-Credential', `${accessKeyId}/${scope}`);
-  query.set('X-Amz-Date', amzDate);
-  query.set('X-Amz-Expires', String(expiresSeconds));
-  query.set('X-Amz-SignedHeaders', 'host');
-  const canonicalQuery = [...query.entries()]
-    .map(([name, value]) => `${encodeRfc3986(name)}=${encodeRfc3986(value)}`)
-    .sort()
-    .join('&');
-  const canonicalRequest = [
-    method,
-    canonicalUri(target),
-    canonicalQuery,
-    `host:${target.host}\n`,
-    'host',
-    payloadHash,
-  ].join('\n');
-  const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    amzDate,
-    scope,
-    sha256Hex(canonicalRequest),
-  ].join('\n');
-  const signingKey = hmac(
-    hmac(
-      hmac(hmac(`AWS4${secretAccessKey}`, amzDate.slice(0, 8)), region),
-      service,
-    ),
-    'aws4_request',
-  );
-  const signature = createHmac('sha256', signingKey)
-    .update(stringToSign)
-    .digest('hex');
-  return `${target.origin}${target.pathname}?${canonicalQuery}&X-Amz-Signature=${signature}`;
-}
-
 export function amzDateNow() {
   return new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
 }
