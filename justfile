@@ -107,3 +107,12 @@ production-down ENV_FILE=".env.production":
 
 production-smoke:
     node scripts/production-smoke.mjs
+
+production-backup ENV_FILE=".env.production" ARCHIVE=`printf 'backups/%s' "$(date +%Y%m%d-%H%M%S)"`:
+    node scripts/production-backup.mjs --env-file {{ENV_FILE}} --archive {{ARCHIVE}}
+
+production-restore ARCHIVE ENV_FILE=".env.production":
+    node scripts/production-restore.mjs --env-file {{ENV_FILE}} --archive {{ARCHIVE}}
+
+production-restore-drill:
+    node scripts/production-restore-drill.mjs

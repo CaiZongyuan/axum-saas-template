@@ -142,6 +142,12 @@
       "group": "跟做教程"
     },
     {
+      "source": "docs/tutorials/22-backup-restore.md",
+      "route": "tutorials/backup-restore.md",
+      "title": "备份与独立环境恢复演练",
+      "group": "跟做教程"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
