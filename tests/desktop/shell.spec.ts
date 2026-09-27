@@ -38,6 +38,21 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
 
     await signIn(window);
 
+    // The system-browser handoff is captured from here on: the shell's
+    // behavior is observable without CI ever spawning a real browser.
+    const handedOff = () =>
+      app.evaluate(
+        () => (globalThis as { __smokeExternal?: string[] }).__smokeExternal,
+      );
+    await app.evaluate(({ shell }) => {
+      const captured = [] as string[];
+      (globalThis as { __smokeExternal?: string[] }).__smokeExternal = captured;
+      (shell as { openExternal: unknown }).openExternal = (url: string) => {
+        captured.push(String(url));
+        return Promise.resolve();
+      };
+    });
+
     // Controlled download entry: an app-page download lands in the shell
     // downloads directory with its suggested name intact.
     const downloadsDir = requireSmokeEnv('SAAS_DESKTOP_DOWNLOADS_DIR');
@@ -83,12 +98,13 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
     expect(readdirSync(downloadsDir)).not.toContain(foreignName);
     await window.goto(`${appOrigin}/`);
 
-    // In-page navigation away from the app origin is refused and the app
-    // session stays intact.
+    // In-page navigation away from the app origin is refused: the window
+    // stays, and the target is handed to the system browser instead.
     await window.evaluate(() => {
       globalThis.location.href = 'https://blocked.example/away';
     });
     expect(new URL(window.url()).origin).toBe(appOrigin);
+    expect(await handedOff()).toEqual(['https://blocked.example/away']);
     // The refused navigation never commits, which leaves Playwright's frame
     // tracker waiting on it; reload the app entry before further locator
     // work. The persisted session must survive that reload untouched.
@@ -99,21 +115,13 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
 
     // Popups never open inside the shell; http(s) targets go to the system
     // browser through the shell's controlled openExternal path.
-    await app.evaluate(({ shell }) => {
-      const captured = [] as string[];
-      (globalThis as { __smokeExternal?: string[] }).__smokeExternal = captured;
-      (shell as { openExternal: unknown }).openExternal = (url: string) => {
-        captured.push(String(url));
-        return Promise.resolve();
-      };
-    });
     await window.evaluate(() => {
       globalThis.open('https://portal.example/external', '_blank');
     });
-    const opened = await app.evaluate(
-      () => (globalThis as { __smokeExternal?: string[] }).__smokeExternal,
-    );
-    expect(opened).toEqual(['https://portal.example/external']);
+    expect(await handedOff()).toEqual([
+      'https://blocked.example/away',
+      'https://portal.example/external',
+    ]);
     expect(new URL(window.url()).origin).toBe(appOrigin);
 
     // Out-of-scheme targets are dropped before the system-browser handoff
@@ -121,10 +129,10 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
     await window.evaluate(() => {
       globalThis.location.href = 'chrome://version';
     });
-    const afterBlockedScheme = await app.evaluate(
-      () => (globalThis as { __smokeExternal?: string[] }).__smokeExternal,
-    );
-    expect(afterBlockedScheme).toEqual(['https://portal.example/external']);
+    expect(await handedOff()).toEqual([
+      'https://blocked.example/away',
+      'https://portal.example/external',
+    ]);
     expect(new URL(window.url()).origin).toBe(appOrigin);
 
     // Deep links navigate within the app only for in-app targets.
