@@ -23,6 +23,14 @@ export default tseslint.config(
   { languageOptions: { globals: { ...globals.node, ...globals.browser } } },
   { files: ['**/*.{ts,tsx,mts}'], rules: { 'no-undef': 'off' } },
   {
+    // The load scenarios run under k6, not Node: its globals (env access,
+    // VU counters, init-context file reads) are provided by the runtime.
+    files: ['scripts/perf/k6/**/*.js'],
+    languageOptions: {
+      globals: { __ENV: 'readonly', __VU: 'readonly', __ITER: 'readonly' },
+    },
+  },
+  {
     files: ['**/*.tsx'],
     plugins: { 'react-hooks': reactHooks },
     rules: {

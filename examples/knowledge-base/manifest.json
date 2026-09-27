@@ -49,7 +49,8 @@
     "docs/tutorials/19-observability.md",
     "tests/desktop/knowledge-shell.spec.ts",
     "apps/api/tests/perf_documents.rs",
-    "docs/tutorials/24-perf-gates.md"
+    "docs/tutorials/24-perf-gates.md",
+    "docs/tutorials/25-load-reports.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",

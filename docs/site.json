@@ -160,6 +160,12 @@
       "group": "性能"
     },
     {
+      "source": "docs/tutorials/25-load-reports.md",
+      "route": "tutorials/load-reports.md",
+      "title": "负载、饱和与长测报告",
+      "group": "性能"
+    },
+    {
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
