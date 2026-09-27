@@ -93,6 +93,10 @@ async fn authorized_document_reads_miss_then_hit_real_redis_and_writes_use_a_new
     let cache = Cache::new(CacheSettings {
         url: std::env::var("REDIS_URL").expect("run scripts/test-backend.mjs"),
         prefix: format!("test:{}", uuid::Uuid::now_v7()),
+        // The miss→hit contract is what this test pins; the read-through SET
+        // shares the request budget, so a slow runner must not decide whether
+        // the second read can hit. 1s is the validation ceiling.
+        budget: std::time::Duration::from_secs(1),
         ..Default::default()
     })
     .unwrap();
