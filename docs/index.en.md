@@ -107,9 +107,6 @@
       <h3>Title search and safe preview</h3>
       <p>Title search, pagination and a preview that never executes scripts.</p>
     </a>
-    <!-- Chapters without an English translation yet (UI09)
-         follow the site's cross-locale fallback and open the Chinese
-         chapter, exactly like untranslated links inside the docs. -->
     <a class="landing-card" href="tutorials/edit-conflicts">
       <span class="landing-dot dot-amber"></span>
       <h3>Explicit saves and version conflicts</h3>
@@ -125,12 +122,12 @@
       <h3>RustFS attachments</h3>
       <p>Attachment upload and download over real object storage, hashing and browser CORS.</p>
     </a>
-    <a class="landing-card" href="../tutorials/document-exports">
+    <a class="landing-card" href="tutorials/document-exports">
       <span class="landing-dot dot-red"></span>
       <h3>Exports and jobs</h3>
       <p>ZIP exports run as PostgreSQL Jobs; failures are retried by an administrator.</p>
     </a>
-    <a class="landing-card" href="../tutorials/api-keys">
+    <a class="landing-card" href="tutorials/api-keys">
       <span class="landing-dot dot-purple"></span>
       <h3>API keys and resource permissions</h3>
       <p>Issue a key that reads the knowledge documents it is permitted to read, with the scope verifiable.</p>

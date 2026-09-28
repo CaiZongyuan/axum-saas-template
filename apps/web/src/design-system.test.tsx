@@ -313,6 +313,85 @@ test('the knowledge attachment scene demos file icons and upload lifecycle feedb
   ).toBeVisible();
 });
 
+test('the knowledge export scene demos export statuses and the notification display contract', async () => {
+  const knowledge = assembledApp.scenes.find(
+    (scene) => scene.exampleId === 'knowledge' && scene.id === 'export-states',
+  );
+  if (!knowledge) return; // combo without the knowledge example
+  const { user } = open();
+  await screen.findByRole('heading', { name: '设计系统' });
+  await user.click(screen.getByRole('tab', { name: '场景' }));
+
+  const pick = async (name: string) => {
+    await user.click(screen.getByRole('radio', { name }));
+  };
+
+  // Export statuses reuse the production catalog labels; only a
+  // succeeded export offers the download action, and its transient
+  // downloading label is the production one.
+  expect(await screen.findByText('等待处理')).toBeVisible();
+  await pick('running');
+  expect(screen.getByText('正在生成')).toBeVisible();
+  await pick('retry_wait');
+  expect(screen.getByText('等待重试')).toBeVisible();
+  await pick('failed');
+  expect(screen.getByText('导出失败')).toBeVisible();
+  expect(screen.getByText('本次导出未完成，可重新申请。')).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: '下载 ZIP' }),
+  ).not.toBeInTheDocument();
+  await pick('expired');
+  expect(screen.getByText('已过期')).toBeVisible();
+  await pick('succeeded');
+  expect(screen.getByText('导出完成')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: '下载 ZIP' }));
+  expect(screen.getByRole('button', { name: '正在下载…' })).toBeVisible();
+
+  // The registered type resolves its heading from the structured type
+  // and outcome; opening the result marks the notice read on demo state.
+  const registered = screen.getByLabelText('已注册类型的通知（演示）');
+  expect(within(registered).getByText('文档导出完成')).toBeVisible();
+  await user.click(
+    within(registered).getByRole('button', { name: '查看结果' }),
+  );
+  expect(within(registered).getByText('已读')).toBeVisible();
+  expect(
+    within(registered).getByRole('button', { name: '查看结果' }),
+  ).toBeDisabled();
+  expect(
+    within(registered).queryByRole('button', { name: '标记已读' }),
+  ).not.toBeInTheDocument();
+
+  // An unknown type keeps the original subject and shows the
+  // unavailable-target feedback instead of a navigation button.
+  const unknown = screen.getByLabelText('未知类型的通知（演示）');
+  expect(within(unknown).getByText('笔记共享失败')).toBeVisible();
+  expect(within(unknown).getByText('此通知的功能当前不可用。')).toBeVisible();
+  expect(
+    within(unknown).queryByRole('button', { name: '查看结果' }),
+  ).not.toBeInTheDocument();
+
+  // The same scene reads in English too: the badges and notification
+  // headings come from the shared catalog, so the demo follows the
+  // interface language without its own strings (UI09).
+  cleanup();
+  window.localStorage.setItem('saas.locale', 'en');
+  const english = open();
+  await screen.findByRole('heading', { name: 'Design system' });
+  await english.user.click(screen.getByRole('tab', { name: 'Scenes' }));
+  expect(await screen.findByText('Document export completed')).toBeVisible();
+  expect(screen.getByRole('group', { name: 'Export status' })).toBeVisible();
+  await english.user.click(screen.getByRole('radio', { name: 'failed' }));
+  expect(screen.getByText('Export failed')).toBeVisible();
+  const unknownEn = screen.getByLabelText('A notice of an unknown type (demo)');
+  expect(within(unknownEn).getByText('笔记共享 (failed)')).toBeVisible();
+  expect(
+    within(unknownEn).getByText(
+      'The feature behind this notification is currently unavailable.',
+    ),
+  ).toBeVisible();
+});
+
 test('the icon catalog lazy-loads, filters by name, and copies names', async () => {
   const { user } = open();
   await screen.findByRole('heading', { name: '设计系统' });

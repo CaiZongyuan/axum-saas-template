@@ -27,6 +27,7 @@ export {
   type ExampleContribution,
   type NavigatePort,
   type NavigateTarget,
+  type NotificationDisplay,
 } from './shell/app-contract';
 export { AppMessagesProvider, useAppMessage } from './shell/messages';
 export {

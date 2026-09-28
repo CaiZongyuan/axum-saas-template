@@ -502,6 +502,7 @@ const notificationsRoute = createRoute({
                 })
             : undefined
         }
+        describeNotification={assembledApp.describeNotification}
         onBack={() => {
           void navigate({ to: '/' });
         }}

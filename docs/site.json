@@ -168,10 +168,11 @@
     {
       "id": "document-exports",
       "source": "docs/tutorials/10-document-exports.md",
+      "sourceEn": "docs/tutorials/10-document-exports.en.md",
       "route": "tutorials/document-exports.md",
       "title": "文档导出与 PostgreSQL Jobs",
       "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI09" }
+      "titleEn": "Document exports and PostgreSQL Jobs"
     },
     {
       "id": "job-recovery",
@@ -194,10 +195,11 @@
     {
       "id": "export-notifications",
       "source": "docs/tutorials/13-export-notifications.md",
+      "sourceEn": "docs/tutorials/13-export-notifications.en.md",
       "route": "tutorials/export-notifications.md",
       "title": "导出通知与已读状态",
       "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI09" }
+      "titleEn": "Export notifications and read state"
     },
     {
       "id": "audit-history",

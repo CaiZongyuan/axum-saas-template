@@ -232,4 +232,51 @@ describe('assembleApp', () => {
     const app = assembleApp({ examples: [first, second] });
     expect(app.resolveNotificationTarget).toBeDefined();
   });
+
+  test('notification display composes in contribution order and falls back to undefined', () => {
+    const notice = {
+      id: 'n',
+      subject: ' subject ',
+      outcome: 'succeeded',
+      created_at: '2026-09-26T00:00:00Z',
+      target: { kind: 'second.thing', resource_id: 'r', context: {} },
+    } as Parameters<
+      NonNullable<ExampleContribution['describeNotification']>
+    >[0];
+    const first = example({
+      id: 'first',
+      describeNotification: () => undefined,
+    });
+    const second = example({
+      id: 'second',
+      defaultEntry: '/second',
+      routes: [{ path: '/second', component: () => null }],
+      navigation: [
+        {
+          id: 'g',
+          labelKey: 'group.label',
+          items: [{ id: 'i', labelKey: 'nav.notes', path: '/second' }],
+        },
+      ],
+      describeNotification: (input) =>
+        input.target.kind === 'second.thing'
+          ? { titleKey: 'second.notifications.thing' }
+          : undefined,
+    });
+    // No example describes anything: the composed resolver stays absent
+    // so the Core inbox renders its fallback heading.
+    expect(
+      assembleApp({ examples: [example()] }).describeNotification,
+    ).toBeUndefined();
+    const app = assembleApp({ examples: [first, second] });
+    expect(app.describeNotification?.(notice)).toEqual({
+      titleKey: 'second.notifications.thing',
+    });
+    expect(
+      app.describeNotification?.({
+        ...notice,
+        target: { ...notice.target, kind: 'other' },
+      }),
+    ).toBeUndefined();
+  });
 });

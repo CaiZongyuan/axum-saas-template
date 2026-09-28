@@ -95,6 +95,8 @@ just check
 
 HTTP/公开任务测试验证发布跨越续租、续租超时后的事务释放、超过一页历史的新任务可见性、幂等快照、真实 ZIP/附件字节、Session 失效、审计回滚、权限与到期、缺失对象和大小限制。存储适配测试验证多块传输与条件写入；View 测试验证进度、请求重试、失败、过期和下载被拒绝。
 
+页面上的申请按钮、状态徽标（queued/running/retry_wait/succeeded/failed/expired）、失败提示与有效期都来自共享双语目录（[export-feedback](../../packages/views/src/knowledge/export-feedback.tsx)），随界面语言完整显示；幂等、权限、附件打包与链接到期语义不变。设计系统展厅的场景页在演示数据上隔离展示这些状态（UI09），通知部分见[导出结果通知](13-export-notifications.md)。
+
 完成这条关键旅程后使用真实浏览器验收：
 
 ```bash

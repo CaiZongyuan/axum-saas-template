@@ -256,6 +256,20 @@ const zh: Catalog = {
   'scene.attachments.demoImageMeta': '图片文件 · 24.0 KiB',
   'scene.attachments.demoDocName': '报告.pdf',
   'scene.attachments.demoDocMeta': '文件 · 1.2 MiB',
+
+  // Structured notification display (UI09): resolved from the target type
+  // and outcome at render time, never by matching the stored subject.
+  'notifications.exportSucceeded': '文档导出完成',
+  'notifications.exportFailed': '文档导出失败',
+
+  // Export states and notification display demonstrated on demo data.
+  'scene.exportStates.title': '导出状态与通知显示',
+  'scene.exportStates.description':
+    '导出状态徽标与通知标题按当前语言显示；未知类型保留原 subject 并显示功能不可用。',
+  'scene.exportStates.statusTitle': '导出状态',
+  'scene.exportStates.noticeTitle': '通知显示',
+  'scene.exportStates.demoExportNotice': '已注册类型的通知（演示）',
+  'scene.exportStates.demoUnknownNotice': '未知类型的通知（演示）',
 };
 
 const en: Catalog = {
@@ -519,6 +533,20 @@ const en: Catalog = {
   'scene.attachments.demoImageMeta': 'Image file · 24.0 KiB',
   'scene.attachments.demoDocName': 'report.pdf',
   'scene.attachments.demoDocMeta': 'File · 1.2 MiB',
+
+  // Structured notification display (UI09): resolved from the target type
+  // and outcome at render time, never by matching the stored subject.
+  'notifications.exportSucceeded': 'Document export completed',
+  'notifications.exportFailed': 'Document export failed',
+
+  // Export states and notification display demonstrated on demo data.
+  'scene.exportStates.title': 'Export states and notification display',
+  'scene.exportStates.description':
+    'Export status badges and notification headings follow the active language; unknown types keep the original subject and show unavailable feedback.',
+  'scene.exportStates.statusTitle': 'Export status',
+  'scene.exportStates.noticeTitle': 'Notification display',
+  'scene.exportStates.demoExportNotice': 'A notice of a registered type (demo)',
+  'scene.exportStates.demoUnknownNotice': 'A notice of an unknown type (demo)',
 };
 
 export const knowledgeMessages: {
