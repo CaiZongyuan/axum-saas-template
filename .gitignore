@@ -18,3 +18,4 @@ apps/docs/.vitepress/dist/
 .secrets/
 
 .runtime/
+.worktrees/
