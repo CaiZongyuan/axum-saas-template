@@ -90,7 +90,7 @@ docker compose up -d --wait postgres
 just docs
 ```
 
-本地文档入口为 [http://127.0.0.1:5174/axum-saas-template/](http://127.0.0.1:5174/axum-saas-template/)。在线站点和本地站点使用同一组 Markdown 源文件。
+本地文档入口为 [http://127.0.0.1:5174/axum-saas-template/docs/](http://127.0.0.1:5174/axum-saas-template/docs/)。在线站点和本地站点使用同一组 Markdown 源文件；站点提供简体中文与英文，语言切换保持同一章节。
 
 复制模板后，按[发布教程站点](publish-docs.md)启用自己的 GitHub Pages；后续合并到 `main` 时由 CI 检查并发布。
 

@@ -7,30 +7,35 @@ pub const FIELDS: &[Setting] = &[
         default: None,
         secret: false,
         description: "Optional local OTLP/HTTP base URL (loopback or collector); empty disables export.",
+        description_zh: "可选的本地 OTLP/HTTP 基础 URL（回环或 collector）；留空禁用导出。",
     },
     Setting {
         name: "TELEMETRY_LOG_DIRECTORY",
         default: None,
         secret: false,
         description: "Optional private JSON log directory; hourly rotation with at most 24 files per service. Empty uses stdout.",
+        description_zh: "可选的私有 JSON 日志目录；按小时轮转，每个服务最多保留 24 个文件。留空输出到 stdout。",
     },
     Setting {
         name: "TELEMETRY_QUEUE_SIZE",
         default: Some("512"),
         secret: false,
         description: "Bounded span queue (64..4096); overflow drops telemetry, never blocks requests.",
+        description_zh: "有界 span 队列（64..4096）；溢出时丢弃遥测，绝不阻塞请求。",
     },
     Setting {
         name: "TELEMETRY_TIMEOUT_MS",
         default: Some("1000"),
         secret: false,
         description: "Whole OTLP request timeout, one attempt (50..2000 ms).",
+        description_zh: "OTLP 请求整体超时，单次尝试（50..2000 毫秒）。",
     },
     Setting {
         name: "TELEMETRY_METRICS_INTERVAL_MS",
         default: Some("5000"),
         secret: false,
         description: "Metrics export interval (1000..60000 ms).",
+        description_zh: "指标导出间隔（1000..60000 毫秒）。",
     },
 ];
 #[derive(Clone)]

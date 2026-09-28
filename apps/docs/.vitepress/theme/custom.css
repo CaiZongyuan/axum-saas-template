@@ -1,0 +1,87 @@
+/* Public-site visual baseline shared with the application: a system
+   sans stack for mixed Chinese/English text, neutral surfaces split by
+   fine borders, and a restrained blue for links and focus. Dark mode maps
+   each role onto neutral charcoal. */
+
+:root {
+  --vp-font-family-base:
+    system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --vp-font-family-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+
+  --vp-c-white: #ffffff;
+  --vp-c-black: #1f2328;
+
+  --vp-c-bg: #ffffff;
+  --vp-c-bg-alt: #f6f7f8;
+  --vp-c-bg-soft: #f3f4f6;
+  --vp-c-bg-elv: #ffffff;
+
+  --vp-c-border: #e4e7eb;
+  --vp-c-divider: #e4e7eb;
+  --vp-c-gutter: #e4e7eb;
+
+  --vp-c-text-1: #1f2328;
+  --vp-c-text-2: #57606a;
+  --vp-c-text-3: #6e7781;
+
+  --vp-c-brand-1: #2563eb;
+  --vp-c-brand-2: #1d4ed8;
+  --vp-c-brand-3: #2563eb;
+  --vp-c-brand-soft: rgba(37, 99, 235, 0.14);
+
+  --vp-c-default-soft: #f3f4f6;
+
+  --vp-button-brand-bg: #1f2328;
+  --vp-button-brand-text: #ffffff;
+  --vp-button-brand-hover-bg: #38383d;
+  --vp-button-brand-hover-text: #ffffff;
+
+  --vp-nav-bg-color: #f6f7f8;
+  --vp-sidebar-bg-color: #f6f7f8;
+
+  --vp-code-color: #1f2328;
+  --vp-code-bg: #f3f4f6;
+
+  --vp-custom-block-tip-bg: #f3f4f6;
+  --vp-custom-block-tip-border: #e4e7eb;
+}
+
+.dark {
+  --vp-c-bg: #16181d;
+  --vp-c-bg-alt: #1b1e24;
+  --vp-c-bg-soft: #22262d;
+  --vp-c-bg-elv: #1b1e24;
+
+  --vp-c-border: #30353d;
+  --vp-c-divider: #30353d;
+  --vp-c-gutter: #30353d;
+
+  --vp-c-text-1: #e6e8eb;
+  --vp-c-text-2: #a6adb8;
+  --vp-c-text-3: #8b929c;
+
+  --vp-c-brand-1: #60a5fa;
+  --vp-c-brand-2: #93c5fd;
+  --vp-c-brand-3: #60a5fa;
+  --vp-c-brand-soft: rgba(96, 165, 250, 0.16);
+
+  --vp-button-brand-bg: #e6e8eb;
+  --vp-button-brand-text: #16181d;
+  --vp-button-brand-hover-bg: #ffffff;
+  --vp-button-brand-hover-text: #16181d;
+
+  --vp-code-color: #e6e8eb;
+  --vp-code-bg: #22262d;
+
+  --vp-custom-block-tip-bg: #22262d;
+  --vp-custom-block-tip-border: #30353d;
+}
+
+/* The frontmatter-driven switcher replaces the default locale dropdown,
+   which would link untranslated chapters at missing English pages. */
+.VPNavBarTranslations {
+  display: none !important;
+}

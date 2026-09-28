@@ -15,12 +15,14 @@ pub const FIELDS: &[Setting] = &[
         default: None,
         secret: true,
         description: "Independent 32-byte hex key for short-lived mail materials; shared by API/Worker, required with SMTP.",
+        description_zh: "用于短期邮件材料的独立 32 字节十六进制密钥；API/Worker 共享，配置 SMTP 时必填。",
     },
     Setting {
         name: "MAIL_ENCRYPTION_KEY_VERSION",
         default: Some("1"),
         secret: false,
         description: "Current positive key version; drain or expire old materials before rotation.",
+        description_zh: "当前正整数密钥版本；轮换前需清空或等待旧材料过期。",
     },
 ];
 #[derive(Debug)]

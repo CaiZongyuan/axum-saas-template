@@ -1,204 +1,292 @@
 {
   "title": "Axum SaaS Template",
+  "titleEn": "Axum SaaS Template",
   "description": "从真实请求开始，学习、验证并替换自己的业务。",
+  "descriptionEn": "Start from a real request, then learn, verify and adapt it to your own product.",
   "repository": "CaiZongyuan/axum-saas-template",
+  "groupLabels": {
+    "开始": "Start",
+    "跟做教程": "Tutorials",
+    "替换示例": "Replace the example",
+    "性能": "Performance",
+    "理解模板": "Understand the template",
+    "验证": "Verification",
+    "生成参考": "Generated references"
+  },
   "pages": [
     {
-      "source": "docs/getting-started/quickstart.md",
-      "route": "index.md",
-      "title": "快速开始",
+      "id": "documentation",
+      "source": "docs/getting-started/documentation.md",
+      "sourceEn": "docs/getting-started/documentation.en.md",
+      "route": "docs/index.md",
+      "title": "文档教程",
+      "titleEn": "Documentation",
       "group": "开始"
     },
     {
+      "id": "quickstart",
+      "source": "docs/getting-started/quickstart.md",
+      "sourceEn": "docs/getting-started/quickstart.en.md",
+      "route": "getting-started/quickstart.md",
+      "title": "快速开始",
+      "titleEn": "Quick start",
+      "group": "开始"
+    },
+    {
+      "id": "publish-docs",
       "source": "docs/getting-started/publish-docs.md",
+      "sourceEn": "docs/getting-started/publish-docs.en.md",
       "route": "getting-started/publish-docs.md",
       "title": "发布教程站点",
+      "titleEn": "Publish the documentation site",
       "group": "开始"
     },
     {
+      "id": "first-request",
       "source": "docs/tutorials/01-full-stack-request.md",
       "route": "tutorials/first-request.md",
       "title": "第一条全栈请求",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "registration",
       "source": "docs/tutorials/02-registration.md",
       "route": "tutorials/registration.md",
       "title": "注册、事务与会话",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "sessions",
       "source": "docs/tutorials/03-sessions.md",
       "route": "tutorials/sessions.md",
       "title": "登录、退出与会话失效",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "personal-documents",
       "source": "docs/tutorials/04-personal-documents.md",
       "route": "tutorials/personal-documents.md",
       "title": "第一篇 Markdown 文档",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI06" }
     },
     {
+      "id": "search-preview",
       "source": "docs/tutorials/05-search-preview.md",
       "route": "tutorials/search-preview.md",
       "title": "标题搜索与安全预览",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI06" }
     },
     {
+      "id": "edit-conflicts",
       "source": "docs/tutorials/06-edit-conflicts.md",
       "route": "tutorials/edit-conflicts.md",
       "title": "编辑、保存与版本冲突",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI07" }
     },
     {
+      "id": "library-grants",
       "source": "docs/tutorials/07-library-grants.md",
       "route": "tutorials/library-grants.md",
       "title": "共享知识库与权限继承",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI06" }
     },
     {
+      "id": "members",
       "source": "docs/tutorials/08-members.md",
       "route": "tutorials/members.md",
       "title": "成员管理与最后 Owner",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI10" }
     },
     {
+      "id": "attachments",
       "source": "docs/tutorials/09-attachments.md",
       "route": "tutorials/attachments.md",
       "title": "RustFS 附件、校验与发布",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI08" }
     },
     {
+      "id": "document-exports",
       "source": "docs/tutorials/10-document-exports.md",
       "route": "tutorials/document-exports.md",
       "title": "文档导出与 PostgreSQL Jobs",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI09" }
     },
     {
+      "id": "job-recovery",
       "source": "docs/tutorials/11-job-recovery.md",
       "route": "tutorials/job-recovery.md",
       "title": "任务恢复与管理员重试",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI11" }
     },
     {
+      "id": "deletion-cleanup",
       "source": "docs/tutorials/12-deletion-cleanup.md",
       "route": "tutorials/deletion-cleanup.md",
       "title": "删除与可靠对象清理",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI06" }
     },
     {
+      "id": "export-notifications",
       "source": "docs/tutorials/13-export-notifications.md",
       "route": "tutorials/export-notifications.md",
       "title": "导出通知与已读状态",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI09" }
     },
     {
+      "id": "audit-history",
       "source": "docs/tutorials/14-audit-history.md",
       "route": "tutorials/audit-history.md",
       "title": "管理员审计与业务追溯",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI11" }
     },
     {
+      "id": "api-keys",
       "source": "docs/tutorials/15-api-keys.md",
       "route": "tutorials/api-keys.md",
       "title": "API Key 与当前资源权限",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI10" }
     },
     {
+      "id": "versioned-cache",
       "source": "docs/tutorials/16-versioned-cache.md",
       "route": "tutorials/versioned-cache.md",
       "title": "Redis 正文缓存与数据库回源",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI06" }
     },
     {
+      "id": "rate-limits",
       "source": "docs/tutorials/17-rate-limits.md",
       "route": "tutorials/rate-limits.md",
       "title": "请求限流与保守回退",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "password-reset",
       "source": "docs/tutorials/18-password-reset.md",
       "route": "tutorials/password-reset.md",
       "title": "密码重置与可靠邮件",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI12" }
     },
     {
+      "id": "observability",
       "source": "docs/tutorials/19-observability.md",
       "route": "tutorials/observability.md",
       "title": "从导出追踪到任务与存储",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI11" }
     },
     {
+      "id": "electron-shell",
       "source": "docs/tutorials/20-electron-shell.md",
       "route": "tutorials/electron-shell.md",
       "title": "Electron 桌面壳复用同一套页面",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI13" }
     },
     {
+      "id": "single-machine-production",
       "source": "docs/tutorials/21-single-machine-production.md",
       "route": "tutorials/single-machine-production.md",
       "title": "单机生产部署与降级验证",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "backup-restore",
       "source": "docs/tutorials/22-backup-restore.md",
       "route": "tutorials/backup-restore.md",
       "title": "备份与独立环境恢复演练",
-      "group": "跟做教程"
+      "group": "跟做教程",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "example-removal",
       "source": "docs/tutorials/23-example-removal.md",
       "route": "tutorials/example-removal.md",
       "title": "移除示例，接入自己的业务",
-      "group": "替换示例"
+      "group": "替换示例",
+      "translation": { "status": "pending", "owner": "UI03" }
     },
     {
+      "id": "perf-gates",
       "source": "docs/tutorials/24-perf-gates.md",
       "route": "tutorials/perf-gates.md",
       "title": "确定性性能门禁",
-      "group": "性能"
+      "group": "性能",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "load-reports",
       "source": "docs/tutorials/25-load-reports.md",
       "route": "tutorials/load-reports.md",
       "title": "负载、饱和与长测报告",
-      "group": "性能"
+      "group": "性能",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "desktop-soak",
       "source": "docs/tutorials/26-desktop-soak.md",
       "route": "tutorials/desktop-soak.md",
       "title": "桌面壳资源长测",
-      "group": "性能"
+      "group": "性能",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "boundaries",
       "source": "docs/architecture/module-boundaries.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
-      "group": "理解模板"
+      "group": "理解模板",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "v1-coverage",
       "source": "docs/architecture/v1-coverage.md",
       "route": "architecture/v1-coverage.md",
       "title": "v1 覆盖与验收",
-      "group": "理解模板"
+      "group": "理解模板",
+      "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "feedback-loop",
       "source": "docs/testing/t01-feedback-loop.md",
       "route": "testing/feedback-loop.md",
       "title": "运行测试与检查",
-      "group": "验证"
+      "group": "验证",
+      "translation": { "status": "pending", "owner": "UI14" }
     }
   ],
   "references": [
     {
+      "id": "api-reference",
       "route": "reference/api.md",
       "title": "API 合同",
+      "titleEn": "API contract",
       "group": "生成参考"
     },
     {
+      "id": "config-reference",
       "route": "reference/config.md",
       "title": "API 配置",
+      "titleEn": "API configuration",
       "group": "生成参考"
     }
   ]

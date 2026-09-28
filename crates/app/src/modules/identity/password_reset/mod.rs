@@ -27,12 +27,14 @@ pub const FIELDS: &[Setting] = &[
         default: Some("1800"),
         secret: false,
         description: "Reset link lifetime (60..3600 seconds); mail material cannot outlive the link.",
+        description_zh: "重置链接有效期（60..3600 秒）；邮件材料不会超过链接有效期。",
     },
     Setting {
         name: "PASSWORD_RESET_COOLDOWN_SECS",
         default: Some("60"),
         secret: false,
         description: "Coalesce repeated active reset requests for one account (1..300 seconds).",
+        description_zh: "合并同一账号活跃的重置请求（1..300 秒）。",
     },
 ];
 #[derive(Clone)]

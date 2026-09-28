@@ -1,44 +1,142 @@
 import { readFileSync } from 'node:fs';
 import { defineConfig } from 'vitepress';
+import {
+  sitePath,
+  validateSiteModel,
+} from '../../../scripts/lib/docs-locales.mjs';
 
-const site = JSON.parse(
-  readFileSync(new URL('../../../docs/site.json', import.meta.url), 'utf8'),
+// One bilingual site: the root locale publishes Simplified Chinese on the
+// historical paths, the `en` locale mirrors the translated chapters under
+// `/en/`. Both navigations derive from the same validated declaration in
+// docs/site.json; untranslated chapters stay out of the English sidebar
+// instead of linking at pages that do not exist.
+const site = validateSiteModel(
+  JSON.parse(
+    readFileSync(new URL('../../../docs/site.json', import.meta.url), 'utf8'),
+  ),
 );
 const repository = process.env.GITHUB_REPOSITORY ?? site.repository;
 const project = repository.split('/')[1];
-const sections = new Map<
-  string,
-  { text: string; items: { text: string; link: string }[] }
->();
-for (const page of [...site.pages, ...site.references]) {
-  if (!sections.has(page.group))
-    sections.set(page.group, { text: page.group, items: [] });
-  sections.get(page.group)!.items.push({
-    text: page.title,
-    link:
-      page.route === 'index.md' ? '/' : '/' + page.route.replace(/\.md$/, ''),
-  });
+
+const siteLink = (route: string, locale: 'zh' | 'en') => {
+  const path = sitePath(route);
+  return locale === 'en' && !path.startsWith('/en/') ? '/en' + path : path;
+};
+
+function sectionsFor(locale: 'zh' | 'en') {
+  const chapters = [...site.pages, ...site.references].filter(
+    (chapter) => locale === 'zh' || chapter.bilingual,
+  );
+  const sections = new Map<
+    string,
+    { text: string; items: { text: string; link: string }[] }
+  >();
+  for (const chapter of chapters) {
+    if (!sections.has(chapter.group))
+      sections.set(chapter.group, {
+        text: locale === 'en' ? site.groupLabels[chapter.group] : chapter.group,
+        items: [],
+      });
+    sections.get(chapter.group)!.items.push({
+      text: locale === 'en' ? chapter.titleEn! : chapter.title,
+      link: siteLink(locale === 'en' ? chapter.routeEn : chapter.route, locale),
+    });
+  }
+  return [...sections.values()];
+}
+
+function themeConfigFor(locale: 'zh' | 'en') {
+  const en = locale === 'en';
+  return {
+    // The built-in locale switcher blind-maps paths across locales, which
+    // would link untranslated chapters at pages that do not exist. The
+    // frontmatter-driven switcher in this theme owns the pairing instead.
+    i18nRouting: false,
+    nav: en
+      ? [
+          { text: 'Documentation', link: '/en/docs/' },
+          { text: 'Quick start', link: '/en/getting-started/quickstart' },
+        ]
+      : [
+          { text: '文档', link: '/docs/' },
+          { text: '快速开始', link: '/getting-started/quickstart' },
+          { text: '跟做教程', link: '/tutorials/first-request' },
+        ],
+    sidebar: sectionsFor(locale),
+    socialLinks: [{ icon: 'github', link: `https://github.com/${repository}` }],
+    search: {
+      provider: 'local' as const,
+      options: {
+        locales: {
+          root: {
+            translations: {
+              button: { buttonText: '搜索文档', buttonAriaLabel: '搜索文档' },
+              modal: {
+                searchBarPlaceholder: '搜索文档教程（不含应用内数据）',
+                noResultsText: '未找到相关结果',
+                resetButtonTitle: '清除条件',
+                footer: {
+                  selectText: '选择',
+                  navigateText: '切换',
+                  closeText: '关闭',
+                },
+              },
+            },
+          },
+          en: {
+            translations: {
+              button: {
+                buttonText: 'Search docs',
+                buttonAriaLabel: 'Search docs',
+              },
+              modal: {
+                searchBarPlaceholder:
+                  'Search docs and references (not in-app data)',
+                noResultsText: 'No results',
+                resetButtonTitle: 'Reset',
+                footer: {
+                  selectText: 'Select',
+                  navigateText: 'Switch',
+                  closeText: 'Close',
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    outline: { label: en ? 'On this page' : '本页内容' },
+    docFooter: en
+      ? { prev: 'Previous', next: 'Next' }
+      : { prev: '上一页', next: '下一页' },
+    footer: {
+      message: en
+        ? 'One source · runnable tutorials · explicit test entries'
+        : '同一份源码 · 可运行教程 · 明确的测试入口',
+    },
+  };
 }
 
 export default defineConfig({
-  lang: 'zh-CN',
-  title: site.title,
-  description: site.description,
   srcDir: '.generated',
   base:
     process.env.DOCS_BASE ??
     (project.endsWith('.github.io') ? '/' : `/${project}/`),
   cleanUrls: true,
-  themeConfig: {
-    nav: [
-      { text: '快速开始', link: '/' },
-      { text: '跟做教程', link: '/tutorials/first-request' },
-    ],
-    sidebar: [...sections.values()],
-    socialLinks: [{ icon: 'github', link: `https://github.com/${repository}` }],
-    search: { provider: 'local' },
-    footer: { message: '同一份源码 · 可运行教程 · 明确的测试入口' },
-    outline: { label: '本页内容' },
-    docFooter: { prev: '上一页', next: '下一页' },
+  locales: {
+    root: {
+      label: '简体中文',
+      lang: 'zh-CN',
+      title: site.title,
+      description: site.description,
+      themeConfig: themeConfigFor('zh'),
+    },
+    en: {
+      label: 'English',
+      lang: 'en',
+      title: site.titleEn,
+      description: site.descriptionEn,
+      themeConfig: themeConfigFor('en'),
+    },
   },
 });

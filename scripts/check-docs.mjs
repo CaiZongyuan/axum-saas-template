@@ -1,6 +1,27 @@
-import { renderDocs } from './lib/docs.mjs';
+import { renderDocs, siteModel } from './lib/docs.mjs';
+import { englishRoute, sitePath } from './lib/docs-locales.mjs';
+
+// The documentation check entry: besides fence/snippet integrity of every
+// rendered page in both locales, it validates the bilingual contract that
+// later chapters inherit — locale route pairing, counterpart frontmatter
+// for the language switcher, and the redirect stubs that keep the site
+// root working until the public Landing ships.
 
 const pages = renderDocs();
+const site = siteModel();
+
+const frontmatter = (route) => {
+  const match = /^---\n(docLocale: .+)\n(counterpart: .+)\n/.exec(
+    pages.get(route) ?? '',
+  );
+  if (!match)
+    throw new Error(`Rendered page ${route} lacks locale frontmatter`);
+  return {
+    docLocale: match[1].slice('docLocale: '.length).trim(),
+    counterpart: match[2].slice('counterpart: '.length).trim(),
+  };
+};
+
 for (const [route, content] of pages) {
   if (!route.endsWith('.md')) continue;
   const fences = content
@@ -9,6 +30,44 @@ for (const [route, content] of pages) {
   if (fences % 2) throw new Error(`Unclosed code fence in ${route}`);
   if (/^<<< /m.test(content)) throw new Error(`Unresolved snippet in ${route}`);
 }
+
+for (const chapter of [...site.pages, ...site.references]) {
+  if (!chapter.bilingual) {
+    const pending = chapter.translation;
+    if (!pending)
+      throw new Error(`Unregistered translation migration: ${chapter.id}`);
+    continue;
+  }
+  const zh = chapter.route;
+  const en = chapter.routeEn;
+  const zhMeta = frontmatter(zh);
+  const enMeta = frontmatter(en);
+  if (zhMeta.docLocale !== 'zh' || enMeta.docLocale !== 'en')
+    throw new Error(`Wrong docLocale on the ${chapter.id} chapter pair`);
+  if (zhMeta.counterpart !== sitePath(en))
+    throw new Error(
+      `Language switch of ${zh} must target the same English chapter (${sitePath(en)}), got ${zhMeta.counterpart}`,
+    );
+  if (enMeta.counterpart !== sitePath(zh))
+    throw new Error(
+      `Language switch of ${en} must target the same Chinese chapter (${sitePath(zh)}), got ${enMeta.counterpart}`,
+    );
+}
+
+// The transitional root stubs switch to the other locale's documentation
+// entry — the only target that exists before the Landing page ships.
+const stubCounterparts = {
+  'index.md': '/en/docs/',
+  [englishRoute('index.md')]: '/docs/',
+};
+for (const [stub, expected] of Object.entries(stubCounterparts)) {
+  const meta = frontmatter(stub);
+  if (meta.counterpart !== expected)
+    throw new Error(
+      `Root stub ${stub} must switch to ${expected}, got ${meta.counterpart}`,
+    );
+}
+
 console.log(
-  `Documentation navigation, source links, snippets and generated references verified (${pages.size} files).`,
+  `Documentation navigation, source links, snippets, locale pairing and generated references verified (${pages.size} files).`,
 );

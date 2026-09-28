@@ -1,6 +1,18 @@
-# 发布自己的教程站点
+# 发布教程站点
 
 仓库 Markdown 是唯一可编辑来源。[站点清单](../site.json)决定公开页面；源码片段、API 与配置参考从实现生成。`apps/docs/.generated` 和构建产物不提交到源码分支。
+
+## 双语章节登记
+
+站点同时发布简体中文与英文：中文沿用既有路径，英文固定在 `en/` 前缀下，与中文章节一一对应。新增页面必须成对交付：
+
+1. 在中文源文件旁创建同名 `.en.md` 文件（例如 `docs/getting-started/quickstart.md` 与 `docs/getting-started/quickstart.en.md`）。两个文件使用同一组相对链接与 `<<<` 片段引用；链接会按目标章节是否有英文译本自动落到正确语言。
+2. 在 `docs/site.json` 的 `pages` 中登记一个稳定 `id`，并同时给出 `title`/`titleEn` 与 `source`/`sourceEn`；分组名称通过顶层 `groupLabels` 提供两个语言的标签。
+3. 运行 `pnpm docs:check`。它会校验章节配对、重复 id/路由、悬空链接与生成参考，并在缺少英文译本时直接失败。
+
+既有尚未翻译的章节是显式登记的迁移项：`translation: { "status": "pending", "owner": "<票号>" }` 声明由哪张实现票补齐英文；校验只接受已发布计划中的票号。迁移期间站点正常构建，英文导航不显示这些章节，也不会生成指向不存在页面的链接。禁止用占位文本伪装英文译本。
+
+语言切换器始终定位同一章节；目标章节没有英文译本时回到英文文档首页。搜索覆盖本站全部已发布文档与生成参考。整个站点使用同一套顶栏、字体、明暗主题与语言规则，后续 Landing、Blog、Downloads 页面复用同一约定。
 
 ## 首次启用 GitHub Pages
 
@@ -27,4 +39,4 @@ node scripts/publish-docs.mjs --request-build
 
 GitHub Actions 使用 `GITHUB_TOKEN` 推送分支不会自动触发 Pages 构建，因此不能省略 `--request-build`。首次 Pages 设置仍需管理员完成，CI 不尝试修改仓库管理设置。
 
-默认地址为 `https://<owner>.github.io/<repository>/`。站点路径由仓库名决定；自定义域名或非默认路径可通过 `DOCS_BASE` 调整构建路径。
+默认地址为 `https://<owner>.github.io/<repository>/`。站点路径由仓库名决定；自定义域名或非默认路径可通过 `DOCS_BASE` 调整构建路径。子路径部署下，章节切换、语言切换、源码链接和搜索都基于相对路径与构建期 base，无需额外配置。

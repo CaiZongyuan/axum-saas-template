@@ -6,36 +6,42 @@ pub const FIELDS: &[Setting] = &[
         default: Some("5"),
         secret: false,
         description: "Finite attempt budget per export execution batch (1..20).",
+        description_zh: "每个导出执行批次的有限尝试预算（1..20）。",
     },
     Setting {
         name: "EXPORT_MAX_ATTACHMENTS",
         default: Some("100"),
         secret: false,
         description: "Maximum attachments in one document export (0..1000).",
+        description_zh: "单次文档导出的附件数量上限（0..1000）。",
     },
     Setting {
         name: "EXPORT_MAX_INPUT_BYTES",
         default: Some("268435456"),
         secret: false,
         description: "Maximum snapshot Markdown and attachment bytes (1..1073741824).",
+        description_zh: "快照 Markdown 与附件的总字节上限（1..1073741824）。",
     },
     Setting {
         name: "EXPORT_MAX_OUTPUT_BYTES",
         default: Some("285212672"),
         secret: false,
         description: "Maximum ZIP extent, including headers and central directory (1024..1107296256).",
+        description_zh: "ZIP 总大小上限，含文件头与中央目录（1024..1107296256）。",
     },
     Setting {
         name: "EXPORT_RETENTION_SECS",
         default: Some("86400"),
         secret: false,
         description: "Export and snapshot lifetime (60..604800 seconds).",
+        description_zh: "导出结果与快照的保存期（60..604800 秒）。",
     },
     Setting {
         name: "EXPORT_TIMEOUT_SECS",
         default: Some("120"),
         secret: false,
         description: "Entire export execution budget (1..600 seconds), with cooperative blocking cancellation.",
+        description_zh: "导出执行的整体预算（1..600 秒），支持协作式阻塞取消。",
     },
 ];
 #[derive(Clone)]
