@@ -42,6 +42,24 @@ export function run(command, args, env = process.env) {
   execFileSync(command, args, { cwd: root, env, stdio: 'inherit' });
 }
 
+// run() blocks this event loop; when the process is itself serving
+// (the public-site journeys host the docs server in-process) a synchronous
+// child would leave the server unable to answer the browser. This variant
+// awaits the child while the loop stays free.
+export function runAsync(command, args, env = process.env) {
+  const child = spawn(command, args, { cwd: root, env, stdio: 'inherit' });
+  return new Promise((resolveDone, reject) => {
+    child.once('error', reject);
+    child.once('close', (code) => {
+      if (code === 0) resolveDone();
+      else
+        reject(
+          new Error(`${command} ${args.join(' ')} exited with code ${code}`),
+        );
+    });
+  });
+}
+
 export function launch(command, args, env) {
   return spawn(command, args, {
     cwd: root,

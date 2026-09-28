@@ -85,3 +85,181 @@
 .VPNavBarTranslations {
   display: none !important;
 }
+
+/* The public Landing rides the `page` layout (navbar + footer, no
+   sidebar) and follows its settled structure — value proposition with the
+   primary actions, the usage flow, the real capabilities, the reference
+   example, a closing call to action. It reuses the docs tokens: neutral
+   surfaces, hairlines, small radii and a few small colored accents. */
+
+.landing-hero {
+  max-width: 46rem;
+  margin-inline: auto;
+  padding: 4rem 0 3.5rem;
+  text-align: center;
+}
+.landing-eyebrow {
+  margin: 0 0 0.75rem;
+  color: var(--vp-c-text-2);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+.landing-hero h1 {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: none;
+  font-size: clamp(1.9rem, 5vw, 2.5rem);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.landing-lede {
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-size: 1.05rem;
+  line-height: 1.75;
+}
+
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin: 1.75rem 0 0;
+}
+.landing-button {
+  display: inline-block;
+  padding: 0.55rem 1.4rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
+  background: var(--vp-c-bg);
+  color: var(--vp-c-text-1);
+  font-weight: 500;
+  text-decoration: none;
+}
+.landing-button:hover {
+  border-color: var(--vp-c-text-3);
+}
+.landing-button-primary {
+  border-color: transparent;
+  background: var(--vp-button-brand-bg);
+  color: var(--vp-button-brand-text);
+}
+.landing-button-primary:hover {
+  border-color: transparent;
+  background: var(--vp-button-brand-hover-bg);
+  color: var(--vp-button-brand-hover-text);
+}
+
+.landing-section {
+  max-width: 64rem;
+  margin-inline: auto;
+  padding: 2.75rem 0;
+  border-top: 1px solid var(--vp-c-divider);
+}
+.landing-heading {
+  margin: 0 0 1rem;
+  padding: 0;
+  border: none;
+  font-size: 1.35rem;
+  line-height: 1.4;
+}
+.landing-section-lede {
+  max-width: 44rem;
+  margin: 0 0 1.5rem;
+  color: var(--vp-c-text-2);
+}
+.landing-section-lede a {
+  color: var(--vp-c-brand-1);
+  text-decoration: none;
+}
+.landing-section-lede a:hover {
+  text-decoration: underline;
+}
+
+.landing-steps,
+.landing-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+.landing-steps {
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+}
+.landing-grid {
+  grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
+}
+.landing-card,
+.landing-step {
+  display: block;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 10px;
+  background: var(--vp-c-bg);
+  color: inherit;
+  text-decoration: none;
+}
+.landing-card:hover,
+.landing-step:hover {
+  border-color: var(--vp-c-brand-1);
+}
+.landing-card h3,
+.landing-step h3 {
+  margin: 0.6rem 0 0.3rem;
+  padding: 0;
+  border: none;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.landing-card p,
+.landing-step p {
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-size: 0.9rem;
+  line-height: 1.65;
+}
+.landing-step-num {
+  display: inline-block;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 6px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4rem;
+  text-align: center;
+}
+.landing-dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 3px;
+  background: var(--vp-c-brand-1);
+}
+.landing-dot.dot-green {
+  background: #16a34a;
+}
+.landing-dot.dot-amber {
+  background: #d97706;
+}
+.landing-dot.dot-red {
+  background: #dc2626;
+}
+.landing-dot.dot-purple {
+  background: #7c3aed;
+}
+/* Dark surfaces drop #7c3aed below the 3:1 non-text threshold (#1e1e24
+   background, 2.9:1); violet-500 restores it (3.9:1). */
+.dark .landing-dot.dot-purple {
+  background: #8b5cf6;
+}
+.landing-dot.dot-cyan {
+  background: #0891b2;
+}
+
+.landing-closing {
+  text-align: center;
+  padding-bottom: 4rem;
+}
+.landing-closing .landing-section-lede {
+  margin-inline: auto;
+}

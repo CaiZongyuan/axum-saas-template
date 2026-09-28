@@ -37,10 +37,12 @@ export function englishRoute(route) {
 
 // Markdown route -> the site-absolute path VitePress publishes it under
 // (`getting-started/quickstart.md` -> `/getting-started/quickstart`,
-// `docs/index.md` -> `/docs/`). Shared by the renderer, the checks and
-// the VitePress config so all three agree on published paths.
+// `docs/index.md` -> `/docs/`, the public Landing `index.md` -> `/`).
+// Shared by the renderer, the checks and the VitePress config so all three
+// agree on published paths.
 export function sitePath(route) {
   const withoutExtension = route.replace(/\.md$/, '');
+  if (withoutExtension === 'index') return '/';
   return withoutExtension.endsWith('/index')
     ? `/${withoutExtension.replace(/\/index$/, '')}/`
     : `/${withoutExtension}`;
@@ -60,6 +62,36 @@ function assertBilingualShape(chapter) {
     throw new Error(
       `chapter ${chapter.id} declares an English translation without a sourceEn`,
     );
+}
+
+// Landing-style pages (`layout: "page"`) opt out of the sidebar and carry
+// their own page meta. The meta must ship as complete zh/en pairs so both
+// locales get honest titles/descriptions, and it is only meaningful on
+// layout pages — a stray field elsewhere is a declaration mistake.
+const LAYOUT_META_PAIRS = [
+  ['pageTitle', 'pageTitleEn'],
+  ['pageDescription', 'pageDescriptionEn'],
+];
+
+function assertLayoutDeclaration(chapter) {
+  const metaFields = LAYOUT_META_PAIRS.flat();
+  if (chapter.layout === undefined) {
+    const stray = metaFields.filter((field) => chapter[field] !== undefined);
+    if (stray.length)
+      throw new Error(
+        `chapter ${chapter.id} declares page meta (${stray.join(', ')}) without a layout; only layout pages carry page meta`,
+      );
+    return;
+  }
+  if (chapter.layout !== 'page')
+    throw new Error(
+      `chapter ${chapter.id} declares an unknown layout: ${chapter.layout}`,
+    );
+  for (const [zhKey, enKey] of LAYOUT_META_PAIRS)
+    if ((chapter[zhKey] === undefined) !== (chapter[enKey] === undefined))
+      throw new Error(
+        `chapter ${chapter.id} declares ${zhKey}/${enKey} incompletely; page meta must ship in both locales`,
+      );
 }
 
 function assertPendingRegistration(chapter) {
@@ -95,6 +127,7 @@ function validateChapter(chapter, context, seenIds, seenRoutes) {
     throw new Error(`chapter ${chapter.id} is missing its title`);
   if (chapter.group === undefined)
     throw new Error(`chapter ${chapter.id} is missing its group`);
+  assertLayoutDeclaration(chapter);
 
   // Generated references carry no source file: they are synthesized from
   // the contract/settings in both locales, so only their English title is
