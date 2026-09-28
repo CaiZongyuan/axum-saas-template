@@ -84,15 +84,30 @@ impl Handler for ResetMail {
         let remaining = (expires - chrono::Utc::now())
             .to_std()
             .map_err(|_| JobError::Permanent("identity.reset_expired"))?;
-        let body = format!(
-            "请使用下面的一次性链接设置新密码：\n\n{}\n\n链接到期后无法使用。如果不是你申请的，可以忽略本邮件。",
-            material.link
-        );
+        // The language was fixed when the material was sealed, so every
+        // attempt of this job — and material sealed before the field
+        // existed — speaks one language.
+        let (subject, body) = match material.locale.as_deref() {
+            Some("en") => (
+                "Reset your password",
+                format!(
+                    "Use the one-time link below to set a new password:\n\n{}\n\nThe link stops working once it expires. If you did not request this email, you can ignore it.",
+                    material.link
+                ),
+            ),
+            _ => (
+                "重置密码",
+                format!(
+                    "请使用下面的一次性链接设置新密码：\n\n{}\n\n链接到期后无法使用。如果不是你申请的，可以忽略本邮件。",
+                    material.link
+                ),
+            ),
+        };
         self.service
             .mail
             .send_plain_text(
                 &material.recipient,
-                "重置密码",
+                subject,
                 body,
                 &format!("password-reset-{reset_id}"),
                 tokio::time::Instant::now() + remaining,

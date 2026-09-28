@@ -16,6 +16,7 @@ import {
   AppShellLayout,
   PreferencesProvider,
   sessionQuery,
+  useFlowLocaleSetter,
   useAppMessage,
   usePageTitle,
   SettingsView,
@@ -33,6 +34,7 @@ import {
   JobsView,
   JobView,
   filterableStatuses,
+  type AppLocale,
   type AssembledApp,
   type NavigateTarget,
 } from '@saas/views';
@@ -347,10 +349,21 @@ const forgotPasswordRoute = createRoute({
   },
 });
 
-function resetToken(hash: string) {
-  if (hash.length > 256) return undefined;
-  const value = new URLSearchParams(hash.replace(/^#/, '')).get('token');
-  return value && /^[0-9a-f]{64}$/i.test(value) ? value : undefined;
+// The reset link's fragment carries the secret token plus a non-sensitive
+// language hint; both are read once and the fragment is cleared. The hint
+// steers only this reset flow's language (docs/ui/design.md §6 Q8).
+function resetLink(hash: string): {
+  token: string | undefined;
+  hint: AppLocale | undefined;
+} {
+  if (hash.length > 256) return { token: undefined, hint: undefined };
+  const params = new URLSearchParams(hash.replace(/^#/, ''));
+  const token = params.get('token');
+  const lang = params.get('lang');
+  return {
+    token: token && /^[0-9a-f]{64}$/i.test(token) ? token : undefined,
+    hint: lang === 'zh' || lang === 'en' ? lang : undefined,
+  };
 }
 
 const resetPasswordRoute = createRoute({
@@ -362,15 +375,17 @@ const resetPasswordRoute = createRoute({
     const hash = useLocation({ select: (location) => location.hash });
     const [link, setLink] = useState(() => ({
       observedHash: hash,
-      token: resetToken(hash),
+      ...resetLink(hash),
       revision: 0,
     }));
     // A new email link may navigate within this mounted route. Capture it before
     // replacing the fragment; a fresh View drops prior form/success/request state.
     if (hash !== link.observedHash) {
+      const parsed = resetLink(hash);
       setLink({
         observedHash: hash,
-        token: hash ? resetToken(hash) : link.token,
+        token: hash ? parsed.token : link.token,
+        hint: hash ? parsed.hint : link.hint,
         revision: hash ? link.revision + 1 : link.revision,
       });
     }
@@ -378,6 +393,14 @@ const resetPasswordRoute = createRoute({
       if (hash)
         void navigate({ to: '/reset-password', hash: '', replace: true });
     }, [hash, navigate]);
+    // The mail's language renders this flow (and only it) in that
+    // language; each fresh link re-applies its hint, and leaving the
+    // route hands the document back to the saved preference.
+    const setFlowLocale = useFlowLocaleSetter();
+    useEffect(() => {
+      setFlowLocale(link.hint);
+      return () => setFlowLocale(undefined);
+    }, [link.revision, link.hint, setFlowLocale]);
     return (
       <ResetPasswordView
         apiClient={apiClient}

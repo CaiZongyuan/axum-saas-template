@@ -210,42 +210,48 @@ async fn known_and_missing_emails_have_identical_feedback_and_a_real_worker_deli
     );
 }
 
-async fn captured_token(email: &str) -> String {
+async fn search_messages(mailpit: &str, email: &str) -> Value {
+    reqwest::Client::new()
+        .get(format!("{mailpit}/api/v1/search"))
+        .query(&[("query", format!("to:{email}"))])
+        .send()
+        .await
+        .expect("mail capture transport failed")
+        .json()
+        .await
+        .expect("mail capture response failed")
+}
+
+fn reset_link_of(message: &Value) -> String {
+    message["Text"]
+        .as_str()
+        .and_then(|text| {
+            text.split_whitespace().find_map(|word| {
+                word.contains("/reset-password#token=")
+                    .then(|| word.to_owned())
+            })
+        })
+        .expect("reset link in the captured mail")
+}
+
+async fn captured_message(mailpit: &str, email: &str) -> Value {
     let client = reqwest::Client::new();
-    let base = std::env::var("MAILPIT_HTTP_URL").unwrap();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
     loop {
-        let search: Value = client
-            .get(format!("{base}/api/v1/search"))
-            .query(&[("query", format!("to:{email}"))])
-            .send()
-            .await
-            .expect("mail capture transport failed")
-            .json()
-            .await
-            .expect("mail capture response failed");
+        let search = search_messages(mailpit, email).await;
         if let Some(id) = search["messages"]
             .as_array()
             .and_then(|rows| rows.first())
             .and_then(|row| row["ID"].as_str())
         {
-            let message: Value = client
-                .get(format!("{base}/api/v1/message/{id}"))
+            return client
+                .get(format!("{mailpit}/api/v1/message/{id}"))
                 .send()
                 .await
                 .expect("mail capture transport failed")
                 .json()
                 .await
                 .expect("mail capture response failed");
-            let token = message["Text"]
-                .as_str()
-                .and_then(|text| {
-                    text.split_whitespace()
-                        .find_map(|word| word.split_once("#token=").map(|(_, token)| token))
-                })
-                .expect("captured reset mail has a token");
-            assert_eq!(token.len(), 64);
-            return token.to_owned();
         }
         assert!(
             std::time::Instant::now() < deadline,
@@ -253,6 +259,16 @@ async fn captured_token(email: &str) -> String {
         );
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
+}
+async fn captured_token(email: &str) -> String {
+    let message = captured_message(&std::env::var("MAILPIT_HTTP_URL").unwrap(), email).await;
+    let link = reset_link_of(&message);
+    let token = link
+        .split_once("#token=")
+        .map(|(_, rest)| rest.split('&').next().unwrap())
+        .expect("captured reset mail has a token");
+    assert_eq!(token.len(), 64);
+    token.to_owned()
 }
 async fn login(app: &Router, email: &str, password: &str) -> Response {
     app.clone()
@@ -802,4 +818,190 @@ async fn a_login_using_the_old_hash_cannot_issue_a_session_after_password_reset(
     gate.commit().await.unwrap();
     assert_eq!(resetting.await.unwrap().status(), StatusCode::NO_CONTENT);
     assert_eq!(logging_in.await.unwrap().status(), StatusCode::UNAUTHORIZED);
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn requested_language_sets_the_delivered_language_and_link_hint_across_retries(pool: PgPool) {
+    use saas_app::modules::{
+        identity::{PasswordReset, ResetPolicy},
+        mail::MailService,
+    };
+    let key = hex::decode(std::env::var("MAIL_ENCRYPTION_KEY").unwrap()).unwrap();
+    let service = |port: u16| {
+        let mut settings = saas_platform::mail::SmtpSettings::from_env()
+            .unwrap()
+            .unwrap();
+        settings.port = port;
+        PasswordReset::new(
+            MailService::new(settings, &key, 1).unwrap(),
+            ResetPolicy::default(),
+        )
+        .unwrap()
+    };
+    // A port with no listener fails the first attempt transiently, without
+    // touching the shared chaos capture other tests exercise.
+    let dead_port = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap().port()
+    };
+    let reset = service(dead_port);
+    let app = saas_app::compose_routes_with_options(
+        pool.clone(),
+        Default::default(),
+        Router::new(),
+        saas_app::openapi(),
+        saas_app::CoreOptions {
+            password_reset: Some(reset.clone()),
+            ..Default::default()
+        },
+    );
+    let en_email = format!("reset-en-{}@example.test", uuid::Uuid::now_v7());
+    let en_owner = register(&app, &en_email).await;
+    assert_eq!(
+        request(
+            &app,
+            &en_owner,
+            "POST",
+            "/api/v1/auth/password-reset",
+            json!({"email":en_email,"locale":"en"}),
+        )
+        .await
+        .status(),
+        StatusCode::ACCEPTED
+    );
+    let broken = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![reset.handler(pool.clone())],
+        Default::default(),
+    );
+    assert!(broken.run_once().await.unwrap());
+    let jobs = data(request(&app, &en_owner, "GET", "/api/v1/jobs", json!(null)).await).await;
+    assert_eq!(jobs["data"][0]["status"], "retry_wait");
+    assert_eq!(jobs["data"][0]["last_error"], "mail.smtp_unavailable");
+    // The retried delivery keeps the language captured at request time.
+    let delivering = service(
+        saas_platform::mail::SmtpSettings::from_env()
+            .unwrap()
+            .unwrap()
+            .port,
+    );
+    let worker = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![delivering.handler(pool.clone())],
+        Default::default(),
+    );
+    sqlx::query("UPDATE saas_core.jobs SET scheduled_at=clock_timestamp() WHERE kind='identity.password_reset'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(worker.run_once().await.unwrap());
+    let mailpit = std::env::var("MAILPIT_HTTP_URL").unwrap();
+    let en_message = captured_message(&mailpit, &en_email).await;
+    assert_eq!(en_message["Subject"], "Reset your password");
+    let en_text = en_message["Text"].as_str().unwrap();
+    assert!(en_text.contains("one-time link"), "english body: {en_text}");
+    let en_link = reset_link_of(&en_message);
+    assert!(
+        en_link.ends_with("&lang=en"),
+        "link carries the non-sensitive language hint: {en_link}"
+    );
+    // Old clients omit the field and keep the original Chinese delivery without a hint.
+    let zh_email = format!("reset-zh-{}@example.test", uuid::Uuid::now_v7());
+    let zh_owner = register(&app, &zh_email).await;
+    assert_eq!(
+        request(
+            &app,
+            &zh_owner,
+            "POST",
+            "/api/v1/auth/password-reset",
+            json!({"email":zh_email}),
+        )
+        .await
+        .status(),
+        StatusCode::ACCEPTED
+    );
+    assert!(worker.run_once().await.unwrap());
+    let zh_message = captured_message(&mailpit, &zh_email).await;
+    assert_eq!(zh_message["Subject"], "重置密码");
+    let zh_text = zh_message["Text"].as_str().unwrap();
+    assert!(zh_text.contains("一次性链接"), "zh body: {zh_text}");
+    let zh_link = reset_link_of(&zh_message);
+    assert!(
+        !zh_link.contains('&'),
+        "old-style requests keep the original hint-free link: {zh_link}"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn cooldown_merges_cross_language_requests_and_keeps_the_first_language(pool: PgPool) {
+    let (app, reset) = configured(pool.clone()).await;
+    let email = format!("cooldown-{}@example.test", uuid::Uuid::now_v7());
+    let owner = register(&app, &email).await;
+    let en = request(
+        &app,
+        &owner,
+        "POST",
+        "/api/v1/auth/password-reset",
+        json!({"email":email,"locale":"en"}),
+    )
+    .await;
+    let zh = request(
+        &app,
+        &owner,
+        "POST",
+        "/api/v1/auth/password-reset",
+        json!({"email":email,"locale":"zh"}),
+    )
+    .await;
+    assert_eq!(en.status(), StatusCode::ACCEPTED);
+    assert_eq!(zh.status(), StatusCode::ACCEPTED);
+    assert_eq!(data(en).await, data(zh).await);
+    let resets: i64 = sqlx::query_scalar("SELECT count(*) FROM saas_core.password_resets")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(resets, 1, "the cooldown merges into the first request");
+    let queued: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM saas_core.jobs WHERE kind='identity.password_reset'",
+    )
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(queued, 1);
+    let worker = saas_app::modules::jobs::Worker::new(
+        pool.clone(),
+        vec![reset.handler(pool.clone())],
+        Default::default(),
+    );
+    assert!(worker.run_once().await.unwrap());
+    assert!(!worker.run_once().await.unwrap());
+    let mailpit = std::env::var("MAILPIT_HTTP_URL").unwrap();
+    let search = search_messages(&mailpit, &email).await;
+    assert_eq!(search["messages"].as_array().unwrap().len(), 1);
+    let message = captured_message(&mailpit, &email).await;
+    assert_eq!(message["Subject"], "Reset your password");
+    assert!(
+        message["Text"].as_str().unwrap().contains("one-time link"),
+        "the merged delivery keeps the first requested language"
+    );
+}
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn an_unsupported_language_is_rejected_with_stable_validation_feedback(pool: PgPool) {
+    let (app, _reset) = configured(pool.clone()).await;
+    let owner = register(
+        &app,
+        &format!("locale-{}@example.test", uuid::Uuid::now_v7()),
+    )
+    .await;
+    let response = request(
+        &app,
+        &owner,
+        "POST",
+        "/api/v1/auth/password-reset",
+        json!({"email":"locale-owner@example.test","locale":"fr"}),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(data(response).await["error"]["code"], "auth.invalid_input");
 }

@@ -1,6 +1,7 @@
 use crate::config::{ConfigError, Setting};
 use lettre::{
-    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor, message::Mailbox,
+    AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor,
+    message::{Mailbox, SinglePart},
     transport::smtp::authentication::Credentials,
 };
 use std::{error::Error as _, sync::Arc, time::Duration};
@@ -192,12 +193,14 @@ impl SmtpSender {
         let to: Mailbox = to
             .parse()
             .map_err(|_| DeliveryFailure::Permanent("mail.invalid_address"))?;
+        // Declare the part explicitly: a bare body is delivered without a
+        // Content-Type, so non-ASCII text can be misread as us-ascii.
         let message = Message::builder()
             .from(self.from.clone())
             .to(to)
             .subject(subject)
             .message_id(Some(format!("<{message_id}@saas.invalid>")))
-            .body(body)
+            .singlepart(SinglePart::plain(body))
             .map_err(|_| DeliveryFailure::Permanent("mail.invalid_message"))?;
         match tokio::time::timeout_at(
             expires.min(Instant::now() + self.timeout),

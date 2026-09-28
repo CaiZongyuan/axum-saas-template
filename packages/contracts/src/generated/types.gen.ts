@@ -379,6 +379,12 @@ export type ResetAccepted = {
 
 export type ResetRequest = {
     email: string;
+    /**
+     * Reset email language: `zh` or `en`. Omitted keeps the default
+     * Chinese delivery for existing clients. Other values are rejected
+     * with `auth.invalid_input`.
+     */
+    locale?: string | null;
 };
 
 export type SetGrant = {

@@ -101,11 +101,20 @@ struct JobPayload {
 struct MailPayload {
     recipient: String,
     link: String,
+    /// Delivery language captured when the reset was requested; retries
+    /// read this snapshot. Material sealed before the field existed has
+    /// no key and keeps the default Chinese delivery.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    locale: Option<String>,
 }
 #[derive(Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub(super) struct ResetRequest {
     email: String,
+    /// Reset email language: `zh` or `en`. Omitted keeps the default
+    /// Chinese delivery for existing clients. Other values are rejected
+    /// with `auth.invalid_input`.
+    locale: Option<String>,
 }
 #[derive(Serialize, ToSchema)]
 struct ResetAccepted {
@@ -136,12 +145,30 @@ pub(super) async fn request(
             id,
         );
     }
+    // Constrained vocabulary: an unsupported language is a validation
+    // error, not a silent fallback to the default delivery.
+    let locale = input.locale.as_deref();
+    if locale.is_some_and(|language| language != "zh" && language != "en") {
+        return public_error(
+            StatusCode::BAD_REQUEST,
+            "auth.invalid_input",
+            "Use zh or en as the reset language",
+            id,
+        );
+    }
     let Some(service) = &state.password_reset else {
         return unavailable(id);
     };
     match tokio::time::timeout(
         std::time::Duration::from_secs(3),
-        requests::issue(&state.pool, service, &state.settings.origin, email, &id.0),
+        requests::issue(
+            &state.pool,
+            service,
+            &state.settings.origin,
+            email,
+            locale,
+            &id.0,
+        ),
     )
     .await
     {

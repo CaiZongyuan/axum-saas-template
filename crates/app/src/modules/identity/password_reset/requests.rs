@@ -7,6 +7,7 @@ pub(super) async fn issue(
     service: &PasswordReset,
     origin: &str,
     email: &str,
+    locale: Option<&str>,
     request: &str,
 ) -> Result<(), ()> {
     let mut tx = pool.begin().await.map_err(|_| ())?;
@@ -65,9 +66,16 @@ pub(super) async fn issue(
     )
     .await
     .map_err(|_| ())?;
+    // The language hint rides in the fragment next to the token: it never
+    // reaches the server and only steers the reset flow's language.
+    let link = match locale {
+        Some(language) => format!("{origin}/reset-password#token={token}&lang={language}"),
+        None => format!("{origin}/reset-password#token={token}"),
+    };
     let payload = serde_json::to_vec(&MailPayload {
         recipient,
-        link: format!("{origin}/reset-password#token={token}"),
+        link,
+        locale: locale.map(str::to_owned),
     })
     .map_err(|_| ())?;
     let sealed = service

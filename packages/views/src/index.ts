@@ -31,6 +31,7 @@ export {
 export { AppMessagesProvider, useAppMessage } from './shell/messages';
 export {
   PreferencesProvider,
+  useFlowLocaleSetter,
   usePreferences,
   type AppLocale,
   type ThemeChoice,
