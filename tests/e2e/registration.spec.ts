@@ -3,12 +3,15 @@ import { expect, test } from '@playwright/test';
 test('two browsers register, refresh, log out and sign in with isolated sessions', async ({
   browser,
 }) => {
-  const first = await browser.newContext();
-  const second = await browser.newContext();
+  // The device language follows the browser in the product, so journeys that
+  // assert Chinese pin the locale explicitly instead of relying on the
+  // runner default (see password-reset.spec.ts).
+  const first = await browser.newContext({ locale: 'zh-CN' });
+  const second = await browser.newContext({ locale: 'zh-CN' });
   try {
-    for (const [context, email, role] of [
-      [first, 'first-member@example.com', '成员'],
-      [second, 'member@example.com', '成员'],
+    for (const [context, email] of [
+      [first, 'first-member@example.com'],
+      [second, 'member@example.com'],
     ] as const) {
       const page = await context.newPage();
       await page.goto('/register');
@@ -17,13 +20,14 @@ test('two browsers register, refresh, log out and sign in with isolated sessions
         .getByLabel('密码', { exact: true })
         .fill('browser-test-password');
       await page.getByRole('button', { name: '创建账号' }).click();
+      // Registration lands directly on the documents entry, and the session
+      // must survive a reload there.
       await expect(
-        page.getByRole('heading', { name: `你好，${email}` }),
+        page.getByRole('heading', { name: '我的文档' }),
       ).toBeVisible();
-      await expect(page.getByText(role, { exact: true })).toBeVisible();
       await page.reload();
       await expect(
-        page.getByRole('heading', { name: `你好，${email}` }),
+        page.getByRole('heading', { name: '我的文档' }),
       ).toBeVisible();
       const cookie = (await context.cookies()).find(
         (cookie) => cookie.name === 'saas_session',
@@ -33,6 +37,10 @@ test('two browsers register, refresh, log out and sign in with isolated sessions
       expect(await page.evaluate(() => document.cookie)).not.toContain(
         'saas_session',
       );
+      // The fresh-member role badge and the sign-out control live on the
+      // generic home view.
+      await page.getByRole('link', { name: '首页' }).click();
+      await expect(page.getByText('成员', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: '退出登录' }).click();
       await expect(
         page.getByRole('link', { name: '登录', exact: true }),
@@ -48,7 +56,7 @@ test('two browsers register, refresh, log out and sign in with isolated sessions
         .fill('browser-test-password');
       await page.getByRole('button', { name: '登录', exact: true }).click();
       await expect(
-        page.getByRole('heading', { name: `你好，${email}` }),
+        page.getByRole('heading', { name: '我的文档' }),
       ).toBeVisible();
       expect(
         await page.evaluate(() =>
