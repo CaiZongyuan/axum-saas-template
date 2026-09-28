@@ -1,6 +1,6 @@
 # 跟做：用 API Key 读取有权访问的文档
 
-运行 `just dev` 并登录，从首页进入“API Keys”。填写便于辨认的名称，选择“读取有权访问的文档”和有效期，点击“创建密钥”。保存本次显示的完整 secret；可以复制，保存后点击“我已保存，隐藏密钥”。隐藏、离开页面或重新加载后都无法再次取得完整值，列表只显示名称、前缀、scopes、有效期和撤销状态。
+运行 `just dev` 并登录，在左侧导航底部的「设置」分区点击「API Keys」进入（旧地址 `/api-keys` 保持不变）。界面文字跟随「外观与语言」设置（英文下为 Name、Validity、Allowed operations、Create key 等操作名）；scope 标签来自服务端的能力注册，在两种语言下都保持注册原文。填写便于辨认的名称，选择“读取有权访问的文档”和有效期，点击“创建密钥”。保存本次显示的完整 secret；可以复制，保存后点击“我已保存，隐藏密钥”。隐藏、离开页面、重新加载或切换语言主题后都无法再次取得完整值，列表只显示名称、前缀、scopes、有效期和撤销状态。
 
 同一个页面也可创建只允许“读取自己的基本资料”的 Core Key。scope 是凭据的权限上限：有文档 scope 仍必须拥有对应知识库的当前权限，有资料 scope 不代表能读文档。Key 不提供成员管理、写文档或创建其他 Key 的能力。
 
@@ -32,7 +32,7 @@ unset SAAS_API_KEY
 
 这个 POST 不使用通用幂等重放表，SDK 和页面不自动重试。重复提交是新的创建操作，会得到独立 Key 和 secret。如果响应丢失，请刷新列表，依据名称和时间撤销那条记录，再明确创建一个新的 Key。服务端不能恢复已丢失的 secret。
 
-前端 [ApiKeysView](../../packages/views/src/api-keys/api-keys-view.tsx)把创建响应中的 secret 仅保存在当前页面状态，不放入 TanStack Query/Mutation 缓存、localStorage 或持久状态；离开时取消仍在等待的创建响应。复制通过应用壳提供的剪贴板回调完成。撤销正在显示的新 Key 后，同样清除其 secret。
+前端 [ApiKeysView](../../packages/views/src/api-keys/api-keys-view.tsx)渲染在通用应用壳的设置分区内，把创建响应中的 secret 仅保存在当前页面状态，不放入 TanStack Query/Mutation 缓存、localStorage 或持久状态；离开时取消仍在等待的创建响应。切换语言或主题后返回页面时，界面从列表 metadata 重建，secret 不会再次出现。复制通过应用壳提供的剪贴板回调完成。撤销正在显示的新 Key 后，同样清除其 secret。
 
 ## 3. 权限是两个条件的交集
 

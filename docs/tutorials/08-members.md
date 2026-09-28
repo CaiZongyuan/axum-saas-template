@@ -1,6 +1,8 @@
 # 跟做：管理成员与保护最后 Owner
 
-运行 `just dev`，用首个注册账号登录，打开首页“企业成员”。另开一个隐私窗口注册同事账号，再由 Owner 重新读取成员列表，即可修改对方角色或停用对方。所有操作显式点击“保存成员”。
+运行 `just dev`，用首个注册账号登录，在左侧导航的「管理」分组点击「企业成员」进入（旧地址 `/members` 不变，也可以直接访问）。界面文字跟随「外观与语言」设置；英文界面下页面与操作名为 Members、Role、Member is active、Save member、Reload the list。另开一个隐私窗口注册同事账号，再由 Owner 重新读取成员列表，即可修改对方角色或停用对方。所有操作显式点击“保存成员”。
+
+「管理」分组只对 Owner 和 Admin 显示；普通 Member 既看不到入口，直接访问 `/members` 也会收到无权限提示且看不到成员名单。
 
 Owner 可以任命另一位 Owner；Admin 可以管理非 Owner 成员，但不能任命、降级或停用 Owner。页面的可编辑标记与可选角色由服务端返回，后端在每次保存时重新判断。普通 Member 访问管理入口会看到无权限提示。
 
@@ -37,7 +39,7 @@ Owner 可以任命另一位 Owner；Admin 可以管理非 Owner 成员，但不�
 
 Organization 只操作自己的企业与成员表。成员姓名和邮箱通过 Identity 的批量 profile 接口读取，避免跨模块直接 JOIN 私有表，也避免每名成员一次 SQL。Session 的撤销同样通过 Identity 公开接口完成。
 
-[共享成员页面](../../packages/views/src/organization/members-view.tsx)复用生成 SDK、Query、通用 Field / Select / Switch。已保存成员资源只存在 Query 中；行表单的角色、启用状态和版本是待提交草稿。修改后重新查询列表与当前会话，自身降级或停用时清理已失去资格的界面缓存。
+[共享成员页面](../../packages/views/src/organization/members-view.tsx)渲染在通用应用壳的管理分组内，复用生成 SDK、Query、通用 Field / Select / Switch，界面文字来自 Core 双语目录 [core-messages.ts](../../packages/views/src/shell/core-messages.ts)。已保存成员资源只存在 Query 中；行表单的角色、启用状态和版本是待提交草稿。修改后重新查询列表与当前会话，自身降级或停用时清理已失去资格的界面缓存。
 
 这章属于 SaaS Core，移除知识库示例后仍保留成员管理 API、页面、迁移、测试和教程。它没有读取 Document 或 Grant 表。知识库示例可以使用同一成员目录来选择授权对象。
 

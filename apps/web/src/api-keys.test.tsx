@@ -1,12 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession } from '@saas/sdk';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter } from './router';
+
+// UI10 keeps the API-keys page as the settings-group entry it is in the
+// shell, now inside the universal navigation with the bilingual catalog.
+// The one-time secret contract is unchanged: the creation response lives
+// only in page state, so hiding it, leaving, refreshing or switching the
+// language can never bring it back — the list shows metadata only.
 
 const identity = {
   user: {
@@ -17,10 +23,11 @@ const identity = {
   },
   csrf_token: 'csrf-proof',
 } satisfies CurrentSession;
-function open(role: CurrentSession['user']['role'] = 'member') {
+function open(locale: 'zh' | 'en' = 'zh') {
+  window.localStorage.setItem('saas.locale', locale);
   server.use(
     http.get('http://api.test/api/v1/auth/session', () =>
-      HttpResponse.json({ ...identity, user: { ...identity.user, role } }),
+      HttpResponse.json(identity),
     ),
   );
   const router = createAppRouter(
@@ -56,14 +63,15 @@ const key = {
   last_used_at: null,
 } satisfies import('@saas/sdk').KeyInfo;
 const secret = 'test-only-one-time-key';
+// Scope labels are server data registered by the assembled capabilities —
+// the interface around them translates, the registered labels do not.
+const profileScope = { id: 'profile:read', label: '读取自己的基本资料' };
 
 test('creating a key reveals its secret once and refresh or leaving never reveals it again', async () => {
   let created = false;
   server.use(
     http.get('http://api.test/api/v1/api-keys/scopes', () =>
-      HttpResponse.json({
-        data: [{ id: 'profile:read', label: '读取自己的基本资料' }],
-      }),
+      HttpResponse.json({ data: [profileScope] }),
     ),
     http.get('http://api.test/api/v1/api-keys', () =>
       HttpResponse.json({
@@ -84,9 +92,12 @@ test('creating a key reveals its secret once and refresh or leaving never reveal
     }),
   );
   const user = open();
+  const navigation = await screen.findByRole('navigation', {
+    name: '主菜单',
+  });
   expect(await screen.findByText('还没有 API Key')).toBeVisible();
   await user.type(screen.getByLabelText('名称'), 'My script');
-  await user.click(screen.getByRole('switch', { name: '读取自己的基本资料' }));
+  await user.click(screen.getByRole('switch', { name: profileScope.label }));
   await user.click(screen.getByRole('button', { name: '创建密钥' }));
   expect(await screen.findByLabelText('新密钥（只显示这一次）')).toHaveValue(
     secret,
@@ -101,8 +112,130 @@ test('creating a key reveals its secret once and refresh or leaving never reveal
   await user.click(screen.getByRole('button', { name: '刷新密钥' }));
   expect(await screen.findByText('saas_key_abcd1234')).toBeVisible();
   expect(screen.queryByDisplayValue(secret)).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: '返回首页' }));
-  expect(await screen.findByRole('link', { name: 'API Keys' })).toBeVisible();
+  // The old entry stays compatible: the settings group still reaches the
+  // page, and the sidebar carries the way back home.
+  await user.click(within(navigation).getByRole('link', { name: '首页' }));
+  expect(
+    await screen.findByRole('heading', { name: '你好，reader@example.com' }),
+  ).toBeVisible();
+  // The shell remounts with the route; read the live sidebar, not the
+  // api-keys page's detached one.
+  const homeNavigation = await screen.findByRole('navigation', {
+    name: '主菜单',
+  });
+  expect(
+    within(homeNavigation).getByRole('link', { name: 'API Keys' }),
+  ).toBeVisible();
+});
+
+test('switching the language after the secret was hidden never reveals it again', async () => {
+  let created = false;
+  server.use(
+    http.get('http://api.test/api/v1/api-keys/scopes', () =>
+      HttpResponse.json({ data: [profileScope] }),
+    ),
+    http.get('http://api.test/api/v1/api-keys', () =>
+      HttpResponse.json({
+        data: created ? [key] : [],
+        next_cursor: null,
+        has_more: false,
+      }),
+    ),
+    http.post('http://api.test/api/v1/api-keys', () => {
+      created = true;
+      return HttpResponse.json({ key, secret }, { status: 201 });
+    }),
+  );
+  const user = open();
+  const navigation = await screen.findByRole('navigation', {
+    name: '主菜单',
+  });
+  await user.type(await screen.findByLabelText('名称'), 'My script');
+  await user.click(screen.getByRole('switch', { name: profileScope.label }));
+  await user.click(screen.getByRole('button', { name: '创建密钥' }));
+  expect(await screen.findByLabelText('新密钥（只显示这一次）')).toHaveValue(
+    secret,
+  );
+  await user.click(screen.getByRole('button', { name: '我已保存，隐藏密钥' }));
+  // Language and theme changes route through settings; returning must
+  // rebuild the page from metadata only — no cached secret anywhere.
+  await user.click(
+    within(navigation).getByRole('link', { name: '外观与语言' }),
+  );
+  await user.click(await screen.findByRole('radio', { name: 'English' }));
+  await user.click(
+    within(screen.getByRole('navigation', { name: 'Main menu' })).getByRole(
+      'link',
+      { name: 'API Keys' },
+    ),
+  );
+  expect(
+    await screen.findByRole('heading', { name: 'API Keys', level: 1 }),
+  ).toBeVisible();
+  expect(screen.queryByDisplayValue(secret)).not.toBeInTheDocument();
+  expect(screen.getByText('saas_key_abcd1234')).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Create key' })).toBeVisible();
+  expect(screen.getByLabelText('Name')).toBeVisible();
+});
+
+test('the workspace renders key management in English around registered scope labels', async () => {
+  server.use(
+    http.get('http://api.test/api/v1/api-keys/scopes', () =>
+      HttpResponse.json({ data: [profileScope] }),
+    ),
+    http.get('http://api.test/api/v1/api-keys', () =>
+      HttpResponse.json({
+        data: [key],
+        next_cursor: null,
+        has_more: false,
+      }),
+    ),
+    http.post('http://api.test/api/v1/api-keys', async ({ request }) => {
+      expect(request.headers.get('x-csrf-token')).toBe('csrf-proof');
+      expect(await request.json()).toEqual({
+        name: 'My script',
+        scopes: ['profile:read'],
+        expires_in_days: 30,
+      });
+      return HttpResponse.json({ key, secret }, { status: 201 });
+    }),
+  );
+  open('en');
+  const navigation = await screen.findByRole('navigation', {
+    name: 'Main menu',
+  });
+  expect(
+    await within(navigation).findByRole('link', { name: 'API Keys' }),
+  ).toBeVisible();
+  expect(
+    await screen.findByRole('heading', { name: 'API Keys', level: 1 }),
+  ).toBeVisible();
+  expect(screen.getByLabelText('Name')).toBeVisible();
+  expect(screen.getByLabelText('Validity')).toBeVisible();
+  expect(screen.getByText('Allowed operations')).toBeVisible();
+  expect(
+    screen.getByRole('switch', { name: profileScope.label }),
+  ).toBeVisible();
+
+  const user = userEvent.setup();
+  await user.type(screen.getByLabelText('Name'), 'My script');
+  await user.click(screen.getByRole('switch', { name: profileScope.label }));
+  await user.click(screen.getByRole('button', { name: 'Create key' }));
+  expect(await screen.findByLabelText('New key (shown only once)')).toHaveValue(
+    secret,
+  );
+  await user.click(screen.getByRole('button', { name: 'Copy key' }));
+  expect(await screen.findByText('Copied')).toBeVisible();
+  await user.click(
+    screen.getByRole('button', { name: 'I saved it — hide the key' }),
+  );
+  // The list renders dates in the interface language; the entry itself
+  // keeps its metadata.
+  expect(await screen.findByText('saas_key_abcd1234')).toBeVisible();
+  expect(screen.getByText('Active')).toBeVisible();
+  expect(
+    screen.getByRole('button', { name: 'Revoke My script' }),
+  ).toBeVisible();
 });
 
 test('a failed revocation can retry and a revoked key stays visible as metadata only', async () => {
@@ -110,9 +243,7 @@ test('a failed revocation can retry and a revoked key stays visible as metadata 
   let revokedAt: string | null = null;
   server.use(
     http.get('http://api.test/api/v1/api-keys/scopes', () =>
-      HttpResponse.json({
-        data: [{ id: 'profile:read', label: '读取自己的基本资料' }],
-      }),
+      HttpResponse.json({ data: [profileScope] }),
     ),
     http.get('http://api.test/api/v1/api-keys', () =>
       HttpResponse.json({
@@ -158,9 +289,7 @@ test('a failed creation keeps inputs and does not automatically issue another cr
   let attempts = 0;
   server.use(
     http.get('http://api.test/api/v1/api-keys/scopes', () =>
-      HttpResponse.json({
-        data: [{ id: 'profile:read', label: '读取自己的基本资料' }],
-      }),
+      HttpResponse.json({ data: [profileScope] }),
     ),
     http.get('http://api.test/api/v1/api-keys', () =>
       HttpResponse.json({ data: [], next_cursor: null, has_more: false }),
@@ -182,7 +311,7 @@ test('a failed creation keeps inputs and does not automatically issue another cr
   const user = open();
   await user.type(await screen.findByLabelText('名称'), 'Keep this name');
   await user.click(
-    await screen.findByRole('switch', { name: '读取自己的基本资料' }),
+    await screen.findByRole('switch', { name: profileScope.label }),
   );
   await user.click(screen.getByRole('button', { name: '创建密钥' }));
   expect(await screen.findByRole('alert')).toHaveTextContent(

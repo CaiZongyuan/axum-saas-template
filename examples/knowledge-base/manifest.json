@@ -47,6 +47,7 @@
     "docs/tutorials/14-audit-history.md",
     "apps/api/tests/key_documents.rs",
     "docs/tutorials/15-api-keys.md",
+    "docs/tutorials/15-api-keys.en.md",
     "apps/api/tests/cached_documents.rs",
     "docs/tutorials/16-versioned-cache.md",
     "docs/research/redis-cache-runtime.md",

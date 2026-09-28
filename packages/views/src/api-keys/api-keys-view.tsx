@@ -14,7 +14,7 @@ import {
   type ApiClient,
   type CurrentSession,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
+import { errorCodeOf, requestIdFromError } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
@@ -39,6 +39,17 @@ import {
   NativeSelectOption,
 } from '@saas/ui/components/native-select';
 import { sessionKey, sessionQuery } from '../identity';
+import { AppShellLayout } from '../shell/app-shell';
+import { useAppFormat } from '../shell/format';
+import { useAppMessage } from '../shell/messages';
+import { usePageTitle } from '../shell/page-title';
+
+// API-key management as the settings-group entry of the universal shell
+// (docs/ui/design.md §5 Q4). Scope labels arrive from the server's
+// capability registration and render as-is; everything around them speaks
+// the active language. The one-time creation secret keeps living only in
+// page state — never in Query/Mutation caches or persistent storage — so
+// hiding it, leaving, reloading or switching the language cannot revive it.
 
 function Failure({
   error,
@@ -47,54 +58,61 @@ function Failure({
   error: unknown;
   creation?: boolean;
 }) {
+  const message = useAppMessage();
   const id = requestIdFromError(error);
   return (
     <Alert variant="destructive">
-      <AlertTitle>密钥操作未完成</AlertTitle>
+      <AlertTitle>{message('apiKeys.error.title')}</AlertTitle>
       <AlertDescription>
         {creation
-          ? '请刷新列表确认是否已创建；若已有记录但未取得密钥，请撤销后重新创建。'
-          : '请检查当前会话和输入后重试。'}
+          ? message('apiKeys.error.creation')
+          : message('apiKeys.error.generic')}
         <RateLimitHint error={error} />
-        {id ? <p>请求编号：{id}</p> : null}
+        {id ? <p>{message('common.requestId', { id })}</p> : null}
       </AlertDescription>
     </Alert>
   );
 }
 export function ApiKeysView({
   apiClient,
-  onBack,
+  docsUrl,
+  onOpen,
   copySecret,
 }: {
   apiClient: ApiClient;
-  onBack: () => void;
+  docsUrl: string;
+  /** Router port for opening paths without a full page load. */
+  onOpen?: (path: string) => void;
   copySecret: (secret: string) => Promise<void>;
 }) {
+  const message = useAppMessage();
+  usePageTitle('apiKeys.title');
   const client = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, client));
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">API Keys</h1>
-        <Button variant="link" onClick={onBack}>
-          返回首页
-        </Button>
-      </header>
-      {session.isPending ? (
-        <p role="status">正在读取会话…</p>
-      ) : session.isError ? (
-        <Failure error={session.error} />
-      ) : !session.data ? (
-        <p>请先登录。</p>
-      ) : (
-        <Settings
-          key={session.data.user.id}
-          apiClient={apiClient}
-          identity={session.data}
-          copySecret={copySecret}
-        />
-      )}
-    </main>
+    <AppShellLayout
+      docsUrl={docsUrl}
+      onOpen={onOpen}
+      role={session.data?.user.role}
+    >
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
+        <h1 className="text-2xl font-semibold">{message('apiKeys.title')}</h1>
+        {session.isPending ? (
+          <p role="status">{message('common.loadingSession')}</p>
+        ) : session.isError ? (
+          <Failure error={session.error} />
+        ) : !session.data ? (
+          <p>{message('apiKeys.signedOut')}</p>
+        ) : (
+          <Settings
+            key={session.data.user.id}
+            apiClient={apiClient}
+            identity={session.data}
+            copySecret={copySecret}
+          />
+        )}
+      </div>
+    </AppShellLayout>
   );
 }
 function Settings({
@@ -106,6 +124,8 @@ function Settings({
   identity: CurrentSession;
   copySecret: (secret: string) => Promise<void>;
 }) {
+  const message = useAppMessage();
+  const { formatDateTime } = useAppFormat();
   const client = useQueryClient();
   const queryKey = [
     'api-keys',
@@ -189,9 +209,9 @@ function Settings({
     if (!secret) return;
     try {
       await copySecret(secret);
-      setCopyStatus('已复制');
+      setCopyStatus(message('apiKeys.secret.copied'));
     } catch {
-      setCopyStatus('复制失败，请手动保存。');
+      setCopyStatus(message('apiKeys.secret.copyFailed'));
     }
   }
   const revoke = useMutation({
@@ -212,12 +232,7 @@ function Settings({
       await client.resetQueries({ queryKey, exact: true });
     },
     onError: (error) => {
-      if (
-        error &&
-        typeof error === 'object' &&
-        'error' in error &&
-        (error.error as { code?: string }).code === 'auth.unauthorized'
-      )
+      if (errorCodeOf(error) === 'auth.unauthorized')
         void client.invalidateQueries({ queryKey: sessionKey(apiClient) });
     },
   });
@@ -226,7 +241,7 @@ function Settings({
     <>
       <Card>
         <CardHeader>
-          <CardTitle>创建 API Key</CardTitle>
+          <CardTitle>{message('apiKeys.create.title')}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -238,7 +253,9 @@ function Settings({
           >
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="key-name">名称</FieldLabel>
+                <FieldLabel htmlFor="key-name">
+                  {message('apiKeys.form.name')}
+                </FieldLabel>
                 <Input
                   id="key-name"
                   maxLength={100}
@@ -249,7 +266,9 @@ function Settings({
                 />
               </Field>
               <Field>
-                <FieldLabel htmlFor="key-expiry">有效期</FieldLabel>
+                <FieldLabel htmlFor="key-expiry">
+                  {message('apiKeys.form.expiry')}
+                </FieldLabel>
                 <NativeSelect
                   id="key-expiry"
                   disabled={pending}
@@ -258,15 +277,15 @@ function Settings({
                 >
                   {['7', '30', '90', '365'].map((value) => (
                     <NativeSelectOption key={value} value={value}>
-                      {value} 天
+                      {message('apiKeys.form.expiryDays', { days: value })}
                     </NativeSelectOption>
                   ))}
                 </NativeSelect>
               </Field>
               <FieldSet>
-                <FieldLegend>允许的操作</FieldLegend>
+                <FieldLegend>{message('apiKeys.form.scopes')}</FieldLegend>
                 {scopes.isPending ? (
-                  <p role="status">正在读取可用权限…</p>
+                  <p role="status">{message('apiKeys.form.scopesLoading')}</p>
                 ) : scopes.isError ? (
                   <Failure error={scopes.error} />
                 ) : (
@@ -301,7 +320,9 @@ function Settings({
                 scopes.isError
               }
             >
-              {pending ? '正在创建…' : '创建密钥'}
+              {pending
+                ? message('apiKeys.form.creating')
+                : message('apiKeys.form.create')}
             </Button>
           </form>
         </CardContent>
@@ -311,13 +332,13 @@ function Settings({
       {secret ? (
         <Card>
           <CardHeader>
-            <CardTitle>请立即保存密钥</CardTitle>
+            <CardTitle>{message('apiKeys.secret.title')}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <p>关闭后无法再次查看。只授予所需权限，并妥善保管。</p>
+            <p>{message('apiKeys.secret.hint')}</p>
             <Field>
               <FieldLabel htmlFor="new-key-secret">
-                新密钥（只显示这一次）
+                {message('apiKeys.secret.label')}
               </FieldLabel>
               <Input
                 id="new-key-secret"
@@ -333,7 +354,7 @@ function Settings({
                   void copy();
                 }}
               >
-                复制密钥
+                {message('apiKeys.secret.copy')}
               </Button>
               <Button
                 variant="outline"
@@ -342,7 +363,7 @@ function Settings({
                   setCopyStatus('');
                 }}
               >
-                我已保存，隐藏密钥
+                {message('apiKeys.secret.hide')}
               </Button>
             </div>
             {copyStatus ? <p role="status">{copyStatus}</p> : null}
@@ -358,17 +379,17 @@ function Settings({
             void scopes.refetch();
           }}
         >
-          刷新密钥
+          {message('apiKeys.list.refresh')}
         </Button>
       </div>
       {keys.isPending ? (
-        <p role="status">正在读取密钥…</p>
+        <p role="status">{message('apiKeys.list.loading')}</p>
       ) : keys.isError ? (
         <Failure error={keys.error} />
       ) : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>还没有 API Key</EmptyTitle>
+            <EmptyTitle>{message('apiKeys.list.empty')}</EmptyTitle>
           </EmptyHeader>
         </Empty>
       ) : null}
@@ -382,26 +403,30 @@ function Settings({
               <h2 className="font-semibold">{key.name}</h2>
               <span>{key.prefix}</span>
               <p className="text-sm text-muted-foreground">
-                {key.scopes.join(' · ')} · 有效期至{' '}
-                {new Date(key.expires_at).toLocaleString()}
+                {key.scopes.join(' · ')} ·{' '}
+                {message('apiKeys.list.expires', {
+                  date: formatDateTime(key.expires_at),
+                })}
               </p>
               <div>
                 <Badge variant={key.revoked_at ? 'outline' : 'secondary'}>
                   {key.revoked_at
-                    ? '已撤销'
+                    ? message('apiKeys.list.revoked')
                     : new Date(key.expires_at).getTime() <= keys.dataUpdatedAt
-                      ? '已到期'
-                      : '有效'}
+                      ? message('apiKeys.list.expired')
+                      : message('apiKeys.list.active')}
                 </Badge>
               </div>
               {!key.revoked_at ? (
                 <Button
                   variant="outline"
                   disabled={revoke.isPending}
-                  aria-label={`撤销 ${key.name}`}
+                  aria-label={message('apiKeys.list.revokeName', {
+                    name: key.name,
+                  })}
                   onClick={() => revoke.mutate(key.id)}
                 >
-                  撤销密钥
+                  {message('apiKeys.list.revoke')}
                 </Button>
               ) : null}
             </li>
@@ -416,7 +441,9 @@ function Settings({
             void keys.fetchNextPage();
           }}
         >
-          加载更多密钥
+          {keys.isFetchingNextPage
+            ? message('common.loadingMore')
+            : message('apiKeys.list.loadMore')}
         </Button>
       ) : null}
     </>

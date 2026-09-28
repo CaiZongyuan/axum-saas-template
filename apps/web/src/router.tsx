@@ -230,13 +230,14 @@ const membersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/members',
   component: function MembersPage() {
-    const { apiClient } = rootRoute.useRouteContext();
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     return (
       <MembersView
         apiClient={apiClient}
-        onBack={() => {
-          void navigate({ to: '/' });
+        docsUrl={docsUrl}
+        onOpen={(path) => {
+          void navigate({ to: path });
         }}
         onLogin={() => {
           void navigate({ to: '/login' });
@@ -356,15 +357,16 @@ const apiKeysRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/api-keys',
   component: function ApiKeysPage() {
-    const { apiClient } = rootRoute.useRouteContext();
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     return (
       <ApiKeysView
         apiClient={apiClient}
-        copySecret={(secret) => navigator.clipboard.writeText(secret)}
-        onBack={() => {
-          void navigate({ to: '/' });
+        docsUrl={docsUrl}
+        onOpen={(path) => {
+          void navigate({ to: path });
         }}
+        copySecret={(secret) => navigator.clipboard.writeText(secret)}
       />
     );
   },
