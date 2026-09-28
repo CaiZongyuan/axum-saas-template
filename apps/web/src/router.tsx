@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import {
   createRootRouteWithContext,
   createRoute,
@@ -32,6 +32,12 @@ import {
   type NavigateTarget,
 } from '@saas/views';
 import { assembledApp, exampleEntries } from './app-examples';
+
+// The design-system page and its icon catalog load on demand
+// (docs/ui/design.md §6 Q9): the subpath import keeps the design-system
+// view — and everything it alone uses — out of the initial bundle, within
+// the existing perf budgets.
+const DesignSystemView = lazy(() => import('@saas/views/design-system'));
 
 type AppContext = { apiClient: ApiClient; docsUrl: string };
 const rootRoute = createRootRouteWithContext<AppContext>()({
@@ -175,15 +181,44 @@ const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
   component: function SettingsPage() {
-    const { docsUrl } = rootRoute.useRouteContext();
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     return (
       <SettingsView
         docsUrl={docsUrl}
+        apiClient={apiClient}
         onOpen={(path) => {
           void navigate({ to: path });
         }}
       />
+    );
+  },
+});
+
+const designSystemRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/design-system',
+  component: function DesignSystemPage() {
+    const { docsUrl } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    const message = useAppMessage();
+    return (
+      <Suspense
+        fallback={
+          <p role="status" className="p-8 text-sm text-muted-foreground">
+            {message('design.pageLoading')}
+          </p>
+        }
+      >
+        <DesignSystemView
+          docsUrl={docsUrl}
+          scenes={assembledApp.scenes}
+          copyText={(text) => navigator.clipboard.writeText(text)}
+          onOpen={(path) => {
+            void navigate({ to: path });
+          }}
+        />
+      </Suspense>
     );
   },
 });
@@ -410,6 +445,7 @@ const routeTree = rootRoute.addChildren([
   jobsRoute,
   jobRoute,
   settingsRoute,
+  designSystemRoute,
   homeRoute,
   registrationRoute,
   statusRoute,

@@ -4,7 +4,8 @@
   "type": "module",
   "name": "@saas/views",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./design-system": "./src/design-system/design-system-view.tsx"
   },
   "dependencies": {
     "@saas/contracts": "workspace:*",
@@ -12,6 +13,7 @@
     "@saas/sdk": "workspace:*",
     "@saas/ui": "workspace:*",
     "@tanstack/react-query": "5.103.2",
+    "lucide-react": "1.48.0",
     "react-markdown": "10.1.0",
     "rehype-sanitize": "6.0.0",
     "remark-gfm": "4.0.1"

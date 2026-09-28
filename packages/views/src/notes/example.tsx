@@ -4,7 +4,7 @@ import type { ExampleContribution } from '../shell/app-contract';
 // A deliberately small second example: it exists only to prove that the
 // app shell's composition interface does not know about the knowledge
 // example (docs/ui/design.md §4.1 "通过真实组合验收解耦"). One accessible
-// page, one navigation group, bilingual messages and one showcase scene
+// page, one navigation group, bilingual messages and one demo scene
 // declaration — not a second product.
 
 function NotesPage() {

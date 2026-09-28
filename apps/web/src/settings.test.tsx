@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { createApiClient } from '@saas/sdk';
+import { createApiClient, type CurrentSession } from '@saas/sdk';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -10,12 +10,25 @@ import { createAppRouter } from './router';
 
 // The appearance-and-language page (UI04): an explicit choice applies
 // instantly, updates the document, persists on the device, and never
-// reloads the app — typed input survives a language switch.
+// reloads the app — typed input survives a language switch. Signed in
+// (UI05), the page also offers the design-system showroom entry (§6 Q3).
 
-function open(path = '/') {
+const signedIn = {
+  user: {
+    id: 'settings-user',
+    email: 'settings@example.com',
+    display_name: '设置用户',
+    role: 'member',
+  },
+  csrf_token: 'settings-csrf',
+} satisfies CurrentSession;
+
+function open(path = '/', session: 'anonymous' | CurrentSession = 'anonymous') {
   server.use(
     http.get('http://api.test/api/v1/auth/session', () =>
-      HttpResponse.json(null, { status: 401 }),
+      session === 'anonymous'
+        ? HttpResponse.json(null, { status: 401 })
+        : HttpResponse.json(session),
     ),
   );
   const queryClient = new QueryClient({
@@ -98,4 +111,17 @@ test('switching language keeps typed input: no reload, nothing lost', async () =
   await user.click(screen.getByRole('button', { name: 'English' }));
   expect(screen.getByLabelText('Email')).toHaveValue('person@example.com');
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
+});
+
+test('signed in, the page offers the design-system entry and it opens the showroom', async () => {
+  const { user } = open('/settings', signedIn);
+  await screen.findByRole('heading', { name: '外观与语言' });
+  // The entry (§6 Q3: 设置 → 设计系统) reads as navigation into the
+  // demo-data showroom; the sidebar reflects the same real session (both
+  // appear once the session query resolves).
+  expect(await screen.findByRole('link', { name: 'API Keys' })).toBeVisible();
+  await user.click(screen.getByRole('button', { name: /设计系统/ }));
+  expect(
+    await screen.findByRole('heading', { name: '设计系统' }),
+  ).toBeVisible();
 });
