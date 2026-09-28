@@ -107,7 +107,7 @@
       <h3>Title search and safe preview</h3>
       <p>Title search, pagination and a preview that never executes scripts.</p>
     </a>
-    <!-- Chapters without an English translation yet (UI08/UI09)
+    <!-- Chapters without an English translation yet (UI09)
          follow the site's cross-locale fallback and open the Chinese
          chapter, exactly like untranslated links inside the docs. -->
     <a class="landing-card" href="tutorials/edit-conflicts">
@@ -120,7 +120,7 @@
       <h3>Shared knowledge bases and grants</h3>
       <p>Reader/Editor grants, revocations and permission inheritance.</p>
     </a>
-    <a class="landing-card" href="../tutorials/attachments">
+    <a class="landing-card" href="tutorials/attachments">
       <span class="landing-dot dot-green"></span>
       <h3>RustFS attachments</h3>
       <p>Attachment upload and download over real object storage, hashing and browser CORS.</p>

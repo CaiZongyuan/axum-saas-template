@@ -10,7 +10,6 @@ import {
   type FileInfo,
 } from '@saas/sdk';
 import { errorCodeOf } from '@saas/core';
-import { RequestErrorAlert } from './request-error';
 import { Button } from '@saas/ui/components/button';
 import { Empty, EmptyHeader, EmptyTitle } from '@saas/ui/components/empty';
 import {
@@ -20,8 +19,10 @@ import {
   FieldDescription,
 } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
-import { Progress } from '@saas/ui/components/progress';
 import type { FileTransfer } from './file-transfer';
+import { AttachmentFailure, UploadProgress } from './attachment-feedback';
+import type { UploadPhase } from './attachment-feedback';
+import { attachmentTypeFor } from './file-icons';
 import { DeleteResource } from './delete-resource';
 import { sessionKey } from '../identity';
 import { useAppMessage } from '../shell/messages';
@@ -32,29 +33,7 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 }
 
-type Phase =
-  'idle' | 'hashing' | 'uploading' | 'completing' | 'done' | 'failed';
-const FAILURE_KEYS: Record<string, string> = {
-  'files.too_large': 'attachments.tooLarge',
-  'files.upload_expired': 'attachments.uploadExpired',
-  'files.upload_rejected': 'attachments.uploadRejected',
-  'files.invalid_input': 'attachments.invalidInput',
-  'knowledge.forbidden': 'attachments.forbidden',
-  'knowledge.not_found': 'errors.docAccessLost',
-  'auth.unauthorized': 'errors.unauthorized',
-};
-function Failure({ error }: { error: unknown }) {
-  const message = useAppMessage('knowledge');
-  return (
-    <RequestErrorAlert
-      title={message('attachments.errorTitle')}
-      text={message(
-        FAILURE_KEYS[errorCodeOf(error) ?? ''] ?? 'attachments.fallback',
-      )}
-      error={error}
-    />
-  );
-}
+type Phase = UploadPhase | 'idle' | 'done' | 'failed';
 
 export function AttachmentsPanel({
   apiClient,
@@ -290,7 +269,9 @@ export function AttachmentsPanel({
       {attachments.isPending ? (
         <p role="status">{message('attachments.loading')}</p>
       ) : null}
-      {attachments.isError ? <Failure error={attachments.error} /> : null}
+      {attachments.isError ? (
+        <AttachmentFailure error={attachments.error} />
+      ) : null}
       {canEdit ? (
         <FieldGroup>
           <Field data-disabled={busy || !canUpload}>
@@ -325,25 +306,11 @@ export function AttachmentsPanel({
           </Button>
         </FieldGroup>
       ) : null}
-      {busy ? (
-        <>
-          <Progress
-            aria-label={message('attachments.progress')}
-            value={progress}
-          />
-          <p role="status">
-            {phase === 'hashing'
-              ? message('attachments.preparing')
-              : phase === 'completing'
-                ? message('attachments.verifying')
-                : message('attachments.uploading', { percent: progress })}
-          </p>
-        </>
-      ) : null}
+      {busy ? <UploadProgress phase={phase} progress={progress} /> : null}
       {phase === 'done' ? (
         <p role="status">{message('attachments.uploaded')}</p>
       ) : null}
-      {error ? <Failure error={error} /> : null}
+      {error ? <AttachmentFailure error={error} /> : null}
       {!attachments.isPending && !attachments.isError && items.length === 0 ? (
         <Empty>
           <EmptyHeader>
@@ -353,53 +320,62 @@ export function AttachmentsPanel({
       ) : null}
       {!attachments.isError ? (
         <ul className="flex flex-col gap-3">
-          {items.map((file) => (
-            <li key={file.id} className="flex flex-wrap items-center gap-3">
-              <span>
-                {file.file_name} · {formatBytes(file.size)}
-              </span>
-              <Button
-                variant="outline"
-                disabled={!!downloading}
-                aria-label={message('attachments.download', {
-                  name: file.file_name,
-                })}
-                onClick={() => {
-                  void download(file);
-                }}
-              >
-                {downloading === file.id
-                  ? message('common.downloading')
-                  : message('attachments.downloadAction')}
-              </Button>
-              {canDelete ? (
-                <DeleteResource
-                  apiClient={apiClient}
-                  identity={identity}
-                  resource={{
-                    kind: 'attachment',
-                    id: file.id,
-                    documentId,
-                    name: file.file_name,
-                  }}
-                  disabled={busy || !!downloading}
+          {items.map((file) => {
+            const { Icon: TypeIcon, labelKey } = attachmentTypeFor(
+              file.content_type,
+            );
+            return (
+              <li key={file.id} className="flex flex-wrap items-center gap-3">
+                <TypeIcon
+                  label={message(labelKey)}
+                  className="size-5 shrink-0 text-muted-foreground"
                 />
-              ) : null}
-              {onInsert && canUpload ? (
+                <span>
+                  {file.file_name} · {formatBytes(file.size)}
+                </span>
                 <Button
                   variant="outline"
+                  disabled={!!downloading}
+                  aria-label={message('attachments.download', {
+                    name: file.file_name,
+                  })}
                   onClick={() => {
-                    const label = file.file_name.replace(/[\\[\]]/g, '\\$&');
-                    onInsert(
-                      `${file.previewable ? '!' : ''}[${label}](attachment:${file.id})`,
-                    );
+                    void download(file);
                   }}
                 >
-                  {message('attachments.insertRef')}
+                  {downloading === file.id
+                    ? message('common.downloading')
+                    : message('attachments.downloadAction')}
                 </Button>
-              ) : null}
-            </li>
-          ))}
+                {canDelete ? (
+                  <DeleteResource
+                    apiClient={apiClient}
+                    identity={identity}
+                    resource={{
+                      kind: 'attachment',
+                      id: file.id,
+                      documentId,
+                      name: file.file_name,
+                    }}
+                    disabled={busy || !!downloading}
+                  />
+                ) : null}
+                {onInsert && canUpload ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const label = file.file_name.replace(/[\\[\]]/g, '\\$&');
+                      onInsert(
+                        `${file.previewable ? '!' : ''}[${label}](attachment:${file.id})`,
+                      );
+                    }}
+                  >
+                    {message('attachments.insertRef')}
+                  </Button>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
       {attachments.hasNextPage ? (

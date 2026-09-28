@@ -31,6 +31,8 @@ test('an uploaded RustFS image is previewed through an attachment reference and 
   await expect(
     page.getByRole('button', { name: '下载 图示.png' }),
   ).toBeVisible();
+  // The published row carries its file-type icon with a localized name.
+  await expect(page.getByRole('img', { name: '图片文件' })).toBeVisible();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: '下载 图示.png' }).click(),

@@ -11,6 +11,7 @@ import {
 import { useDocumentGuard } from './document-guard';
 import { knowledgeMessages } from './messages';
 import { SaveConflictScene } from './save-conflict-scene';
+import { AttachmentScene } from './attachment-scene';
 import type { AppPageProps, ExampleContribution } from '../shell/app-contract';
 import type { NotificationTarget } from '@saas/sdk';
 
@@ -243,6 +244,12 @@ export function createKnowledgeExample({
         titleKey: 'scene.saveConflict.title',
         descriptionKey: 'scene.saveConflict.description',
         render: () => <SaveConflictScene />,
+      },
+      {
+        id: 'attachment-states',
+        titleKey: 'scene.attachments.title',
+        descriptionKey: 'scene.attachments.description',
+        render: () => <AttachmentScene />,
       },
     ],
   };

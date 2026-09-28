@@ -195,10 +195,16 @@ test('scenes run on isolated local state; example scenes come from the real asse
     expect(screen.getByText('当前组合没有示例场景。')).toBeVisible();
   } else {
     for (const scene of assembledApp.scenes) {
+      // The example badge is scoped to its own scene card: several scenes
+      // can belong to one example, so the badge text legitimately repeats
+      // across cards but each card still carries exactly its own badge.
+      const card = screen
+        .getByText(assembledApp.messages.zh[scene.titleKey])
+        .closest('div.rounded-lg');
+      expect(card).not.toBeNull();
       expect(
-        screen.getByText(assembledApp.messages.zh[scene.titleKey]),
+        within(card as HTMLElement).getByText(scene.exampleId),
       ).toBeVisible();
-      expect(screen.getByText(scene.exampleId)).toBeVisible();
     }
   }
 });
@@ -260,6 +266,51 @@ test('the knowledge save-conflict scene demos success, failure, conflict and dis
   expect(screen.getByRole('button', { name: '保存文档' })).toBeDisabled();
   await user.click(screen.getByRole('button', { name: '重新查询权限' }));
   expect(screen.getByRole('radio', { name: '保存成功' })).toBeChecked();
+});
+
+test('the knowledge attachment scene demos file icons and upload lifecycle feedback', async () => {
+  const knowledge = assembledApp.scenes.find(
+    (scene) =>
+      scene.exampleId === 'knowledge' && scene.id === 'attachment-states',
+  );
+  if (!knowledge) return; // combo without the knowledge example
+  const { user } = open();
+  await screen.findByRole('heading', { name: '设计系统' });
+  await user.click(screen.getByRole('tab', { name: '场景' }));
+
+  // The gallery shows the vendored Material file icons; the icons are
+  // decorative there because each row's text names the type.
+  expect(
+    await screen.findByText('文件图标（Material Symbols 子集）'),
+  ).toBeVisible();
+  expect(screen.getByText('图片 · image')).toBeVisible();
+  expect(screen.getByText('文档 · description')).toBeVisible();
+
+  const pick = async (name: string) => {
+    await user.click(screen.getByRole('radio', { name }));
+  };
+
+  // Uploading: the production progress block on demo data.
+  await pick('上传中');
+  expect(
+    await screen.findByRole('progressbar', { name: '附件上传进度' }),
+  ).toBeVisible();
+  expect(screen.getByText('正在上传 60%')).toBeVisible();
+
+  // Done: the production uploaded status with the generic file icon.
+  await pick('上传完成');
+  expect(await screen.findByText('报告.pdf · 文件 · 1.2 MiB')).toBeVisible();
+
+  // Failed: a mapped production failure (expired session) with a
+  // reportable request id; retry returns to the uploading demo.
+  await pick('上传失败');
+  const alert = await screen.findByRole('alert');
+  expect(within(alert).getByText('上传已过期，请重新上传。')).toBeVisible();
+  expect(within(alert).getByText('请求编号：scene-demo-request')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: '重试上传' }));
+  expect(
+    await screen.findByRole('progressbar', { name: '附件上传进度' }),
+  ).toBeVisible();
 });
 
 test('the icon catalog lazy-loads, filters by name, and copies names', async () => {
