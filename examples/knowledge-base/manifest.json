@@ -95,6 +95,8 @@
     "scripts/e2e.mjs": ["e2e-policy"],
     "docs/architecture/v1-coverage.md": ["coverage"],
     "docs/architecture/v1-coverage.en.md": ["coverage"],
+    "docs/index.md": ["landing"],
+    "docs/index.en.md": ["landing"],
     "docs/getting-started/quickstart.en.md": ["quickstart"]
   },
   "ownedDependencies": {

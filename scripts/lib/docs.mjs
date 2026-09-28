@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, extname, posix, relative, resolve, sep } from 'node:path';
 import { root } from './process.mjs';
-import { englishRoute, sitePath, validateSiteModel } from './docs-locales.mjs';
+import { sitePath, validateSiteModel } from './docs-locales.mjs';
 
 // Renders the public documentation in both locales from one declaration:
 //
@@ -41,40 +41,6 @@ const SNIPPET_LANGUAGES = {
   '.sql': 'sql',
 };
 
-// The site root is reserved for the public Landing page. Until that page
-// ships, both locale roots redirect to their documentation entry so the
-// old root deep link keeps working.
-const REDIRECT_STUBS = [
-  {
-    route: 'index.md',
-    docLocale: 'zh',
-    counterpart: '/en/docs/',
-    redirect: 'docs/',
-    text: '本站首页正在改版；文档与教程请前往 [文档教程](docs/)。',
-  },
-  {
-    route: englishRoute('index.md'),
-    docLocale: 'en',
-    counterpart: '/docs/',
-    redirect: 'docs/',
-    text: 'The site home is being redesigned; head over to the [documentation](docs/).',
-  },
-];
-
-function stubContent(stub) {
-  return `---
-docLocale: ${stub.docLocale}
-counterpart: ${stub.counterpart}
-head:
-  - - meta
-    - http-equiv: refresh
-      content: '0; url=${stub.redirect}'
----
-
-${stub.text}
-`;
-}
-
 // The other-locale path of a route, used by the language switcher.
 // Untranslated chapters point at the English documentation entry instead
 // of a page that does not exist.
@@ -87,8 +53,22 @@ function counterpartPath(route, locale, routePairs) {
   return zh ? sitePath(zh[0]) : '/docs/';
 }
 
-function frontmatter(docLocale, counterpart) {
-  return `---\ndocLocale: ${docLocale}\ncounterpart: ${counterpart}\n---\n\n`;
+// Page frontmatter: the locale pairing always, plus the layout page's own
+// meta (declared per chapter in docs/site.json) so the Landing and the
+// Coming soon pages carry honest titles and descriptions in both locales.
+// `sidebar: false` is required beside `layout: page`: this VitePress
+// version only drops the sidebar column for `layout: home` otherwise.
+function frontmatter(docLocale, counterpart, page = {}) {
+  const lines = [`docLocale: ${docLocale}`, `counterpart: ${counterpart}`];
+  if (page.layout !== undefined) {
+    lines.push(`layout: ${page.layout}`, 'sidebar: false');
+  }
+  const title = docLocale === 'en' ? page.pageTitleEn : page.pageTitle;
+  const description =
+    docLocale === 'en' ? page.pageDescriptionEn : page.pageDescription;
+  if (title !== undefined) lines.push(`title: "${title}"`);
+  if (description !== undefined) lines.push(`description: "${description}"`);
+  return `---\n${lines.join('\n')}\n---\n\n`;
 }
 
 // Resolves one Markdown link of one rendered page to its published href.
@@ -321,7 +301,7 @@ export function renderDocs() {
     if (page.source === undefined) continue;
     put(
       page.route,
-      frontmatter('zh', counterpartPath(page.route, 'zh', routePairs)) +
+      frontmatter('zh', counterpartPath(page.route, 'zh', routePairs), page) +
         transformContent({
           sourcePath: repositoryFile(page.source),
           route: page.route,
@@ -334,7 +314,11 @@ export function renderDocs() {
     if (page.bilingual)
       put(
         page.routeEn,
-        frontmatter('en', counterpartPath(page.routeEn, 'en', routePairs)) +
+        frontmatter(
+          'en',
+          counterpartPath(page.routeEn, 'en', routePairs),
+          page,
+        ) +
           transformContent({
             sourcePath: repositoryFile(page.sourceEn),
             route: page.routeEn,
@@ -374,8 +358,6 @@ export function renderDocs() {
     );
   }
   put('public/openapi.json', readFileSync(contractPath, 'utf8'));
-
-  for (const stub of REDIRECT_STUBS) put(stub.route, stubContent(stub));
 
   for (const page of [...site.pages, ...site.references])
     if (!pages.has(page.route) || (page.bilingual && !pages.has(page.routeEn)))

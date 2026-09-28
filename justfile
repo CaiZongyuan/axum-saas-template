@@ -86,6 +86,11 @@ test-frontend:
 e2e:
     pnpm test:e2e
 
+# Public-site browser journeys: the static docs site under the deployed
+# base, plus a custom-base smoke. No application stack is involved.
+e2e-docs:
+    node scripts/e2e-docs.mjs
+
 # The performance entry point of spec §21: print the command index and the
 # committed baselines, then run the deterministic evidence. No load,
 # saturation or soak belongs here — those are the later report tickets and

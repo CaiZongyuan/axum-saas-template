@@ -1,11 +1,11 @@
 import { renderDocs, siteModel } from './lib/docs.mjs';
-import { englishRoute, sitePath } from './lib/docs-locales.mjs';
+import { sitePath } from './lib/docs-locales.mjs';
 
 // The documentation check entry: besides fence/snippet integrity of every
 // rendered page in both locales, it validates the bilingual contract that
-// later chapters inherit — locale route pairing, counterpart frontmatter
-// for the language switcher, and the redirect stubs that keep the site
-// root working until the public Landing ships.
+// later chapters inherit — locale route pairing and counterpart
+// frontmatter for the language switcher, including the public Landing at
+// the site root.
 
 const pages = renderDocs();
 const site = siteModel();
@@ -51,20 +51,6 @@ for (const chapter of [...site.pages, ...site.references]) {
   if (enMeta.counterpart !== sitePath(zh))
     throw new Error(
       `Language switch of ${en} must target the same Chinese chapter (${sitePath(zh)}), got ${enMeta.counterpart}`,
-    );
-}
-
-// The transitional root stubs switch to the other locale's documentation
-// entry — the only target that exists before the Landing page ships.
-const stubCounterparts = {
-  'index.md': '/en/docs/',
-  [englishRoute('index.md')]: '/docs/',
-};
-for (const [stub, expected] of Object.entries(stubCounterparts)) {
-  const meta = frontmatter(stub);
-  if (meta.counterpart !== expected)
-    throw new Error(
-      `Root stub ${stub} must switch to ${expected}, got ${meta.counterpart}`,
     );
 }
 

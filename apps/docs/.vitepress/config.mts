@@ -25,7 +25,10 @@ const siteLink = (route: string, locale: 'zh' | 'en') => {
 
 function sectionsFor(locale: 'zh' | 'en') {
   const chapters = [...site.pages, ...site.references].filter(
-    (chapter) => locale === 'zh' || chapter.bilingual,
+    (chapter) =>
+      // Layout pages (the public Landing and the Coming soon pages) are
+      // reached from the top navigation, not the documentation sidebar.
+      chapter.layout === undefined && (locale === 'zh' || chapter.bilingual),
   );
   const sections = new Map<
     string,
@@ -52,15 +55,22 @@ function themeConfigFor(locale: 'zh' | 'en') {
     // would link untranslated chapters at pages that do not exist. The
     // frontmatter-driven switcher in this theme owns the pairing instead.
     i18nRouting: false,
+    // The public site's four top-level entries: Landing, Documentation,
+    // Blog and Downloads, mirrored per locale (zh at the root, en under
+    // /en/). The quick start and the tutorial path stay reachable through
+    // the Documentation entry.
     nav: en
       ? [
+          { text: 'Home', link: '/en/' },
           { text: 'Documentation', link: '/en/docs/' },
-          { text: 'Quick start', link: '/en/getting-started/quickstart' },
+          { text: 'Blog', link: '/en/blog/' },
+          { text: 'Downloads', link: '/en/downloads/' },
         ]
       : [
+          { text: '首页', link: '/' },
           { text: '文档', link: '/docs/' },
-          { text: '快速开始', link: '/getting-started/quickstart' },
-          { text: '跟做教程', link: '/tutorials/first-request' },
+          { text: '博客', link: '/blog/' },
+          { text: '下载', link: '/downloads/' },
         ],
     sidebar: sectionsFor(locale),
     socialLinks: [{ icon: 'github', link: `https://github.com/${repository}` }],

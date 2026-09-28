@@ -54,6 +54,8 @@ jobs:
           retention-days: 7
       - run: just e2e
         if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
+      - run: just e2e-docs
+        if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
       - name: Keep browser evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -64,6 +66,8 @@ jobs:
             test-results/status-ready.png
             test-results/status-*/trace.zip
             test-results/status-*/test-failed-*.png
+            test-results/docs/summary.json
+            test-results/docs/landing-*.png
           if-no-files-found: ignore
           retention-days: 7
       - name: Keep verified documentation
