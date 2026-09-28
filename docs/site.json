@@ -132,10 +132,11 @@
     {
       "id": "edit-conflicts",
       "source": "docs/tutorials/06-edit-conflicts.md",
+      "sourceEn": "docs/tutorials/06-edit-conflicts.en.md",
       "route": "tutorials/edit-conflicts.md",
-      "title": "编辑、保存与版本冲突",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI07" }
+      "title": "显式保存与版本冲突",
+      "titleEn": "Explicit saves and version conflicts",
+      "group": "跟做教程"
     },
     {
       "id": "library-grants",

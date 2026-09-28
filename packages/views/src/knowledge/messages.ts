@@ -221,6 +221,22 @@ const zh: Catalog = {
     '离开会丢失当前草稿。正在保存的请求也可能继续完成。',
   'guard.continueEditing': '继续编辑',
   'guard.confirmLeave': '确认离开',
+
+  // The design-system save-conflict scene (UI07): the editor's save
+  // feedback demonstrated on demo data; failure and conflict reuse the
+  // documents/errors keys above.
+  'scene.saveConflict.title': '保存冲突与草稿保护',
+  'scene.saveConflict.description':
+    '编辑器的保存反馈在演示数据上运行：成功、失败、版本冲突与权限失效，不会写入真实文档。',
+  'scene.saveConflict.stateSuccess': '保存成功',
+  'scene.saveConflict.stateFailure': '保存失败',
+  'scene.saveConflict.stateConflict': '版本冲突',
+  'scene.saveConflict.stateDisabled': '权限失效',
+  'scene.saveConflict.saved': '文档已保存（演示数据，仅局部状态）。',
+  'scene.saveConflict.demoTitle': '演示文档',
+  'scene.saveConflict.draftMarkdown':
+    '# 演示文档\n\n我正在编辑这一段，尚未保存。',
+  'scene.saveConflict.latestMarkdown': '# 演示文档\n\n另一位用户已更新这一段。',
 };
 
 const en: Catalog = {
@@ -451,6 +467,23 @@ const en: Catalog = {
     'Leaving loses the current draft. An in-flight save may still complete.',
   'guard.continueEditing': 'Keep editing',
   'guard.confirmLeave': 'Leave anyway',
+
+  // The design-system save-conflict scene (UI07): the editor's save
+  // feedback demonstrated on demo data; failure and conflict reuse the
+  // documents/errors keys above.
+  'scene.saveConflict.title': 'Save conflicts and draft protection',
+  'scene.saveConflict.description':
+    'Save feedback from the editor runs on demo data: success, failure, version conflict and lost permission — nothing is written.',
+  'scene.saveConflict.stateSuccess': 'Save succeeds',
+  'scene.saveConflict.stateFailure': 'Save fails',
+  'scene.saveConflict.stateConflict': 'Version conflict',
+  'scene.saveConflict.stateDisabled': 'Permission lost',
+  'scene.saveConflict.saved': 'Document saved (demo data, local state only).',
+  'scene.saveConflict.demoTitle': 'Demo document',
+  'scene.saveConflict.draftMarkdown':
+    '# Demo document\n\nI am editing this paragraph; it is not saved yet.',
+  'scene.saveConflict.latestMarkdown':
+    '# Demo document\n\nAnother user has updated this paragraph.',
 };
 
 export const knowledgeMessages: {

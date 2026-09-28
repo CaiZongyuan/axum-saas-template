@@ -8,6 +8,38 @@ import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter, navigateExample } from './router';
 
+// The editor picks its layout from matchMedia; jsdom always reports
+// narrow. Wide-layout tests install a controllable stub and get a
+// restore function back.
+function stubWideEditorLayout() {
+  const original = window.matchMedia;
+  let matches = false;
+  let listener: (() => void) | undefined;
+  window.matchMedia = ((query: string) => ({
+    matches,
+    media: query,
+    onchange: null,
+    addEventListener: (_: string, next: () => void) => {
+      listener = next;
+    },
+    removeEventListener: () => {
+      listener = undefined;
+    },
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+  return {
+    resize(wide: boolean) {
+      matches = wide;
+      listener?.();
+    },
+    restore() {
+      window.matchMedia = original;
+    },
+  };
+}
+
 test('keyboard preview renders Markdown safely and preserves the draft when returning to editing', async () => {
   const { user } = open('/documents/new');
   await user.click(await screen.findByLabelText('Markdown 正文'));
@@ -31,6 +63,79 @@ test('keyboard preview renders Markdown safely and preserves the draft when retu
   expect(
     (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
   ).toContain('# 安全标题');
+});
+
+test('the wide layout shows source and preview side by side and live-syncs the preview', async () => {
+  const layout = stubWideEditorLayout();
+  try {
+    const { user } = open('/documents/new');
+    // jsdom renders narrow first; the media query flips the layout live.
+    act(() => layout.resize(true));
+    const editor = await screen.findByLabelText('Markdown 正文');
+    const container = editor.closest('[data-editor-layout]');
+    expect(container).toHaveAttribute('data-editor-layout', 'wide');
+    // No tab switcher on wide screens; both panes carry their names.
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByText('编辑')).toBeVisible();
+    expect(screen.getByText('预览')).toBeVisible();
+    // Typing updates the preview without an explicit switch.
+    await user.type(editor, '# 宽屏标题');
+    const preview = screen.getByLabelText('预览');
+    expect(
+      await within(preview).findByRole('heading', { name: '宽屏标题' }),
+    ).toBeVisible();
+    expect(
+      (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
+    ).toContain('# 宽屏标题');
+  } finally {
+    layout.restore();
+  }
+});
+
+test('crossing the layout breakpoint keeps the draft, the mode and the preview mounted', async () => {
+  const layout = stubWideEditorLayout();
+  try {
+    const { user } = open('/documents/new');
+    const editor = await screen.findByLabelText('Markdown 正文');
+    await user.type(editor, '# 跨断言草稿');
+    expect(
+      screen.getByLabelText('Markdown 正文').closest('[data-editor-layout]'),
+    ).toHaveAttribute('data-editor-layout', 'narrow');
+    await user.click(screen.getByRole('tab', { name: '预览' }));
+    expect(await screen.findByRole('tabpanel', { name: '预览' })).toBeVisible();
+
+    act(() => layout.resize(true));
+
+    const container = screen
+      .getByLabelText('Markdown 正文')
+      .closest('[data-editor-layout]');
+    expect(container).toHaveAttribute('data-editor-layout', 'wide');
+    expect(
+      (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
+    ).toContain('# 跨断言草稿');
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(
+      await within(screen.getByLabelText('预览')).findByRole('heading', {
+        name: '跨断言草稿',
+      }),
+    ).toBeVisible();
+
+    act(() => layout.resize(false));
+
+    expect(
+      screen.getByLabelText('Markdown 正文').closest('[data-editor-layout]'),
+    ).toHaveAttribute('data-editor-layout', 'narrow');
+    // The mode survives the round trip: the preview tab is selected again.
+    expect(screen.getByRole('tab', { name: '预览' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(
+      (screen.getByLabelText('Markdown 正文') as HTMLTextAreaElement).value,
+    ).toContain('# 跨断言草稿');
+  } finally {
+    layout.restore();
+  }
 });
 
 test('failed saves retain input and retry the same payload with the same idempotency key', async () => {

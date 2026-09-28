@@ -70,6 +70,13 @@ export type AppScene = {
   id: string;
   titleKey: string;
   descriptionKey?: string;
+  /**
+   * Optional interactive body mounted under the scene card on the
+   * design-system page. Scenes run on demo data and local state only
+   * (docs/ui/design.md §6 Q9); the closure is created inside the example,
+   * which keeps example-owned components out of the shell.
+   */
+  render?: () => ReactNode;
 };
 
 export type ExampleContribution = {
@@ -120,6 +127,8 @@ export type AssembledScene = {
   /** Namespaced message key into AssembledApp.messages. */
   titleKey: string;
   descriptionKey?: string;
+  /** Carried from the contribution; renders under the scene card. */
+  render?: () => ReactNode;
 };
 
 function normalizePath(path: string): string {
@@ -214,6 +223,7 @@ function validatedExample(
       ...(scene.descriptionKey
         ? { descriptionKey: messageKey(scene.descriptionKey) }
         : {}),
+      ...(scene.render ? { render: scene.render } : {}),
     });
   }
 

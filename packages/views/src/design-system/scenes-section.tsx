@@ -180,6 +180,11 @@ export function ScenesSection({ scenes }: { scenes: AssembledApp['scenes'] }) {
                     example: scene.exampleId,
                   })}
                 </p>
+                {scene.render ? (
+                  <div className="mt-3 border-t border-border pt-3">
+                    {scene.render()}
+                  </div>
+                ) : null}
               </div>
             ))
           )}

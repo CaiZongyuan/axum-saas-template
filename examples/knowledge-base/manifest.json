@@ -17,6 +17,7 @@
     "docs/tutorials/05-search-preview.en.md",
     "apps/web/src/knowledge-navigation.tsx",
     "docs/tutorials/06-edit-conflicts.md",
+    "docs/tutorials/06-edit-conflicts.en.md",
     "apps/web/src/knowledge-bases.test.tsx",
     "tests/e2e/knowledge-grants.spec.ts",
     "docs/tutorials/07-library-grants.md",

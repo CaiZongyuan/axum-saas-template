@@ -107,12 +107,12 @@
       <h3>Title search and safe preview</h3>
       <p>Title search, pagination and a preview that never executes scripts.</p>
     </a>
-    <!-- Chapters without an English translation yet (UI07/UI08/UI09)
+    <!-- Chapters without an English translation yet (UI08/UI09)
          follow the site's cross-locale fallback and open the Chinese
          chapter, exactly like untranslated links inside the docs. -->
-    <a class="landing-card" href="../tutorials/edit-conflicts">
+    <a class="landing-card" href="tutorials/edit-conflicts">
       <span class="landing-dot dot-amber"></span>
-      <h3>Edit, save and version conflicts</h3>
+      <h3>Explicit saves and version conflicts</h3>
       <p>Concurrent saves trigger a 409 with an understandable conflict flow.</p>
     </a>
     <a class="landing-card" href="tutorials/library-grants">

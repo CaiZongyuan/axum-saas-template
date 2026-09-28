@@ -203,6 +203,65 @@ test('scenes run on isolated local state; example scenes come from the real asse
   }
 });
 
+test('the knowledge save-conflict scene demos success, failure, conflict and disabled feedback', async () => {
+  const knowledge = assembledApp.scenes.find(
+    (scene) => scene.exampleId === 'knowledge' && scene.id === 'save-conflict',
+  );
+  if (!knowledge) return; // combo without the knowledge example
+  const { user } = open();
+  await screen.findByRole('heading', { name: '设计系统' });
+  await user.click(screen.getByRole('tab', { name: '场景' }));
+
+  const pick = async (name: string) => {
+    await user.click(screen.getByRole('radio', { name }));
+  };
+
+  // Success: the save action completes with local feedback only. The
+  // button reuses the production 保存文档 label, distinct from the
+  // generic form scene's 保存 on the same tab.
+  await pick('保存成功');
+  await user.click(screen.getByRole('button', { name: '保存文档' }));
+  expect(
+    await screen.findByText('文档已保存（演示数据，仅局部状态）。'),
+  ).toBeVisible();
+
+  // Failure: the production failure alert with the fallback text and a
+  // reportable request id.
+  await pick('保存失败');
+  const alert = await screen.findByRole('alert');
+  expect(within(alert).getByText('服务暂时不可用，请稍后重试。')).toBeVisible();
+  expect(within(alert).getByText('请求编号：scene-demo-request')).toBeVisible();
+
+  // Conflict: the production reconcile flow. Taking the latest replaces the
+  // draft body with the latest content (as production reconcile(true) does);
+  // keeping the draft returns to the success state with the draft intact.
+  await pick('版本冲突');
+  expect(screen.getByText('我正在编辑这一段，尚未保存。')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: '读取最新版本' }));
+  expect(await screen.findByText('最新版本 2：演示文档')).toBeVisible();
+  await user.click(
+    screen.getByRole('button', { name: '放弃草稿，采用最新内容' }),
+  );
+  expect(screen.getByText('另一位用户已更新这一段。')).toBeVisible();
+  expect(screen.getByRole('radio', { name: '保存成功' })).toBeChecked();
+
+  await pick('版本冲突');
+  await user.click(screen.getByRole('button', { name: '读取最新版本' }));
+  expect(await screen.findByText('最新版本 2：演示文档')).toBeVisible();
+  await user.click(
+    screen.getByRole('button', { name: '已核对，保留草稿并继续' }),
+  );
+  expect(screen.getByText('我正在编辑这一段，尚未保存。')).toBeVisible();
+  expect(screen.getByRole('radio', { name: '保存成功' })).toBeChecked();
+
+  // Disabled: the lost-permission status with disabled write controls.
+  await pick('权限失效');
+  expect(await screen.findByText('保存权限已失效，草稿已保留。')).toBeVisible();
+  expect(screen.getByRole('button', { name: '保存文档' })).toBeDisabled();
+  await user.click(screen.getByRole('button', { name: '重新查询权限' }));
+  expect(screen.getByRole('radio', { name: '保存成功' })).toBeChecked();
+});
+
 test('the icon catalog lazy-loads, filters by name, and copies names', async () => {
   const { user } = open();
   await screen.findByRole('heading', { name: '设计系统' });
