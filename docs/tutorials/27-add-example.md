@@ -65,4 +65,4 @@ export const assembledApp = assembleApp({
 
 ## 5. 登记所有权
 
-接入完成后，把新增文件登记进 `examples/<id>/manifest.json`：`ownedPaths` 列出页面、测试与适配文件；`compositionPoints` 与 `registrationMarkers` 登记组装点文件及标记名。此后随时可以按[示例移除](23-example-removal.md)的流程整建制移除，其余分组与 Core 功能保持稳定。
+接入完成后，把新增文件登记进 `examples/<id>/manifest.json`：`ownedPaths` 列出页面、测试与适配文件；`compositionPoints` 与 `registrationMarkers` 登记组装点文件及标记名。此后随时可以按[组合与移除](23-example-removal.md)的流程整建制移除，其余分组与 Core 功能保持稳定。

@@ -229,10 +229,11 @@
     {
       "id": "example-removal",
       "source": "docs/tutorials/23-example-removal.md",
+      "sourceEn": "docs/tutorials/23-example-removal.en.md",
       "route": "tutorials/example-removal.md",
-      "title": "移除示例，接入自己的业务",
-      "group": "替换示例",
-      "translation": { "status": "pending", "owner": "UI03" }
+      "title": "组合与移除参考业务",
+      "titleEn": "Compose and remove reference examples",
+      "group": "替换示例"
     },
     {
       "id": "perf-gates",

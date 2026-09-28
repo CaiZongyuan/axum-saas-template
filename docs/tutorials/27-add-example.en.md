@@ -65,4 +65,4 @@ Every combination passes the same frontend gates: `pnpm typecheck`, `pnpm test:f
 
 ## 5. Register ownership
 
-Once wired, register the new files in `examples/<id>/manifest.json`: `ownedPaths` lists the pages, tests and adapter files; `compositionPoints` and `registrationMarkers` record the assembly files and marker names. From then on the [example removal](23-example-removal.md) flow strips the example in one piece while the remaining groups and Core functionality stay stable.
+Once wired, register the new files in `examples/<id>/manifest.json`: `ownedPaths` lists the pages, tests and adapter files; `compositionPoints` and `registrationMarkers` record the assembly files and marker names. From then on the [compose-and-remove](23-example-removal.md) flow strips the example in one piece while the remaining groups and Core functionality stay stable.

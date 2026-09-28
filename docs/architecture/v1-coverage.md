@@ -6,7 +6,7 @@
 
 1. **快速开始**：[快速开始](../getting-started/quickstart.md)——工具链、`just dev`、注册首个账号、服务状态与失败场景。
 2. **跟做教程**：从[第一条全栈请求](../tutorials/01-full-stack-request.md)起步逐章跟做，每章对应真实命令与测试。
-3. **实现自己的业务**：[移除示例，接入自己的业务](../tutorials/23-example-removal.md)——按所有权清单删掉知识库示例，Core 照常运行。
+3. **实现自己的业务**：[组合与移除参考业务](../tutorials/23-example-removal.md)——按所有权清单删掉知识库示例，Core 照常运行。
 4. **验证与参考手册**：[运行测试与检查](../testing/t01-feedback-loop.md)、[Core 与示例边界](./module-boundaries.md)与生成参考（[API 合同](site:reference/api.md)、[API 配置](site:reference/config.md)）。
 
 ## Core 能力矩阵

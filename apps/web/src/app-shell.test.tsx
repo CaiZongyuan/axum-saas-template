@@ -63,8 +63,15 @@ test('the Core home stays put; direct visits are never forced to a business entr
   expect(router.state.location.pathname).toBe('/');
 });
 
-test('unknown paths fall back to the Core home without a loop', async () => {
-  const { router } = open('/no-such-business-path');
+test('unknown paths render the unavailable page with a way home, without a loop', async () => {
+  const { user, router } = open('/no-such-business-path');
+  expect(
+    await screen.findByRole('heading', { name: '相关功能当前不可用' }),
+  ).toBeVisible();
+  // The address stays put: it may be an old bookmark of a removed example,
+  // and silently rewriting it would hide that from the user.
+  expect(router.state.location.pathname).toBe('/no-such-business-path');
+  await user.click(screen.getByRole('button', { name: '返回首页' }));
   await waitFor(() => expect(router.state.location.pathname).toBe('/'));
   expect(await screen.findByRole('main')).toBeVisible();
 });
