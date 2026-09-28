@@ -248,7 +248,7 @@ Q9 已确认：分「基础 / 组件 / 场景 / 图标」四类，展示真实 t
 - 双语教程保留既有中文章节深链；原根快速开始迁至 `/docs/`，根页承载 Landing，英文使用 `/en/` 对应路径，切换时保持对应章节；英文规范源文件采用相邻 `.en.md` 文件。教程中的可执行命令、源码片段、API 路径和配置 key 保持同一事实源。
 - 翻译后的知识库专属教程、导航和示例片段也需登记到示例所有权清单；删除示例时两种语言应一起删除。
 - 教程站与应用通常不同源。应用按当前语言打开对应 Documentation 深链，不能将教程按钮送到 Landing；教程以路径确定语言，不能承诺依靠 localStorage 自动跨站同步。
-- Desktop 连接错误页通过 `loadFile` 加载，与应用 HTTP origin 不同，无法直接读取应用 localStorage。通过仅接受语言/主题枚举的窄 IPC 同步偏好到主进程；尚未启动过应用时回退到系统偏好。此能力不涉及 Session 或用户数据。
+- Desktop 连接错误页通过 `loadFile` 加载，与应用 HTTP origin 不同，无法直接读取应用 localStorage。通过仅接受语言/主题枚举的窄 IPC 同步偏好到主进程；尚未启动过应用时回退到系统偏好。此能力不涉及 Session 或用户数据。已随 UI13 落地：Web 入口的平台适配器（`apps/web/src/desktop-preferences.tsx`，浏览器中为空操作）把语言与主题镜像给壳，主进程校验后持久化在用户数据目录，错误页据此渲染双语文案与明暗主题，「跟随系统」随 OS 实时切换；preload 合同扩为六能力，非法值在两侧都被拒绝。语言/主题的解析规则有意存在三份（`index.html` 首绘脚本、`PreferencesProvider`、桌面错误页——独立 `file://` 页无法导入应用代码），各自以注释互指，修改默认或 system 行为时三处同步。
 
 代码证据：`crates/app/src/modules/identity/password_reset/{mod.rs,requests.rs,worker.rs}`、`packages/views/src/identity/password-reset-views.tsx`、`crates/app/src/modules/knowledge/exports/requests.rs`、`packages/views/src/notifications/notifications-view.tsx`、`apps/desktop/src/{main.ts,error.html,ipc-contract.ts}`、`apps/docs/.vitepress/config.mts`、`scripts/lib/docs.mjs`、`scripts/lib/example-remove.mjs`。
 

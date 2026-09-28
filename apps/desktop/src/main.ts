@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import {
@@ -16,7 +16,9 @@ import {
   isBrowserHandoffAllowed,
   parseDeepLink,
   sanitizeDownloadFilename,
+  validateDesktopPreferences,
   validateDownloadState,
+  type DesktopPreferences,
   type DownloadPhase,
 } from './ipc-contract';
 
@@ -29,6 +31,26 @@ import {
 
 const SESSION_PARTITION = 'persist:saas-desktop';
 const DOWNLOAD_DIRNAME = 'SaasTemplate';
+const PREFERENCES_FILENAME = 'desktop-preferences.json';
+
+/**
+ * The desktop look lives in a two-enum JSON file inside the profile. The
+ * local error page loads from a file:// origin and cannot read the app's
+ * localStorage, so the app mirrors its language and theme choice here over
+ * the narrow preference channels; nothing but the two enums is stored.
+ */
+let preferencesFile = '';
+
+function readPreferences(): DesktopPreferences | null {
+  try {
+    return validateDesktopPreferences(
+      JSON.parse(readFileSync(preferencesFile, 'utf8')),
+    );
+  } catch {
+    // A missing or malformed file falls back to device defaults.
+    return null;
+  }
+}
 
 function readOrigin(): URL {
   const raw = process.env.SAAS_DESKTOP_ORIGIN ?? 'http://127.0.0.1:5173';
@@ -257,12 +279,19 @@ if (!gotLock) {
   ipcMain.handle(CHANNELS.openDownloadsFolder, () =>
     shell.openPath(downloadsDirectory),
   );
+  ipcMain.handle(CHANNELS.getPreferences, () => readPreferences());
+  ipcMain.handle(CHANNELS.setPreferences, (_event, raw: unknown) => {
+    const next = validateDesktopPreferences(raw);
+    if (!next) throw new Error('Rejected desktop preferences payload');
+    writeFileSync(preferencesFile, JSON.stringify(next));
+  });
 
   void app.whenReady().then(() => {
     downloadsDirectory =
       process.env.SAAS_DESKTOP_DOWNLOADS_DIR ??
       join(app.getPath('downloads'), DOWNLOAD_DIRNAME);
     mkdirSync(downloadsDirectory, { recursive: true });
+    preferencesFile = join(app.getPath('userData'), PREFERENCES_FILENAME);
     appSession = session.fromPartition(SESSION_PARTITION);
     appSession.setPermissionRequestHandler((_contents, _permission, callback) =>
       callback(false),
