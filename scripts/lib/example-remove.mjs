@@ -1,10 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
-// Removal of the knowledge example from a template working copy, driven by
-// the ownership manifest (examples/knowledge-base/manifest.json) instead of
-// filename guesses. The tool deletes what the example owns, removes the
+// Removal of a registered example from a template working copy, driven by
+// its ownership manifest (examples/<id>/manifest.json) instead of filename
+// guesses. The tool deletes what the example owns, removes the
 // registration markers at the composition points, trims the documentation
 // navigation and regenerates the derived artifacts. Migration history is
 // preserved unless a fresh copy explicitly asks for trimming; the kept
@@ -13,18 +19,33 @@ import { join } from 'node:path';
 // refused, never force-overwritten. Databases, buckets and secrets are
 // never touched.
 
-export const manifestPath = join('examples', 'knowledge-base', 'manifest.json');
+export const manifestPathFor = (exampleId) =>
+  join('examples', exampleId, 'manifest.json');
 
-export function loadExampleManifest(root) {
-  return JSON.parse(readFileSync(join(root, manifestPath), 'utf8'));
+// Every example registered in the template, by manifest directory. Returns
+// [] when the examples/ directory itself is gone (fully stripped copies).
+export function listExampleIds(root) {
+  const directory = join(root, 'examples');
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .filter((entry) => existsSync(join(directory, entry.name, 'manifest.json')))
+    .map((entry) => entry.name);
+}
+
+export function loadExampleManifest(root, exampleId) {
+  return JSON.parse(
+    readFileSync(join(root, manifestPathFor(exampleId)), 'utf8'),
+  );
 }
 
 // Whether the example is still registered in this copy. Journeys that click
-// through the example (desktop shell smoke, production smoke, restore
-// drill) bow out honestly once it is removed.
-export function exampleActive(root) {
+// through an example (desktop shell smoke, production smoke, restore
+// drill) bow out honestly once it is removed. The knowledge example stays
+// the default because those journeys click through it.
+export function exampleActive(root, exampleId = 'knowledge-base') {
   try {
-    return loadExampleManifest(root).status === 'active';
+    return loadExampleManifest(root, exampleId).status === 'active';
   } catch {
     return false;
   }
@@ -38,17 +59,17 @@ export function retainedHistoryPaths(manifest) {
   return new Set(manifest.retainedMigrations ?? []);
 }
 
-function markerTokens(marker) {
+function markerTokens(prefix, marker) {
   return [
-    `example:knowledge:${marker}:start`,
-    `example:knowledge:${marker}:end`,
+    `example:${prefix}:${marker}:start`,
+    `example:${prefix}:${marker}:end`,
   ];
 }
 
 // Indexes of a marker's start/end lines within an already-split source,
 // or -1 for a missing half.
-function markerIndexes(lines, marker) {
-  const [start, end] = markerTokens(marker);
+function markerIndexes(lines, prefix, marker) {
+  const [start, end] = markerTokens(prefix, marker);
   return {
     start: lines.findIndex((line) => line.includes(start)),
     end: lines.findIndex((line) => line.includes(end)),
@@ -57,31 +78,31 @@ function markerIndexes(lines, marker) {
 
 // The first marker of the file that is not an intact, ordered start/end
 // pair, or undefined when all of them are.
-function firstBrokenMarker(source, markers) {
+function firstBrokenMarker(source, prefix, markers) {
   const lines = source.split('\n');
   return markers.find((marker) => {
-    const { start, end } = markerIndexes(lines, marker);
+    const { start, end } = markerIndexes(lines, prefix, marker);
     return start < 0 || end < 0 || end < start;
   });
 }
 
 // Drift guard: the manifest must describe the copy exactly as registered.
 // After a removal the emptied manifest verifies trivially.
-export function verifyExampleManifest(root) {
-  const example = loadExampleManifest(root);
+export function verifyExampleManifest(root, exampleId = 'knowledge-base') {
+  const example = loadExampleManifest(root, exampleId);
   for (const path of [
     ...example.ownedPaths,
     ...Object.values(example.compositionPoints ?? {}),
   ])
     if (!existsSync(join(root, path)))
       throw new Error(
-        `Example manifest lists a missing path: ${path} (update examples/knowledge-base/manifest.json with the feature)`,
+        `Example manifest lists a missing path: ${path} (update ${manifestPathFor(exampleId)} with the feature)`,
       );
   for (const [file, markers] of Object.entries(
     example.registrationMarkers ?? {},
   )) {
     const source = readFileSync(join(root, file), 'utf8');
-    const broken = firstBrokenMarker(source, markers);
+    const broken = firstBrokenMarker(source, example.markerPrefix, markers);
     if (broken)
       throw new Error(
         `Example registration marker ${broken} is not a start/end pair in ${file}`,
@@ -90,9 +111,20 @@ export function verifyExampleManifest(root) {
   return example;
 }
 
+// Every registered example must still describe this copy exactly. Removed
+// examples verify trivially against their emptied manifests.
+export function verifyExampleManifests(root) {
+  return listExampleIds(root).map((exampleId) =>
+    verifyExampleManifest(root, exampleId),
+  );
+}
+
 // Pure planning: what the removal would change. Writes nothing.
-export function planExampleRemoval(root, { trimMigrations = false } = {}) {
-  const example = loadExampleManifest(root);
+export function planExampleRemoval(
+  root,
+  { trimMigrations = false, exampleId = 'knowledge-base' } = {},
+) {
+  const example = loadExampleManifest(root, exampleId);
   const owned = example.ownedPaths.filter((path) =>
     existsSync(join(root, path)),
   );
@@ -117,7 +149,7 @@ export function planExampleRemoval(root, { trimMigrations = false } = {}) {
     },
     ownedSources,
     edits: Object.entries(example.registrationMarkers ?? {}).map(
-      ([file, markers]) => ({ file, markers }),
+      ([file, markers]) => ({ file, markers, prefix: example.markerPrefix }),
     ),
     navigation: {
       file: join('docs', 'site.json'),
@@ -131,7 +163,7 @@ export function planExampleRemoval(root, { trimMigrations = false } = {}) {
     cargoDependencies: Object.entries(example.ownedCargoDependencies ?? {}).map(
       ([file, names]) => ({ file, remove: names }),
     ),
-    manifest: { file: manifestPath, status: 'removed' },
+    manifest: { file: manifestPathFor(exampleId), status: 'removed' },
     regenerate: [
       // --no-frozen-lockfile: the stripped package.json files no longer
       // match the committed lockfile, and CI runs pnpm with CI=true.
@@ -174,7 +206,7 @@ export function checkRemovalSafety(root, plan) {
       });
       continue;
     }
-    const broken = firstBrokenMarker(source, edit.markers);
+    const broken = firstBrokenMarker(source, edit.prefix, edit.markers);
     if (broken)
       problems.push({
         subject: 'marker',
@@ -190,10 +222,10 @@ export function checkRemovalSafety(root, plan) {
   return { problems };
 }
 
-function removeMarkerBlocks(source, markers) {
+function removeMarkerBlocks(source, prefix, markers) {
   const lines = source.split('\n');
   for (const marker of markers) {
-    const { start, end } = markerIndexes(lines, marker);
+    const { start, end } = markerIndexes(lines, prefix, marker);
     if (start < 0 || end < start) continue;
     lines.splice(start, end - start + 1);
     // The splice glues the surrounding lines together; when both sides
@@ -224,10 +256,13 @@ function writeJson(root, path, value) {
 }
 
 // Orchestrator used by the CLI: verify, then apply.
-export function removeExample(root, { trimMigrations = false, run } = {}) {
+export function removeExample(
+  root,
+  { trimMigrations = false, exampleId = 'knowledge-base', run } = {},
+) {
   run ??= (command, args) =>
     execFileSync(command, args, { cwd: root, stdio: 'inherit' });
-  const plan = planExampleRemoval(root, { trimMigrations });
+  const plan = planExampleRemoval(root, { trimMigrations, exampleId });
   const { problems } = checkRemovalSafety(root, plan);
   if (problems.length > 0)
     throw new Error(
@@ -245,7 +280,7 @@ export function removeExample(root, { trimMigrations = false, run } = {}) {
     const file = join(root, edit.file);
     writeFileSync(
       file,
-      removeMarkerBlocks(readFileSync(file, 'utf8'), edit.markers),
+      removeMarkerBlocks(readFileSync(file, 'utf8'), edit.prefix, edit.markers),
     );
   }
 
@@ -271,7 +306,7 @@ export function removeExample(root, { trimMigrations = false, run } = {}) {
     );
   }
 
-  writeJson(root, manifestPath, {
+  writeJson(root, plan.manifest.file, {
     ...plan.example,
     status: 'removed',
     removedAt: new Date().toISOString(),

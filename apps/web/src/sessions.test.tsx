@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession } from '@saas/sdk';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter } from './router';
+import { assembledApp } from './app-examples';
 
 const signedIn = {
   user: {
@@ -53,7 +54,7 @@ function page(path = '/login') {
   return { user: userEvent.setup(), router, queryClient };
 }
 
-test('failed login keeps input; successful retry clears prior identity caches and navigates home', async () => {
+test('failed login keeps input; successful retry clears prior identity caches and navigates to the default entry', async () => {
   server.use(
     http.post('http://api.test/api/v1/auth/login', async ({ request }) => {
       const body = (await request.json()) as { password: string };
@@ -87,10 +88,13 @@ test('failed login keeps input; successful retry clears prior identity caches an
   await user.clear(screen.getByLabelText('密码'));
   await user.type(screen.getByLabelText('密码'), 'correct-long-password');
   await user.click(screen.getByRole('button', { name: '登录' }));
-  expect(
-    await screen.findByRole('heading', { name: '你好，成员甲' }),
-  ).toBeVisible();
-  expect(router.state.location.pathname).toBe('/');
+  // Login selects the assembled app's business default entry (design.md
+  // §5), not the Core home; the assertion reads the assembly so every
+  // source combination passes.
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(assembledApp.defaultEntry),
+  );
+  expect(screen.queryByLabelText('密码')).toBeNull();
   expect(queryClient.getQueryData(['private-user-data'])).toBeUndefined();
 });
 

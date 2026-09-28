@@ -1,8 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
-import { retainedHistoryPaths } from './lib/example-remove.mjs';
+import {
+  listExampleIds,
+  loadExampleManifest,
+  retainedHistoryPaths,
+  verifyExampleManifests,
+} from './lib/example-remove.mjs';
 import { root } from './lib/process.mjs';
 
 const metadata = JSON.parse(
@@ -32,11 +37,22 @@ function files(directory, extension = /\.(ts|tsx)$/) {
         : [];
   });
 }
-const example = JSON.parse(
-  readFileSync(join(root, 'examples/knowledge-base/manifest.json'), 'utf8'),
+// Every registered example contributes its composition points and owned
+// paths; only active ones still own code. The union drives the checks that
+// follow, so a second example tightens the rules instead of loosening them.
+const examples = listExampleIds(root).map((exampleId) => ({
+  id: exampleId,
+  manifest: loadExampleManifest(root, exampleId),
+}));
+const activeExamples = examples.filter(
+  ({ manifest }) => manifest.status === 'active',
 );
 const composition = new Set(
-  Object.values(example.compositionPoints).map((path) => resolve(root, path)),
+  activeExamples.flatMap(({ manifest }) =>
+    Object.values(manifest.compositionPoints ?? {}).map((path) =>
+      resolve(root, path),
+    ),
+  ),
 );
 const modulesRoot = join(root, 'crates/app/src/modules');
 const modules = readdirSync(modulesRoot, { withFileTypes: true })
@@ -60,7 +76,9 @@ for (const module of modules) {
 // A removed example may keep its migration files as history (manifest
 // retainedMigrations); its tables outlive the code there, so exactly those
 // files are exempt from ownership. Everything else still needs an owner.
-const retainedHistory = retainedHistoryPaths(example);
+const retainedHistory = new Set();
+for (const { manifest } of examples)
+  for (const path of retainedHistoryPaths(manifest)) retainedHistory.add(path);
 for (const path of files(join(root, 'migrations'), /\.sql$/)) {
   if (retainedHistory.has(relative(root, path))) continue;
   const source = readFileSync(path, 'utf8');
@@ -189,25 +207,127 @@ for (const [name, dependencies] of Object.entries(allowed)) {
     visit(source);
   }
 }
-for (const path of [
-  ...example.ownedPaths,
-  ...Object.values(example.compositionPoints),
-])
-  if (!existsSync(join(root, path)))
-    throw new Error(`Invalid example manifest path: ${path}`);
-for (const [path, markers] of Object.entries(
-  example.registrationMarkers ?? {},
-)) {
-  const source = readFileSync(join(root, path), 'utf8');
-  for (const marker of markers) {
-    const start = `example:knowledge:${marker}:start`;
-    const end = `example:knowledge:${marker}:end`;
-    if (
-      source.split(start).length !== 2 ||
-      source.split(end).length !== 2 ||
-      source.indexOf(start) >= source.indexOf(end)
-    )
-      throw new Error(`Invalid example registration marker ${marker}: ${path}`);
+verifyExampleManifests(root);
+
+// Example isolation inside the frontend composition (docs/ui/design.md
+// §4.1): example-owned code may only be imported by its own example or by
+// the registered composition points; examples never import each other —
+// neither directly nor through the shared views barrel — and shell/Core
+// code never imports an example directly.
+// The barrel re-exports every registered example's public symbols next to
+// the shell's, so map each exported name back to its owning example.
+const barrelExampleSymbols = new Map();
+const viewsIndexPath = resolve(root, 'packages/views/src/index.ts');
+const viewsIndexSource = existsSync(viewsIndexPath)
+  ? readFileSync(viewsIndexPath, 'utf8')
+  : '';
+for (const { id, manifest } of activeExamples) {
+  const prefix = manifest.markerPrefix;
+  const block = viewsIndexSource.match(
+    new RegExp(
+      `// example:${prefix}:views:start([\\s\\S]*?)// example:${prefix}:views:end`,
+    ),
+  );
+  if (!block) continue;
+  for (const [, names] of block[1].matchAll(
+    /export(?:\s+type)?\s*\{([^}]*)\}/g,
+  ))
+    for (const raw of names.split(',')) {
+      const name = raw
+        .trim()
+        .replace(/^type\s+/, '')
+        .split(/\s+as\s+/)[0];
+      if (!name) continue;
+      if (barrelExampleSymbols.has(name))
+        throw new Error(
+          `views barrel exports ${name} for more than one example`,
+        );
+      barrelExampleSymbols.set(name, id);
+    }
+}
+const frontendRoots = ['packages/views/src', 'apps/web/src'];
+const ownedExamplePaths = activeExamples.flatMap(({ id, manifest }) =>
+  manifest.ownedPaths
+    .filter((path) => frontendRoots.some((base) => path.startsWith(base)))
+    .map((path) => ({ exampleId: id, absolute: resolve(root, path) })),
+);
+const ownerOf = (path) =>
+  ownedExamplePaths.find(
+    ({ absolute }) => path === absolute || path.startsWith(absolute + sep),
+  )?.exampleId ?? null;
+function resolveRelativeImport(fromFile, specifier) {
+  const base = resolve(dirname(fromFile), specifier);
+  for (const candidate of [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    join(base, 'index.ts'),
+    join(base, 'index.tsx'),
+  ])
+    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate;
+  return null;
+}
+for (const frontendRoot of frontendRoots) {
+  for (const path of files(join(root, frontendRoot))) {
+    const importer = ownerOf(path);
+    const source = ts.createSourceFile(
+      path,
+      readFileSync(path, 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    const visit = (node) => {
+      if (
+        ts.isImportDeclaration(node) &&
+        node.moduleSpecifier &&
+        ts.isStringLiteral(node.moduleSpecifier) &&
+        node.moduleSpecifier.text.startsWith('.') &&
+        !composition.has(path)
+      ) {
+        const target = resolveRelativeImport(path, node.moduleSpecifier.text);
+        const owned = target && ownerOf(target);
+        if (owned && owned !== importer)
+          throw new Error(
+            `${importer ?? 'shell/Core code'} imports example ${owned}: ${path}`,
+          );
+      }
+      if (
+        importer &&
+        !composition.has(path) &&
+        ts.isImportDeclaration(node) &&
+        node.importClause &&
+        node.moduleSpecifier &&
+        ts.isStringLiteral(node.moduleSpecifier)
+      ) {
+        const specifier = node.moduleSpecifier.text;
+        const isViewsBarrel =
+          specifier === '@saas/views' ||
+          (specifier.startsWith('.') &&
+            resolveRelativeImport(path, specifier) === viewsIndexPath);
+        if (isViewsBarrel) {
+          const bindings = node.importClause.namedBindings;
+          const names =
+            bindings && ts.isNamedImports(bindings)
+              ? bindings.elements.map(
+                  (binding) => (binding.propertyName ?? binding.name).text,
+                )
+              : null;
+          if (names === null)
+            throw new Error(
+              `${importer} imports the views barrel wholesale: ${path}`,
+            );
+          for (const name of names) {
+            const owner = barrelExampleSymbols.get(name);
+            if (owner && owner !== importer)
+              throw new Error(
+                `${importer} reaches example ${owner} through the views barrel (${name}): ${path}`,
+              );
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
   }
 }
 console.log(

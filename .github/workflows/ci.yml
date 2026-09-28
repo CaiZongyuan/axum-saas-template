@@ -149,13 +149,46 @@ jobs:
           fi
           grep -q 'uncommitted' /tmp/refusal.log
           git checkout -- README.md
-      - name: Remove the example as registered (fresh-database path)
+      # Dual → notes-only: the knowledge example leaves, the second
+      # example keeps serving through the same shell.
+      - name: Remove the knowledge example (fresh-database path)
         run: node scripts/example-remove.mjs --root /tmp/template-copy --trim-migrations
-      - name: Core-only copy passes its gate
+      - name: Notes-only copy passes its gate
         working-directory: /tmp/template-copy
         run: |
           just check-core
           just docs-build
+      # Notes-only → core-only: the shell must assemble an empty example
+      # set and fall back to the universal home.
+      - name: Commit the first removal (the tool only edits clean copies)
+        working-directory: /tmp/template-copy
+        run: |
+          git config user.email combo@example.test
+          git config user.name combo
+          git add -A
+          git commit -q -m "Remove the knowledge example"
+      - name: Remove the notes example
+        run: node scripts/example-remove.mjs --root /tmp/template-copy --example notes
+      - name: Core-only copy passes its gate
+        working-directory: /tmp/template-copy
+        run: |
+          pnpm typecheck
+          pnpm test:frontend
+          pnpm --filter @saas/web build
+          pnpm boundaries:check
+      # Knowledge-only: the notes example leaves while knowledge stays.
+      - name: Copy for the knowledge-only combination
+        run: git clone --quiet . /tmp/knowledge-only-copy
+      - name: Remove the notes example from the second copy
+        run: node scripts/example-remove.mjs --root /tmp/knowledge-only-copy --example notes
+      - name: Knowledge-only copy passes its gate
+        working-directory: /tmp/knowledge-only-copy
+        run: |
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm typecheck
+          pnpm test:frontend
+          pnpm --filter @saas/web build
+          pnpm boundaries:check
       - name: A new business joins through the same public interfaces
         working-directory: /tmp/template-copy
         run: node scripts/example-new-business.mjs --root /tmp/template-copy

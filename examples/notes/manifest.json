@@ -1,0 +1,15 @@
+{
+  "id": "notes",
+  "status": "active",
+  "markerPrefix": "notes",
+  "description": "A minimal second example that proves the shell composition interface: one page, one navigation group and bilingual messages, with no backend of its own. Its only purpose is to verify composition.",
+  "ownedPaths": ["packages/views/src/notes", "apps/web/src/notes.test.tsx"],
+  "compositionPoints": {
+    "web": "apps/web/src/app-examples.tsx",
+    "views": "packages/views/src/index.ts"
+  },
+  "registrationMarkers": {
+    "apps/web/src/app-examples.tsx": ["assembly", "entries"],
+    "packages/views/src/index.ts": ["views"]
+  }
+}

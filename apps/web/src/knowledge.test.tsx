@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
-import { createAppRouter } from './router';
+import { createAppRouter, navigateExample } from './router';
 
 test('keyboard preview renders Markdown safely and preserves the draft when returning to editing', async () => {
   const { user } = open('/documents/new');
@@ -426,8 +426,8 @@ test('a Reader sees the saved document without an edit action and cannot edit vi
     screen.queryByRole('button', { name: '编辑文档' }),
   ).not.toBeInTheDocument();
   await act(async () => {
-    await router.navigate({
-      to: '/documents/$documentId/edit',
+    await navigateExample(router, {
+      path: '/documents/$documentId/edit',
       params: { documentId: document.id },
     });
   });

@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession } from '@saas/sdk';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test, vi } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter } from './router';
+import { assembledApp } from './app-examples';
 const identity = {
   user: {
     id: 'rate-user',
@@ -35,7 +36,7 @@ function open(path: string) {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return userEvent.setup();
+  return { user: userEvent.setup(), router };
 }
 test.each([
   ['/login', '登录', 'login', 200],
@@ -67,7 +68,7 @@ test.each([
           HttpResponse.json(identity),
         ),
       );
-      const user = open(path);
+      const { user, router } = open(path);
       await user.type(await screen.findByLabelText('邮箱'), 'rate@example.com');
       await user.type(screen.getByLabelText('密码'), 'a-long-test-password');
       await user.click(screen.getByRole('button', { name: button }));
@@ -83,9 +84,12 @@ test.each([
       expect(screen.getByRole('button', { name: button })).toBeEnabled();
       expect(attempts).toBe(1);
       await user.click(screen.getByRole('button', { name: button }));
-      expect(
-        await screen.findByRole('button', { name: '退出登录' }),
-      ).toBeVisible();
+      // Success lands on the assembled app's business default entry; the
+      // assertion reads the assembly so every source combination passes.
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(assembledApp.defaultEntry),
+      );
+      expect(screen.queryByLabelText('密码')).toBeNull();
     } finally {
       vi.useRealTimers();
     }
