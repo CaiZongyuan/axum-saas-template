@@ -38,7 +38,7 @@ just observability-down
 
 Job 排队期间 HTTP span 可以先结束；Worker 从数据库恢复 W3C parent，继续相同 trace。进程重启、租约恢复和自动重试各创建新的 attempt span，不重用 span ID。原始 Job payload 无需装入 OTel 对象或邮件秘密。
 
-使用 Owner/Admin 在“后台任务”按 job_id 查看实际持久状态。在“审计记录”按 correlation_id 查询，可以把申请与 Worker 的完成记录对到同一 trace。观测显示发送过一个 span，不代表业务事务必然提交；真实结果以任务、导出与审计 API 为准。
+使用 Owner/Admin 在「管理」分组的「后台任务」按 job_id 查看实际持久状态。在「审计记录」按 correlation_id 查询，可以把申请与 Worker 的完成记录对到同一 trace。观测显示发送过一个 span，不代表业务事务必然提交；真实结果以任务、导出与审计 API 为准。
 
 ## 3. 从 trace 切到日志和指标
 

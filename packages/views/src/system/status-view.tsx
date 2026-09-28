@@ -1,7 +1,7 @@
 import { RateLimitHint } from './rate-limit';
 import { requestIdFromError } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSystemStatus, type ApiClient } from '@saas/sdk';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
@@ -14,14 +14,31 @@ import {
   CardTitle,
 } from '@saas/ui/components/card';
 import { Skeleton } from '@saas/ui/components/skeleton';
+import { sessionQuery } from '../identity';
+import { AppShellLayout } from '../shell/app-shell';
+import { useAppMessage } from '../shell/messages';
+import { usePageTitle } from '../shell/page-title';
+
+// The public system-status landing (T01) inside the universal shell
+// (docs/ui/design.md §4/§6 Q1). The session resolves opportunistically —
+// only to pick the sidebar's role — so the page stays readable even while
+// the API it checks is down. Service name, version and migration version
+// are protocol values and render untranslated.
 
 export function StatusView({
   apiClient,
   docsUrl,
+  onOpen,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
+  /** Router port for opening paths without a full page load. */
+  onOpen?: (path: string) => void;
 }) {
+  const message = useAppMessage();
+  usePageTitle('status.title');
+  const queryClient = useQueryClient();
+  const session = useQuery(sessionQuery(apiClient, queryClient));
   const query = useQuery({
     queryKey: ['system-status', apiClient.getConfig().baseUrl],
     queryFn: async ({ signal }) =>
@@ -32,54 +49,33 @@ export function StatusView({
   });
   const data = query.data;
   const requestId = requestIdFromError(query.error);
+  const heading = query.isPending
+    ? message('status.connecting')
+    : query.isError
+      ? message('status.unavailable')
+      : message('status.ready');
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border bg-card">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-6 px-6 py-5">
-          <a
-            href="/"
-            className="flex items-center gap-3 font-semibold tracking-tight"
-          >
-            <span className="flex size-9 items-center justify-center rounded-lg bg-primary font-mono text-primary-foreground">
-              A
-            </span>
-            SaaS Template
-          </a>
-          <nav aria-label="主导航" className="flex items-center gap-6 text-sm">
-            <a href="/system" aria-current="page">
-              服务状态
-            </a>
-            <a
-              href={docsUrl}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              在线文档 ↗
-            </a>
-          </nav>
-        </div>
-      </header>
-
-      <main className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 md:py-16">
+    <AppShellLayout
+      docsUrl={docsUrl}
+      onOpen={onOpen}
+      role={session.data?.user.role}
+    >
+      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 md:py-16">
         <section className="flex flex-col items-start gap-4">
-          <Badge variant="outline">T01 · 第一条全栈链路</Badge>
+          <Badge variant="outline">{message('status.badge')}</Badge>
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-            {query.isPending
-              ? '正在连接服务'
-              : query.isError
-                ? '连接暂不可用'
-                : '服务已就绪'}
+            {heading}
           </h1>
           <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-            从一条真实请求开始。页面通过生成的 SDK 访问 Rust API，再检查
-            PostgreSQL 的连接与迁移状态。
+            {message('status.intro')}
           </p>
           <div className="flex flex-wrap gap-3 pt-2">
             <Button
               onClick={() => void query.refetch()}
               disabled={query.isFetching}
             >
-              重新检查
+              {message('status.recheck')}
             </Button>
             <Button
               variant="outline"
@@ -87,7 +83,7 @@ export function StatusView({
               nativeButton={false}
               render={<a href={docsUrl} />}
             >
-              阅读入门教程
+              {message('status.tutorial')}
             </Button>
           </div>
         </section>
@@ -95,28 +91,26 @@ export function StatusView({
         {query.isPending ? (
           <Card>
             <CardHeader>
-              <CardTitle>连接检查</CardTitle>
-              <CardDescription>等待 API 返回当前状态</CardDescription>
+              <CardTitle>{message('status.check.title')}</CardTitle>
+              <CardDescription>{message('status.check.desc')}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <p role="status">正在检查服务连接</p>
+              <p role="status">{message('status.check.checking')}</p>
               <Skeleton className="h-5 w-56" />
               <Skeleton className="h-5 w-40" />
             </CardContent>
-            <CardFooter>检查包含真实数据库查询。</CardFooter>
+            <CardFooter>{message('status.check.footer')}</CardFooter>
           </Card>
         ) : null}
 
         {query.isError ? (
           <Alert variant="destructive">
-            <AlertTitle>暂时无法连接服务</AlertTitle>
+            <AlertTitle>{message('status.error.title')}</AlertTitle>
             <AlertDescription>
-              <p>请确认 API 与 PostgreSQL 已启动并完成迁移，然后重新检查。</p>
+              <p>{message('status.error.hint')}</p>
               <RateLimitHint error={query.error} />
               {requestId ? (
-                <p>
-                  请求编号：<code>{requestId}</code>
-                </p>
+                <p>{message('common.requestId', { id: requestId })}</p>
               ) : null}
             </AlertDescription>
           </Alert>
@@ -127,40 +121,54 @@ export function StatusView({
             <Card>
               <CardHeader>
                 <CardTitle>API</CardTitle>
-                <CardDescription>Axum 应用服务</CardDescription>
+                <CardDescription>
+                  {message('status.card.apiDesc')}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-start gap-3">
-                <Badge>已连接</Badge>
+                <Badge>{message('status.card.connected')}</Badge>
                 <p className="font-mono">{data.service}</p>
               </CardContent>
-              <CardFooter>版本 {data.version}</CardFooter>
+              <CardFooter>
+                {message('status.card.version', { version: data.version })}
+              </CardFooter>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>数据库</CardTitle>
-                <CardDescription>持久化基础设施</CardDescription>
+                <CardTitle>{message('status.card.dbTitle')}</CardTitle>
+                <CardDescription>
+                  {message('status.card.dbDesc')}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-start gap-3">
-                <Badge>已连接</Badge>
-                <p>PostgreSQL 已连接</p>
+                <Badge>{message('status.card.connected')}</Badge>
+                <p>{message('status.card.dbConnected')}</p>
               </CardContent>
-              <CardFooter>迁移版本 {data.schema_version}</CardFooter>
+              <CardFooter>
+                {message('status.card.schema', {
+                  version: data.schema_version,
+                })}
+              </CardFooter>
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>API 合同</CardTitle>
-                <CardDescription>Rust → OpenAPI → TypeScript</CardDescription>
+                <CardTitle>{message('status.card.contractTitle')}</CardTitle>
+                <CardDescription>
+                  {message('status.card.contractDesc')}
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col items-start gap-3">
-                <Badge variant="secondary">类型同步</Badge>
-                <p>使用生成的客户端</p>
+                <Badge variant="secondary">
+                  {message('status.card.typesSynced')}
+                </Badge>
+                <p>{message('status.card.generatedClient')}</p>
               </CardContent>
               <CardFooter>
                 <a
                   href="/api/openapi.json"
                   className="underline underline-offset-4"
                 >
-                  查看 OpenAPI JSON ↗
+                  {message('status.card.openapi')}
                 </a>
               </CardFooter>
             </Card>
@@ -169,43 +177,38 @@ export function StatusView({
 
         <Card>
           <CardHeader>
-            <CardTitle>沿着这条链路，开始自己的业务</CardTitle>
-            <CardDescription>每一步都有源码、测试与对应教程。</CardDescription>
+            <CardTitle>{message('status.next.title')}</CardTitle>
+            <CardDescription>{message('status.next.desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <ol className="grid gap-6 md:grid-cols-3">
               <li className="flex flex-col gap-2">
                 <span className="font-mono text-sm text-muted-foreground">
-                  01 / 运行
+                  {message('status.step1.label')}
                 </span>
-                <p>启动 API 和 Web，验证数据库已准备好。</p>
+                <p>{message('status.step1.text')}</p>
               </li>
               <li className="flex flex-col gap-2">
                 <span className="font-mono text-sm text-muted-foreground">
-                  02 / 理解
+                  {message('status.step2.label')}
                 </span>
-                <p>跟随 HTTP 请求，理解合同、页面与测试如何协作。</p>
+                <p>{message('status.step2.text')}</p>
               </li>
               <li className="flex flex-col gap-2">
                 <span className="font-mono text-sm text-muted-foreground">
-                  03 / 扩展
+                  {message('status.step3.label')}
                 </span>
-                <p>
-                  跟随知识库示例教程学习注册、写作、附件、导出与权限，再照
-                  《移除示例》接入自己的业务。
-                </p>
+                <p>{message('status.step3.text')}</p>
               </li>
             </ol>
           </CardContent>
-          <CardFooter>
-            服务连接、入门文档与完整教程已随 v1
-            交付；在线教程页脚的“源码版本”标注各页对应的提交。
-          </CardFooter>
+          <CardFooter>{message('status.next.footer')}</CardFooter>
         </Card>
-      </main>
-      <footer className="mx-auto max-w-6xl border-t border-border px-6 py-6 text-sm text-muted-foreground">
-        模块化单体 · 可运行教程 · 可替换业务
-      </footer>
-    </div>
+
+        <footer className="border-t border-border pt-6 text-sm text-muted-foreground">
+          {message('status.footer')}
+        </footer>
+      </div>
+    </AppShellLayout>
   );
 }

@@ -1,6 +1,6 @@
 # 跟做：从业务操作追溯审计记录
 
-使用 `just dev` 启动应用，以 Owner 或 Admin 登录。创建或编辑一篇文档，从首页进入“审计记录”，在“资源 ID”输入文档地址中的 ID，在“动作”输入 `knowledge.document.create` 或 `knowledge.document.update`，点击“筛选记录”。页面展示操作者、资源类型、资源 ID、请求 ID 和关联 ID，可加载后续记录或刷新到最近一页。
+使用 `just dev` 启动应用，以 Owner 或 Admin 登录。创建或编辑一篇文档，在左侧导航的「管理」分组点击「审计记录」（Audit trail）进入，在“资源 ID”输入文档地址中的 ID，在“动作”输入 `knowledge.document.create` 或 `knowledge.document.update`，点击“筛选记录”（Filter records）。页面展示操作者、资源类型、资源 ID、请求 ID 和关联 ID，可加载后续记录或刷新到最近一页；筛选条件写入地址栏，切换语言或主题后重新进入页面，条件仍然保留。界面文字跟随「外观与语言」设置；英文界面下页面与操作名为 Audit trail、Action、Resource ID、Filter records、Refresh audit。
 
 正文、文档标题和附件内容不出现在审计记录里。管理员可以从浏览器网络面板找到该次写入响应的 `x-request-id`，填入“请求 ID”精确匹配，再用同一个值搜索 API 的结构化日志。Trace 追踪由后续观测章节接入；当前没有真实 Trace ID 时保留空值。
 
@@ -22,7 +22,7 @@
 
 [导出 Worker](../../crates/app/src/modules/knowledge/exports/worker.rs)使用 `Source::Job`：`job_id` 对应实际租约中的 Job ID，`correlation_id` 保留最初导出请求的 ID，`request_id` 为空。操作者仍是发起导出的用户，不把 Job ID 假装成用户 ID，也不把原请求伪装成 Worker 新发出的 HTTP 请求。
 
-可以先按关联 ID 找到导出请求和完成记录，再按任务 ID 查询具体后台操作，并到“后台任务”查看批次、重试与错误历史。尚未接入真实追踪时 `trace_id` 为空，不把 request_id 改名充当 Trace ID。
+可以先按关联 ID 找到导出请求和完成记录，再按任务 ID 查询具体后台操作，并到「管理」分组的「后台任务」查看批次、重试与错误历史。尚未接入真实追踪时 `trace_id` 为空，不把 request_id 改名充当 Trace ID。
 
 [0014 迁移](../../migrations/0014_audit_context.sql)补全历史记录可推导的资源类型和请求关联，保留原始事实；旧记录没有可靠的 Job/Trace 身份时仍为空，不通过猜测回填。
 
@@ -34,7 +34,7 @@
 
 游标绑定当前管理员和全部过滤条件，不能把另一用户或另一组过滤的游标混进当前请求。无效 UUID、越界数量、超长或包含 NUL 的过滤值都返回统一 400 错误。常用的资源、动作、操作者和关联字段有对应索引。
 
-[AuditView](../../packages/views/src/audit/audit-view.tsx)通过生成 SDK 查询，提供加载、无匹配、错误重试和分页。筛选在提交表单后生效，重新筛选或刷新从最新页开始；获取失败或权限失效时不继续展示旧缓存行。
+[AuditView](../../packages/views/src/audit/audit-view.tsx)通过生成 SDK 查询，提供加载、无匹配、错误重试和分页。筛选在提交表单后生效并写入地址栏，重新筛选或刷新从最新页开始；获取失败或权限失效时不继续展示旧缓存行。
 
 ## 4. 验证真实结果
 

@@ -10,7 +10,7 @@ import {
   useLocation,
   type RouterHistory,
 } from '@tanstack/react-router';
-import type { ApiClient } from '@saas/sdk';
+import type { ApiClient, StatusFilter } from '@saas/sdk';
 import {
   AppMessagesProvider,
   AppShellLayout,
@@ -23,6 +23,7 @@ import {
   ResetPasswordView,
   ApiKeysView,
   AuditView,
+  auditFilterFields,
   NotificationsView,
   StatusView,
   LoginView,
@@ -31,6 +32,7 @@ import {
   MembersView,
   JobsView,
   JobView,
+  filterableStatuses,
   type AssembledApp,
   type NavigateTarget,
 } from '@saas/views';
@@ -110,6 +112,24 @@ function navigatePort(
   };
 }
 
+// Shell navigation keeps the URL's query conditions (job status, audit
+// filters) alive across detours such as the settings page — switching the
+// language or theme must not clear a legitimate query. Retention applies
+// only to the routes that own search-param state and the preferences page
+// hosting that detour; every other destination drops the keys, and the
+// owning routes re-validate on arrival and strip foreign keys.
+const queryRetainingPaths = new Set(['/jobs', '/audit', '/settings']);
+function shellPathPort(
+  navigate: ReturnType<typeof useNavigate>,
+): (path: string) => void {
+  return (path) => {
+    void navigate({
+      to: path,
+      ...(queryRetainingPaths.has(path) ? { search: true as const } : {}),
+    });
+  };
+}
+
 // Programmatic navigation to runtime-registered routes (tests, adapters).
 export function navigateExample(
   router: ReturnType<typeof createAppRouter>,
@@ -123,7 +143,14 @@ const statusRoute = createRoute({
   path: '/system',
   component: function StatusPage() {
     const { apiClient, docsUrl } = rootRoute.useRouteContext();
-    return <StatusView apiClient={apiClient} docsUrl={docsUrl} />;
+    const navigate = useNavigate();
+    return (
+      <StatusView
+        apiClient={apiClient}
+        docsUrl={docsUrl}
+        onOpen={shellPathPort(navigate)}
+      />
+    );
   },
 });
 
@@ -172,9 +199,7 @@ const homeRoute = createRoute({
         apiClient={apiClient}
         docsUrl={docsUrl}
         navigation={assembledApp.navigation}
-        onOpenNavigation={(path) => {
-          void navigate({ to: path });
-        }}
+        onOpenNavigation={shellPathPort(navigate)}
       />
     );
   },
@@ -190,9 +215,7 @@ const settingsRoute = createRoute({
       <SettingsView
         docsUrl={docsUrl}
         apiClient={apiClient}
-        onOpen={(path) => {
-          void navigate({ to: path });
-        }}
+        onOpen={shellPathPort(navigate)}
       />
     );
   },
@@ -217,9 +240,7 @@ const designSystemRoute = createRoute({
           docsUrl={docsUrl}
           scenes={assembledApp.scenes}
           copyText={(text) => navigator.clipboard.writeText(text)}
-          onOpen={(path) => {
-            void navigate({ to: path });
-          }}
+          onOpen={shellPathPort(navigate)}
         />
       </Suspense>
     );
@@ -236,9 +257,7 @@ const membersRoute = createRoute({
       <MembersView
         apiClient={apiClient}
         docsUrl={docsUrl}
-        onOpen={(path) => {
-          void navigate({ to: path });
-        }}
+        onOpen={shellPathPort(navigate)}
         onLogin={() => {
           void navigate({ to: '/login' });
         }}
@@ -247,20 +266,46 @@ const membersRoute = createRoute({
   },
 });
 
+// The status filter is a URL search param: a language/theme switch or a
+// settings detour cannot clear a legitimate query, and filtered views
+// stay shareable. The accepted values are the view's own filterable
+// statuses — one source of truth for the validator and the select.
+// Absent param defaults to `failed` (the administrator's working set);
+// `all` lists every status.
+const DEFAULT_JOB_STATUS = 'failed' as const;
+type JobsSearch = { status?: StatusFilter | 'all' };
+function validateJobsSearch(search: Record<string, unknown>): JobsSearch {
+  const status = search.status;
+  if (status === 'all') return { status: 'all' };
+  if (
+    typeof status === 'string' &&
+    filterableStatuses.includes(status as StatusFilter)
+  )
+    return { status: status as StatusFilter };
+  return {};
+}
 const jobsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs',
+  validateSearch: validateJobsSearch,
   component: function JobsPage() {
-    const { apiClient } = rootRoute.useRouteContext();
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const navigate = useNavigate();
+    const { status } = jobsRoute.useSearch();
     return (
       <JobsView
         apiClient={apiClient}
-        onBack={() => {
-          void navigate({ to: '/' });
-        }}
+        docsUrl={docsUrl}
+        onOpen={shellPathPort(navigate)}
         onOpenJob={(jobId) => {
           void navigate({ to: '/jobs/$jobId', params: { jobId } });
+        }}
+        status={status ?? DEFAULT_JOB_STATUS}
+        onStatusChange={(next) => {
+          void navigate({
+            to: '/jobs',
+            search: next === DEFAULT_JOB_STATUS ? {} : { status: next },
+          });
         }}
       />
     );
@@ -271,16 +316,15 @@ const jobRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs/$jobId',
   component: function JobPage() {
-    const { apiClient } = rootRoute.useRouteContext();
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const { jobId } = jobRoute.useParams();
     const navigate = useNavigate();
     return (
       <JobView
         apiClient={apiClient}
+        docsUrl={docsUrl}
         jobId={jobId}
-        onBack={() => {
-          void navigate({ to: '/jobs' });
-        }}
+        onOpen={shellPathPort(navigate)}
       />
     );
   },
@@ -363,26 +407,51 @@ const apiKeysRoute = createRoute({
       <ApiKeysView
         apiClient={apiClient}
         docsUrl={docsUrl}
-        onOpen={(path) => {
-          void navigate({ to: path });
-        }}
+        onOpen={shellPathPort(navigate)}
         copySecret={(secret) => navigator.clipboard.writeText(secret)}
       />
     );
   },
 });
 
+// Audit filter conditions are URL search params for the same reason as
+// the job status filter: they survive language/theme switches, back
+// navigation and bookmarks.
+type AuditSearch = {
+  action?: string;
+  resource_id?: string;
+  resource_type?: string;
+  actor_id?: string;
+  request_id?: string;
+  correlation_id?: string;
+  job_id?: string;
+};
+// The accepted keys are the view's own filter fields, so the URL state
+// and the form cannot drift apart.
+function validateAuditSearch(search: Record<string, unknown>): AuditSearch {
+  const next: AuditSearch = {};
+  for (const key of auditFilterFields) {
+    const value = search[key];
+    if (typeof value === 'string' && value.trim()) next[key] = value;
+  }
+  return next;
+}
 const auditRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/audit',
+  validateSearch: validateAuditSearch,
   component: function AuditPage() {
-    const { apiClient } = rootRoute.useRouteContext();
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const navigate = useNavigate();
+    const search = auditRoute.useSearch();
     return (
       <AuditView
         apiClient={apiClient}
-        onBack={() => {
-          void navigate({ to: '/' });
+        docsUrl={docsUrl}
+        onOpen={shellPathPort(navigate)}
+        filters={search}
+        onApplyFilters={(filters) => {
+          void navigate({ to: '/audit', search: filters });
         }}
       />
     );
@@ -444,9 +513,7 @@ function adapterRoute(route: AssembledApp['routes'][number]) {
           docsUrl={docsUrl}
           navigation={assembledApp.navigation}
           role={session.data?.user.role}
-          onOpen={(path) => {
-            void navigate({ to: path });
-          }}
+          onOpen={shellPathPort(navigate)}
         >
           {provideByExample.get(route.exampleId)?.(page) ?? page}
         </AppShellLayout>
