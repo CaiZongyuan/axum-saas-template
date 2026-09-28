@@ -217,24 +217,28 @@ pub const FIELDS: &[crate::config::Setting] = &[
         default: None,
         secret: true,
         description: "Optional redis:// connection URL. Unset disables caching; credentials are never logged.",
+        description_zh: "可选的 redis:// 连接 URL。未设置时禁用缓存；凭据绝不写入日志。",
     },
     crate::config::Setting {
         name: "CACHE_PREFIX",
         default: Some("saas"),
         secret: false,
         description: "Deployment cache namespace (1..100 ASCII letters, digits, colon, dash or underscore).",
+        description_zh: "部署缓存命名空间（1..100 个 ASCII 字母、数字、冒号、短横线或下划线）。",
     },
     crate::config::Setting {
         name: "CACHE_TTL_SECS",
         default: Some("60"),
         secret: false,
         description: "Text cache TTL in seconds (1..3600). PostgreSQL remains the authorization/version source.",
+        description_zh: "正文缓存 TTL，单位秒（1..3600）。PostgreSQL 始终是授权与版本的来源。",
     },
     crate::config::Setting {
         name: "CACHE_BUDGET_MS",
         default: Some("100"),
         secret: false,
         description: "Total optional Redis budget per read, including lookup/fill (1..1000 milliseconds).",
+        description_zh: "每次读取的 Redis 总预算，含查找/回填（1..1000 毫秒）。",
     },
 ];
 impl Cache {

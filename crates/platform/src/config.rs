@@ -10,6 +10,8 @@ pub struct Setting {
     pub default: Option<&'static str>,
     pub secret: bool,
     pub description: &'static str,
+    #[serde(rename = "descriptionZh")]
+    pub description_zh: &'static str,
 }
 
 const DATABASE: Setting = Setting {
@@ -17,96 +19,112 @@ const DATABASE: Setting = Setting {
     default: None,
     secret: true,
     description: "PostgreSQL connection URL. Required; never logged.",
+    description_zh: "PostgreSQL 连接 URL。必填；绝不写入日志。",
 };
 const LISTENER: Setting = Setting {
     name: "APP_BIND",
     default: Some("127.0.0.1:3000"),
     secret: false,
     description: "API listener IP address and port.",
+    description_zh: "API 监听 IP 地址和端口。",
 };
 const LOG_FILTER: Setting = Setting {
     name: "RUST_LOG",
     default: Some("info"),
     secret: false,
     description: "Structured log filter.",
+    description_zh: "结构化日志过滤器。",
 };
 const MIGRATION_TIMEOUT: Setting = Setting {
     name: "MIGRATION_TIMEOUT_SECS",
     default: Some("30"),
     secret: false,
     description: "Migration execution deadline in seconds (1..3600).",
+    description_zh: "迁移执行时限，单位秒（1..3600）。",
 };
 const APP_ORIGIN: Setting = Setting {
     name: "APP_ORIGIN",
     default: Some("http://127.0.0.1:5173"),
     secret: false,
     description: "Trusted browser origin. HTTPS required except loopback development.",
+    description_zh: "受信任的浏览器来源。除本机回环开发外必须为 HTTPS。",
 };
 const SESSION_ABSOLUTE: Setting = Setting {
     name: "SESSION_ABSOLUTE_SECS",
     default: Some("604800"),
     secret: false,
     description: "Absolute session lifetime in seconds (60..2592000).",
+    description_zh: "会话绝对有效期，单位秒（60..2592000）。",
 };
 const SESSION_IDLE: Setting = Setting {
     name: "SESSION_IDLE_SECS",
     default: Some("86400"),
     secret: false,
     description: "Idle session lifetime in seconds (60..absolute lifetime).",
+    description_zh: "会话空闲有效期，单位秒（60..绝对有效期）。",
 };
 const S3_ENDPOINT: Setting = Setting {
     name: "S3_ENDPOINT",
     default: None,
     secret: false,
     description: "Internal S3 endpoint at its root path. Unset disables object storage.",
+    description_zh: "内部 S3 端点（根路径）。未设置时禁用对象存储。",
 };
 const S3_PUBLIC_ENDPOINT: Setting = Setting {
     name: "S3_PUBLIC_ENDPOINT",
     default: None,
     secret: false,
     description: "Browser-accessible S3 origin. Defaults to S3_ENDPOINT; HTTPS except loopback.",
+    description_zh: "浏览器可访问的 S3 来源。默认取 S3_ENDPOINT；除本机回环外必须为 HTTPS。",
 };
 const S3_BUCKET: Setting = Setting {
     name: "S3_BUCKET",
     default: Some("saas-files"),
     secret: false,
     description: "Dedicated private application bucket.",
+    description_zh: "应用专用的私有存储桶。",
 };
 const S3_REGION: Setting = Setting {
     name: "S3_REGION",
     default: Some("us-east-1"),
     secret: false,
     description: "S3 signing region.",
+    description_zh: "S3 签名区域。",
 };
 const S3_ACCESS_KEY: Setting = Setting {
     name: "S3_ACCESS_KEY",
     default: None,
     secret: true,
     description: "Explicit S3 access key; required when S3_ENDPOINT is set.",
+    description_zh: "显式 S3 访问密钥；设置 S3_ENDPOINT 时必填。",
 };
 const S3_SECRET_KEY: Setting = Setting {
     name: "S3_SECRET_KEY",
     default: None,
     secret: true,
     description: "Explicit S3 secret; required when enabled, never logged.",
+    description_zh: "显式 S3 私密密钥；启用对象存储时必填，绝不写入日志。",
 };
 const FILE_MAX_BYTES: Setting = Setting {
     name: "FILE_MAX_BYTES",
     default: Some("20971520"),
     secret: false,
     description: "File byte limit, verified again on the final object (1..104857600).",
+    description_zh: "文件字节上限，最终对象会再次校验（1..104857600）。",
 };
 const UPLOAD_SESSION_SECS: Setting = Setting {
     name: "UPLOAD_SESSION_SECS",
     default: Some("900"),
     secret: false,
     description: "Upload resource/signing lifetime in seconds (1..3600).",
+    description_zh: "上传资源/签名有效期，单位秒（1..3600）。",
 };
 const DOWNLOAD_URL_SECS: Setting = Setting {
     name: "DOWNLOAD_URL_SECS",
     default: Some("60"),
     secret: false,
     description: "Download capability lifetime in seconds (1..300). Revocation blocks new signing.",
+    description_zh: "下载能力有效期，单位秒（1..300）。撤销后停止新签名。",
 };
 pub const FIELDS: &[Setting] = &[
     DATABASE,

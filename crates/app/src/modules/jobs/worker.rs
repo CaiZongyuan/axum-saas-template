@@ -27,30 +27,35 @@ pub const FIELDS: &[saas_platform::config::Setting] = &[
         default: Some("127.0.0.1:3001"),
         secret: false,
         description: "Worker health listener IP address and port.",
+        description_zh: "Worker 健康检查监听 IP 地址和端口。",
     },
     saas_platform::config::Setting {
         name: "JOB_LEASE_SECS",
         default: Some("60"),
         secret: false,
         description: "Job lease lifetime (5..3600 seconds).",
+        description_zh: "任务租约有效期（5..3600 秒）。",
     },
     saas_platform::config::Setting {
         name: "JOB_HEARTBEAT_SECS",
         default: Some("20"),
         secret: false,
         description: "Lease renewal interval (1..half the lease seconds).",
+        description_zh: "租约续期间隔（1..租约秒数的一半）。",
     },
     saas_platform::config::Setting {
         name: "JOB_SHUTDOWN_SECS",
         default: Some("10"),
         secret: false,
         description: "Maximum active-work drain before process exit (1..60 seconds).",
+        description_zh: "进程退出前完成在途工作的最长时间（1..60 秒）。",
     },
     saas_platform::config::Setting {
         name: "JOB_MAINTENANCE_SECS",
         default: Some("30"),
         secret: false,
         description: "Interval for bounded maintenance scheduling (1..3600 seconds).",
+        description_zh: "有界维护调度的执行间隔（1..3600 秒）。",
     },
 ];
 impl WorkerPolicy {

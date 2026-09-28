@@ -62,6 +62,8 @@ function buildFixture() {
           'apps/api/src/lib.rs': ['routes'],
           'packages/views/src/index.ts': ['views'],
           'README.md': ['readme'],
+          'docs/getting-started/quickstart.md': ['quickstart'],
+          'docs/getting-started/quickstart.en.md': ['quickstart'],
         },
         ownedDependencies: {
           'packages/views/package.json': ['react-markdown'],
@@ -114,16 +116,21 @@ function buildFixture() {
         title: 'Docs',
         pages: [
           {
+            id: 'quickstart',
             source: 'docs/getting-started/quickstart.md',
+            sourceEn: 'docs/getting-started/quickstart.en.md',
             route: 'index.md',
             title: 'Quickstart',
+            titleEn: 'Quick start',
             group: 'Start',
           },
           {
+            id: 'example',
             source: 'docs/tutorials/04-example.md',
             route: 'tutorials/example.md',
             title: 'Example',
             group: 'Tutorial',
+            translation: { status: 'pending', owner: 'UI14' },
           },
         ],
       },
@@ -131,7 +138,14 @@ function buildFixture() {
       2,
     ),
   );
-  write('docs/getting-started/quickstart.md', '# Quickstart\n');
+  write(
+    'docs/getting-started/quickstart.md',
+    '# 快速开始\n\nCore steps.\n\n<!-- example:knowledge:quickstart:start -->\n\n## 示例章节\n\n知识库内容。\n\n<!-- example:knowledge:quickstart:end -->\n\nClosing core steps.\n',
+  );
+  write(
+    'docs/getting-started/quickstart.en.md',
+    '# Quick start\n\nCore steps.\n\n<!-- example:knowledge:quickstart:start -->\n\n## Example section\n\nKnowledge content.\n\n<!-- example:knowledge:quickstart:end -->\n\nClosing core steps.\n',
+  );
   write('docs/tutorials/04-example.md', '# Example\n');
   write(
     'package.json',
@@ -210,10 +224,12 @@ test('plans the removal without writing anything', () => {
       'docs/tutorials/04-example.md',
       'packages/views/src/knowledge',
     ]);
-    assert.equal(plan.edits.length, 3);
+    assert.equal(plan.edits.length, 5);
     assert.deepEqual(plan.edits.map((edit) => edit.file).sort(), [
       'README.md',
       'apps/api/src/lib.rs',
+      'docs/getting-started/quickstart.en.md',
+      'docs/getting-started/quickstart.md',
       'packages/views/src/index.ts',
     ]);
     assert.deepEqual(plan.navigation.removeSources, [
@@ -268,6 +284,20 @@ test('applies the removal: owned paths, markers, navigation and dependencies', (
     assert.deepEqual(
       site.pages.map((page) => page.source),
       ['docs/getting-started/quickstart.md'],
+    );
+    // The bilingual Core quick start survives with its example blocks
+    // stripped from both locales; the knowledge chapter entry is gone.
+    assert.equal(
+      readFileSync(join(root, 'docs/getting-started/quickstart.md'), 'utf8'),
+      '# 快速开始\n\nCore steps.\n\nClosing core steps.\n',
+    );
+    assert.equal(
+      readFileSync(join(root, 'docs/getting-started/quickstart.en.md'), 'utf8'),
+      '# Quick start\n\nCore steps.\n\nClosing core steps.\n',
+    );
+    assert(
+      !site.pages.some((page) => page.source?.includes('quickstart.en')),
+      'the English source shares the Chinese page entry instead of duplicating it',
     );
     const manifest = JSON.parse(
       readFileSync(join(root, 'examples/knowledge-base/manifest.json'), 'utf8'),

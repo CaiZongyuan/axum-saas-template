@@ -87,7 +87,8 @@
     "apps/api/src/bin/config-reference.rs": ["config-reference"],
     ".env.example": ["export-config"],
     "scripts/e2e.mjs": ["e2e-policy"],
-    "docs/architecture/v1-coverage.md": ["coverage"]
+    "docs/architecture/v1-coverage.md": ["coverage"],
+    "docs/getting-started/quickstart.en.md": ["quickstart"]
   },
   "ownedDependencies": {
     "packages/views/package.json": [
