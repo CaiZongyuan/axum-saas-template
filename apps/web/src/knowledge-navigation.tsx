@@ -10,14 +10,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@saas/ui/components/alert-dialog';
-import { DocumentGuardContext } from '@saas/views';
+import { DocumentGuardContext, useAppMessage } from '@saas/views';
 
 // The app adapter's router-backed implementation of the knowledge
 // example's dirty-document guard: the example consumes the guard through
 // its portable context (packages/views/src/knowledge/document-guard.tsx);
-// only this adapter knows TanStack Router's blocker API.
+// only this adapter knows TanStack Router's blocker API. Copy resolves
+// through the example's message catalog so the dialog follows the
+// session language like the example's own pages.
 
 export function DocumentGuardProvider({ children }: { children: ReactNode }) {
+  const message = useAppMessage('knowledge');
   const [dirty, onDirtyChange] = useState(false);
   const blocker = useBlocker({
     shouldBlockFn: () => dirty,
@@ -38,17 +41,19 @@ export function DocumentGuardProvider({ children }: { children: ReactNode }) {
           >
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>内容尚未保存</AlertDialogTitle>
+                <AlertDialogTitle>
+                  {message('guard.unsavedTitle')}
+                </AlertDialogTitle>
                 <AlertDialogDescription>
-                  离开会丢失当前草稿。正在保存的请求也可能继续完成。
+                  {message('guard.unsavedDescription')}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => blocker.reset?.()}>
-                  继续编辑
+                  {message('guard.continueEditing')}
                 </AlertDialogCancel>
                 <AlertDialogAction onClick={() => blocker.proceed?.()}>
-                  确认离开
+                  {message('guard.confirmLeave')}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

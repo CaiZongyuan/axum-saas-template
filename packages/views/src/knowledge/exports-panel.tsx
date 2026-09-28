@@ -16,11 +16,13 @@ import type { FileTransfer } from './file-transfer';
 import { useExportDownload } from './export-download';
 import {
   ExportFailure,
-  exportLabels,
+  exportLabelKeys,
   exportPending,
-  exportErrorCode,
 } from './export-feedback';
 import { sessionKey } from '../identity/session';
+import { errorCodeOf } from '@saas/core';
+import { useAppMessage } from '../shell/messages';
+import { useAppFormat } from '../shell/format';
 
 export function ExportsPanel({
   apiClient,
@@ -33,6 +35,8 @@ export function ExportsPanel({
   documentId: string;
   transfer: FileTransfer;
 }) {
+  const message = useAppMessage('knowledge');
+  const { formatDateTime } = useAppFormat();
   const queryClient = useQueryClient();
   const queryKey = ['knowledge', 'exports', identity.user.id, documentId];
   const exports = useInfiniteQuery({
@@ -60,7 +64,7 @@ export function ExportsPanel({
         : false,
   });
   function refreshAccess(error: unknown) {
-    const code = exportErrorCode(error);
+    const code = errorCodeOf(error);
     if (
       [
         'knowledge.forbidden',
@@ -110,11 +114,12 @@ export function ExportsPanel({
   });
   const items = exports.data?.pages.flatMap((page) => page.data) ?? [];
   return (
-    <section aria-label="文档导出" className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">导出文档</h2>
-      <p className="text-sm text-muted-foreground">
-        保存申请时的正文和附件为 ZIP。之后编辑文档不会改变这份导出。
-      </p>
+    <section
+      aria-label={message('exports.section')}
+      className="flex flex-col gap-4"
+    >
+      <h2 className="text-xl font-semibold">{message('exports.heading')}</h2>
+      <p className="text-sm text-muted-foreground">{message('exports.hint')}</p>
       <div className="flex flex-wrap gap-3">
         <Button
           disabled={create.isPending || exports.isPending || exports.isError}
@@ -124,10 +129,10 @@ export function ExportsPanel({
           }}
         >
           {create.isPending
-            ? '正在申请…'
+            ? message('exports.requesting')
             : create.isError
-              ? '重试申请导出'
-              : '导出当前文档'}
+              ? message('exports.retryRequest')
+              : message('exports.request')}
         </Button>
         <Button
           variant="outline"
@@ -136,15 +141,19 @@ export function ExportsPanel({
             void exports.refetch();
           }}
         >
-          刷新导出状态
+          {message('exports.refresh')}
         </Button>
       </div>
-      {exports.isPending ? <p role="status">正在读取导出记录…</p> : null}
+      {exports.isPending ? (
+        <p role="status">{message('exports.loading')}</p>
+      ) : null}
       {exports.isError ? <ExportFailure error={exports.error} /> : null}
       {create.isError ? <ExportFailure error={create.error} /> : null}
       {error ? <ExportFailure error={error} /> : null}
       {!exports.isPending && !exports.isError && items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">暂无导出记录。</p>
+        <p className="text-sm text-muted-foreground">
+          {message('exports.empty')}
+        </p>
       ) : null}
       {!exports.isError ? (
         <ul className="flex flex-col gap-3">
@@ -153,17 +162,23 @@ export function ExportsPanel({
               key={item.id}
               className="flex flex-wrap items-center gap-3 rounded-lg border p-4"
             >
-              <span>版本 {item.document_version}</span>
+              <span>
+                {message('common.version', { version: item.document_version })}
+              </span>
               <Badge
                 variant={item.status === 'failed' ? 'destructive' : 'secondary'}
               >
-                {exportLabels[item.status] ?? '状态更新中'}
+                {message(
+                  exportLabelKeys[item.status] ?? 'exports.statusUpdating',
+                )}
               </Badge>
               {item.status === 'failed' ? (
-                <span className="text-sm">本次导出未完成，可重新申请。</span>
+                <span className="text-sm">{message('exports.failedNote')}</span>
               ) : null}
               <span className="text-sm text-muted-foreground">
-                有效期至 {new Date(item.expires_at).toLocaleString()}
+                {message('exports.expires', {
+                  date: formatDateTime(item.expires_at),
+                })}
               </span>
               {item.can_download ? (
                 <Button
@@ -173,7 +188,9 @@ export function ExportsPanel({
                     void download(item.id);
                   }}
                 >
-                  {downloading === item.id ? '正在下载…' : '下载 ZIP'}
+                  {downloading === item.id
+                    ? message('common.downloading')
+                    : message('exports.downloadZip')}
                 </Button>
               ) : null}
             </li>
@@ -188,7 +205,7 @@ export function ExportsPanel({
             void exports.fetchNextPage();
           }}
         >
-          加载更多导出
+          {message('exports.loadMore')}
         </Button>
       ) : null}
     </section>

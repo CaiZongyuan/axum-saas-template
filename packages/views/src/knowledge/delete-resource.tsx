@@ -1,4 +1,3 @@
-import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -8,8 +7,8 @@ import {
   type ApiClient,
   type CurrentSession,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
-import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
+import { errorCodeOf } from '@saas/core';
+import { RequestErrorAlert } from './request-error';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,16 +22,12 @@ import {
 } from '@saas/ui/components/alert-dialog';
 import { Button } from '@saas/ui/components/button';
 import { sessionKey } from '../identity';
+import { useAppMessage } from '../shell/messages';
 
 type Resource =
   | { kind: 'document'; id: string; name: string }
   | { kind: 'base'; id: string; name: string; personal: boolean }
   | { kind: 'attachment'; id: string; documentId: string; name: string };
-function code(error: unknown): string | undefined {
-  return error && typeof error === 'object' && 'error' in error
-    ? (error.error as { code?: string }).code
-    : undefined;
-}
 
 export function DeleteResource({
   apiClient,
@@ -47,6 +42,7 @@ export function DeleteResource({
   onDeleted?: () => void;
   disabled?: boolean;
 }) {
+  const message = useAppMessage('knowledge');
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const mounted = useRef(true);
@@ -107,10 +103,10 @@ export function DeleteResource({
           'knowledge.not_found',
           'knowledge.forbidden',
           'auth.unauthorized',
-        ].includes(code(error) ?? '')
+        ].includes(errorCodeOf(error) ?? '')
       ) {
         void queryClient.invalidateQueries({ queryKey: ['knowledge'] });
-        if (code(error) === 'auth.unauthorized')
+        if (errorCodeOf(error) === 'auth.unauthorized')
           void queryClient.invalidateQueries({
             queryKey: sessionKey(apiClient),
           });
@@ -119,16 +115,15 @@ export function DeleteResource({
   });
   const label =
     resource.kind === 'document'
-      ? '删除文档'
+      ? message('delete.document')
       : resource.kind === 'base'
-        ? '删除知识库'
-        : `删除附件 ${resource.name}`;
-  const messages: Record<string, string> = {
-    'knowledge.not_found': '资源不存在，或你已失去访问权限。',
-    'knowledge.forbidden': '当前没有删除权限。',
-    'auth.unauthorized': '会话已失效，请重新登录。',
+        ? message('delete.base')
+        : message('delete.attachment', { name: resource.name });
+  const errorKeys: Record<string, string> = {
+    'knowledge.not_found': 'delete.resourceGone',
+    'knowledge.forbidden': 'delete.forbidden',
+    'auth.unauthorized': 'errors.unauthorized',
   };
-  const requestId = requestIdFromError(mutation.error);
   return (
     <AlertDialog
       open={open}
@@ -148,40 +143,42 @@ export function DeleteResource({
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>删除“{resource.name}”？</AlertDialogTitle>
+          <AlertDialogTitle>
+            {message('delete.confirmTitle', { name: resource.name })}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {resource.kind === 'attachment'
-              ? '正文中的附件引用将失效。'
+              ? message('delete.descAttachment')
               : resource.kind === 'document'
-                ? '文档、附件和导出将无法访问。'
-                : '整个知识库的文档、附件和导出将无法访问。'}
+                ? message('delete.descDocument')
+                : message('delete.descBase')}
             {resource.kind === 'base' && resource.personal
-              ? '个人知识库删除后不会自动重建。'
+              ? message('delete.descPersonal')
               : ''}
-            删除后无法恢复。
+            {message('delete.descIrreversible')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {mutation.isError ? (
-          <Alert variant="destructive">
-            <AlertTitle>删除未完成</AlertTitle>
-            <AlertDescription>
-              {messages[code(mutation.error) ?? ''] ??
-                '暂时无法删除，请重试或刷新查看最新状态。'}
-              <RateLimitHint error={mutation.error} />
-              {requestId ? <p>请求编号：{requestId}</p> : null}
-            </AlertDescription>
-          </Alert>
+          <RequestErrorAlert
+            title={message('delete.errorTitle')}
+            text={message(
+              errorKeys[errorCodeOf(mutation.error) ?? ''] ?? 'delete.fallback',
+            )}
+            error={mutation.error}
+          />
         ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={mutation.isPending}>
-            取消
+            {message('common.cancel')}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={mutation.isPending || disabled}
             onClick={() => mutation.mutate()}
           >
-            {mutation.isPending ? '正在删除…' : '确认删除'}
+            {mutation.isPending
+              ? message('delete.deleting')
+              : message('delete.confirm')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

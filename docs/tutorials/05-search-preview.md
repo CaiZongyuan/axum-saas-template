@@ -13,7 +13,18 @@
 参见 [Rust 官网](https://www.rust-lang.org/)。
 ```
 
-切换“预览”查看排版，再保存。阅读页显示同样的安全渲染结果。返回“我的文档”，输入 `100%_` 并按 Enter，能找到刚才的文档；这里的 `%`、`_` 都是普通字符。清除搜索恢复列表。更多结果使用“加载更多”，更换关键词或重新提交搜索从第一页开始。
+切换“预览”查看排版，再保存。阅读页显示同样的安全渲染结果。从侧栏回到“我的文档”，输入 `100%_` 并按 Enter，能找到刚才的文档；这里的 `%`、`_` 都是普通字符。清除搜索恢复列表。更多结果使用“加载更多”，更换关键词或重新提交搜索从第一页开始。
+
+搜索与预览的操作名称同样中英文一致：
+
+| 页面元素 | 中文         | English            |
+| -------- | ------------ | ------------------ |
+| 搜索字段 | 标题关键词   | Title keywords     |
+| 编辑标签 | 编辑         | Edit               |
+| 预览标签 | 预览         | Preview            |
+| 清除搜索 | 清除搜索     | Clear search       |
+| 加载更多 | 加载更多     | Load more          |
+| 重试分页 | 重试加载更多 | Retry loading more |
 
 ## 1. 给现有列表增加筛选
 
@@ -31,6 +42,8 @@
 
 [View](../../packages/views/src/knowledge/documents-view.tsx)使用 TanStack Query，key 包含身份、个人库范围和关键词；已保存文档仍只在 Query 缓存中。搜索输入是表单状态，预览是未保存草稿的展示，不另建资源 store。换身份会清缓存并重建搜索表单。列表内存最多保留十页，超过后按窗口移出最早页，重新搜索可从头开始。
 
+界面语言与主题是共享偏好状态：切换只更新文案与格式（如日期），不重挂载页面，关键词与结果保持原样；代表页面的中英文渲染由双语 View 测试覆盖。
+
 ## 3. 把不可信 Markdown 当内容
 
 [Markdown 渲染器](../../packages/views/src/knowledge/markdown-content.tsx)使用固定版本的 `react-markdown`、`remark-gfm`、`rehype-sanitize`：
@@ -47,7 +60,7 @@
 
 ```bash
 node scripts/test-backend.mjs --test knowledge
-pnpm exec vitest run apps/web/src/knowledge.test.tsx
+pnpm exec vitest run apps/web/src/knowledge.test.tsx apps/web/src/knowledge-bilingual.test.tsx
 just check
 ```
 

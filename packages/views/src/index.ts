@@ -46,6 +46,9 @@ export {
   AuthPreferencesRow,
 } from './shell/appearance-controls';
 export { BusinessNavigation } from './shell/app-navigation';
+// Session query options for app adapters: the shell's role-aware
+// navigation derives from the session the adapter resolves (UI06).
+export { sessionQuery } from './identity';
 // example:knowledge:views:start
 export {
   DocumentExportView,

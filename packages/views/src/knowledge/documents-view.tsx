@@ -1,4 +1,3 @@
-import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   queryOptions,
@@ -18,8 +17,8 @@ import {
   type CurrentSession,
   type CreateDocument,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
-import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
+import { errorCodeOf } from '@saas/core';
+import { RequestErrorAlert } from './request-error';
 import { Button } from '@saas/ui/components/button';
 import {
   Card,
@@ -49,6 +48,8 @@ import {
   TabsContent,
 } from '@saas/ui/components/tabs';
 import { sessionKey, sessionQuery } from '../identity';
+import { useAppMessage } from '../shell/messages';
+import { useAppFormat } from '../shell/format';
 import { MarkdownPreview } from './markdown-preview';
 import { knowledgeBaseQuery } from './knowledge-base-query';
 import { AttachmentsPanel } from './attachments-panel';
@@ -57,42 +58,34 @@ import { ExportsPanel } from './exports-panel';
 import type { FileTransfer } from './file-transfer';
 
 function permissionDenied(error: unknown): boolean {
-  const code =
-    error && typeof error === 'object' && 'error' in error
-      ? (error.error as { code?: string }).code
-      : undefined;
+  const code = errorCodeOf(error);
   return code === 'knowledge.forbidden' || code === 'knowledge.not_found';
 }
 
+// Server error codes carry no display text (the API's message field is a
+// debug string), so the example maps each code to its own catalog key.
+const ERROR_KEYS: Record<string, string> = {
+  'knowledge.forbidden': 'errors.writeForbidden',
+  'knowledge.not_found': 'errors.docNotFound',
+  'knowledge.invalid_search': 'errors.invalidSearch',
+  'knowledge.invalid_page': 'errors.invalidPage',
+  'knowledge.invalid_title': 'errors.invalidTitle',
+  'knowledge.too_large': 'errors.tooLarge',
+  'knowledge.invalid_text': 'errors.invalidText',
+  'document.version_conflict': 'errors.versionConflict',
+  'idempotency.conflict': 'errors.idempotencyConflict',
+  'auth.unauthorized': 'errors.unauthorized',
+  'auth.csrf': 'errors.csrf',
+};
+
 function Failure({ error }: { error: unknown }) {
-  const code =
-    error && typeof error === 'object' && 'error' in error
-      ? (error.error as { code?: string })?.code
-      : undefined;
-  const messages: Record<string, string> = {
-    'knowledge.forbidden': '没有写入权限，请联系企业管理员。',
-    'knowledge.not_found': '文档不存在，或你已失去访问权限。',
-    'knowledge.invalid_search': '搜索词最多 200 个字符，且不能包含无效字符。',
-    'knowledge.invalid_page': '分页已失效，请重新查询。',
-    'knowledge.invalid_title': '请填写不超过 200 个字符的标题。',
-    'knowledge.too_large': '正文超过大小上限，请缩减后重试。',
-    'knowledge.invalid_text': '粘贴的内容包含无效字符，请清理后重试。',
-    'document.version_conflict':
-      '文档已被更新。你的草稿已保留，请读取最新版本后核对。',
-    'idempotency.conflict': '这次保存的请求已用于其他内容，请重新保存。',
-    'auth.unauthorized': '会话已失效，请重新登录。',
-    'auth.csrf': '会话已变化，请刷新会话后重试。',
-  };
-  const requestId = requestIdFromError(error);
+  const message = useAppMessage('knowledge');
   return (
-    <Alert variant="destructive">
-      <AlertTitle>操作未完成</AlertTitle>
-      <AlertDescription>
-        {messages[code ?? ''] ?? '服务暂时不可用，请稍后重试。'}
-        <RateLimitHint error={error} />
-        {requestId ? <p>请求编号：{requestId}</p> : null}
-      </AlertDescription>
-    </Alert>
+    <RequestErrorAlert
+      title={message('errors.actionIncomplete')}
+      text={message(ERROR_KEYS[errorCodeOf(error) ?? ''] ?? 'errors.fallback')}
+      error={error}
+    />
   );
 }
 
@@ -103,17 +96,19 @@ function IdentityGate({
   session: UseQueryResult<CurrentSession | null>;
   children: ReactNode;
 }) {
-  if (session.isPending) return <p role="status">正在读取会话…</p>;
+  const message = useAppMessage('knowledge');
+  if (session.isPending)
+    return <p role="status">{message('common.readingSession')}</p>;
   if (session.isError && !session.data)
     return <Failure error={session.error} />;
   if (!session.data)
     return (
       <p>
-        请先
+        {message('documents.signInPrompt')}
         <a href="/login" className="underline">
-          登录
+          {message('documents.signInAction')}
         </a>
-        ，再访问文档。
+        {message('documents.signInSuffix')}
       </p>
     );
   return (
@@ -134,13 +129,13 @@ function Page({
   children: ReactNode;
 }) {
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">{title}</h1>
         {actions}
       </header>
       {children}
-    </main>
+    </div>
   );
 }
 
@@ -154,9 +149,10 @@ export function DocumentsView({
   onOpen: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   return (
-    <Page title="我的文档">
+    <Page title={message('documents.title')}>
       <IdentityGate session={session}>
         {session.data ? (
           <DocumentList
@@ -188,6 +184,8 @@ export function DocumentList({
   onNew?: () => void;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
+  const { formatDateTime } = useAppFormat();
   const [keyword, setKeyword] = useState('');
   const searchInput = useRef<HTMLInputElement>(null);
   const queryKey = [
@@ -238,7 +236,7 @@ export function DocumentList({
   return (
     <div className="flex flex-col gap-4">
       {onNew && documents.data?.pages[0]?.can_create ? (
-        <Button onClick={onNew}>新建文档</Button>
+        <Button onClick={onNew}>{message('common.newDocument')}</Button>
       ) : null}
       <form
         role="search"
@@ -249,7 +247,9 @@ export function DocumentList({
       >
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="document-search">标题关键词</FieldLabel>
+            <FieldLabel htmlFor="document-search">
+              {message('documents.searchLabel')}
+            </FieldLabel>
             <Input
               ref={searchInput}
               id="document-search"
@@ -257,12 +257,12 @@ export function DocumentList({
               maxLength={200}
             />
             <FieldDescription>
-              最多 200 个字符，按标题字面查找。留空显示当前知识库文档。
+              {message('documents.searchHint')}
             </FieldDescription>
           </Field>
           <div className="flex gap-2">
             <Button type="submit" disabled={documents.isFetching}>
-              搜索
+              {message('documents.search')}
             </Button>
             <Button
               variant="outline"
@@ -271,18 +271,18 @@ export function DocumentList({
                 search('');
               }}
             >
-              清除搜索
+              {message('documents.clearSearch')}
             </Button>
           </div>
         </FieldGroup>
       </form>
       {documents.isFetching && !documents.isFetchingNextPage ? (
-        <p role="status">正在查询文档…</p>
+        <p role="status">{message('documents.loading')}</p>
       ) : null}
       {documents.isError ? <Failure error={documents.error} /> : null}
       {documents.isError && !documents.isFetchNextPageError ? (
         <Button variant="outline" onClick={() => search(keyword)}>
-          重新查询
+          {message('documents.retrySearch')}
         </Button>
       ) : null}
       {!documents.isPending && canShowResults ? (
@@ -290,25 +290,29 @@ export function DocumentList({
           <Empty className="border">
             <EmptyHeader>
               <EmptyTitle>
-                {keyword ? '没有匹配的文档' : '暂无可访问的文档'}
+                {keyword
+                  ? message('documents.emptyNoMatch')
+                  : message('documents.emptyNone')}
               </EmptyTitle>
               <EmptyDescription>
                 {keyword
-                  ? '换一个标题关键词，或清除搜索后重试。'
-                  : '从一篇 Markdown 开始，记录你的知识。'}
+                  ? message('documents.emptyNoMatchHint')
+                  : message('documents.emptyNoneHint')}
               </EmptyDescription>
             </EmptyHeader>
             {!keyword && canCreate ? (
-              <EmptyContent>
-                点击“新建文档”，填写标题和正文后保存。
-              </EmptyContent>
+              <EmptyContent>{message('documents.emptyHowTo')}</EmptyContent>
             ) : null}
           </Empty>
         ) : (
           <>
             <p role="status">
-              已显示 {items.length} 篇文档
-              {keyword ? `，关键词：${keyword}` : ''}。
+              {keyword
+                ? message('documents.shownWithKeyword', {
+                    count: items.length,
+                    keyword,
+                  })
+                : message('documents.shownCount', { count: items.length })}
             </p>
             <ul className="flex flex-col gap-3">
               {items.map((document) => (
@@ -324,7 +328,9 @@ export function DocumentList({
                         </Button>
                       </CardTitle>
                       <CardDescription>
-                        更新于 {new Date(document.updated_at).toLocaleString()}
+                        {message('documents.updated', {
+                          date: formatDateTime(document.updated_at),
+                        })}
                       </CardDescription>
                     </CardHeader>
                   </Card>
@@ -343,10 +349,10 @@ export function DocumentList({
           }}
         >
           {documents.isFetchingNextPage
-            ? '正在加载…'
+            ? message('documents.loadingMore')
             : documents.isFetchNextPageError
-              ? '重试加载更多'
-              : '加载更多'}
+              ? message('documents.retryLoadMore')
+              : message('documents.loadMore')}
         </Button>
       ) : null}
     </div>
@@ -385,6 +391,7 @@ function DocumentForm({
   fileTransfer?: FileTransfer;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const attachmentContext =
     document && fileTransfer
       ? {
@@ -553,8 +560,8 @@ function DocumentForm({
         {cannotEdit ? (
           <p role="status">
             {denied
-              ? '保存权限已失效，草稿已保留。'
-              : '你拥有只读权限，不能保存修改。'}
+              ? message('documents.saveDenied')
+              : message('documents.readOnly')}
           </p>
         ) : null}
         {cannotEdit ? (
@@ -569,14 +576,16 @@ function DocumentForm({
                 .catch(() => undefined);
             }}
           >
-            重新查询权限
+            {message('documents.retryPermissions')}
           </Button>
         ) : null}
         <Field
           data-disabled={mutation.isPending || cannotEdit}
           data-invalid={inputError === 'knowledge.invalid_title'}
         >
-          <FieldLabel htmlFor="document-title">标题</FieldLabel>
+          <FieldLabel htmlFor="document-title">
+            {message('documents.titleLabel')}
+          </FieldLabel>
           <Input
             ref={titleInput}
             defaultValue={baseline.title}
@@ -600,9 +609,13 @@ function DocumentForm({
             }
           }}
         >
-          <TabsList aria-label="Markdown 模式">
-            <TabsTrigger value="edit">编辑</TabsTrigger>
-            <TabsTrigger value="preview">预览</TabsTrigger>
+          <TabsList aria-label={message('documents.markdownMode')}>
+            <TabsTrigger value="edit">
+              {message('documents.tabEdit')}
+            </TabsTrigger>
+            <TabsTrigger value="preview">
+              {message('documents.tabPreview')}
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="edit" keepMounted>
             <Field
@@ -612,7 +625,9 @@ function DocumentForm({
                 inputError === 'knowledge.invalid_text'
               }
             >
-              <FieldLabel htmlFor="document-markdown">Markdown 正文</FieldLabel>
+              <FieldLabel htmlFor="document-markdown">
+                {message('documents.bodyLabel')}
+              </FieldLabel>
               <Textarea
                 ref={markdownInput}
                 defaultValue={baseline.markdown}
@@ -626,7 +641,7 @@ function DocumentForm({
                 disabled={mutation.isPending || cannotEdit}
               />
               <FieldDescription>
-                显式保存，正文最多 1 MiB。切换到预览查看排版。
+                {message('documents.bodyHint')}
               </FieldDescription>
             </Field>
           </TabsContent>
@@ -643,7 +658,10 @@ function DocumentForm({
           <Failure error={mutation.error} />
         ) : null}
         {conflict && onReadLatest ? (
-          <section aria-label="保存冲突" className="flex flex-col gap-3">
+          <section
+            aria-label={message('documents.conflictSection')}
+            className="flex flex-col gap-3"
+          >
             <Button
               variant="outline"
               disabled={latestPending}
@@ -651,24 +669,29 @@ function DocumentForm({
                 void onReadLatest().then(setLatestRead);
               }}
             >
-              {latestPending ? '正在读取最新版本…' : '读取最新版本'}
+              {latestPending
+                ? message('documents.readingLatest')
+                : message('documents.readLatest')}
             </Button>
             {latest ? (
               <>
                 <h2 className="text-lg font-semibold">
-                  最新版本 {latest.version}：{latest.title}
+                  {message('documents.latestVersion', {
+                    version: latest.version,
+                    title: latest.title,
+                  })}
                 </h2>
                 <MarkdownPreview
                   markdown={latest.markdown}
                   attachments={attachmentContext}
                 />
-                <p>核对上方最新内容，再选择如何继续。不会自动保存。</p>
+                <p>{message('documents.conflictHint')}</p>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" onClick={() => reconcile(false)}>
-                    已核对，保留草稿并继续
+                    {message('documents.keepDraft')}
                   </Button>
                   <Button variant="outline" onClick={() => reconcile(true)}>
-                    放弃草稿，采用最新内容
+                    {message('documents.takeLatest')}
                   </Button>
                 </div>
               </>
@@ -677,14 +700,16 @@ function DocumentForm({
         ) : null}
         {baseline.version !== undefined ? (
           <p className="text-sm text-muted-foreground">
-            基于版本 {baseline.version} 编辑
+            {message('documents.baseline', { version: baseline.version })}
           </p>
         ) : null}
         <Button
           type="submit"
           disabled={mutation.isPending || conflict || cannotEdit}
         >
-          {mutation.isPending ? '正在保存…' : '保存文档'}
+          {mutation.isPending
+            ? message('common.saving')
+            : message('documents.save')}
         </Button>
       </FieldGroup>
       {document && fileTransfer ? (
@@ -720,6 +745,7 @@ export function NewDocumentView({
   knowledgeBaseId?: string;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const base = useQuery(
     knowledgeBaseQuery(apiClient, session.data?.user.id, knowledgeBaseId),
@@ -749,16 +775,18 @@ export function NewDocumentView({
     : !!personal.data?.can_create;
   return (
     <Page
-      title="新建文档"
+      title={message('common.newDocument')}
       actions={
         <Button variant="outline" onClick={onBack}>
-          {knowledgeBaseId ? '返回知识库' : '我的文档'}
+          {knowledgeBaseId
+            ? message('documents.backToBase')
+            : message('documents.title')}
         </Button>
       }
     >
       <IdentityGate session={session}>
         {permission.isPending ? (
-          <p role="status">正在读取知识库权限…</p>
+          <p role="status">{message('documents.readingBasePerms')}</p>
         ) : permission.isError ? (
           <Failure error={permission.error} />
         ) : null}
@@ -824,18 +852,19 @@ export function DocumentView({
   fileTransfer: FileTransfer;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const document = useQuery(
     documentQuery(apiClient, session.data?.user.id, documentId),
   );
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
       <Button variant="outline" onClick={onBack}>
-        我的文档
+        {message('documents.title')}
       </Button>
       <IdentityGate session={session}>
         {document.isPending ? (
-          <p role="status">正在读取文档…</p>
+          <p role="status">{message('documents.readingDocument')}</p>
         ) : document.isError ? (
           <Failure error={document.error} />
         ) : (
@@ -845,13 +874,13 @@ export function DocumentView({
               variant="outline"
               onClick={() => onLibrary(document.data.knowledge_base_id)}
             >
-              所在知识库
+              {message('documents.openBase')}
             </Button>
             {document.data.can_edit ? (
-              <Button onClick={onEdit}>编辑文档</Button>
+              <Button onClick={onEdit}>{message('documents.edit')}</Button>
             ) : null}
             <p className="text-sm text-muted-foreground">
-              版本 {document.data.version}
+              {message('common.version', { version: document.data.version })}
             </p>
             {document.data.can_edit && session.data ? (
               <DeleteResource
@@ -901,7 +930,7 @@ export function DocumentView({
           </article>
         )}
       </IdentityGate>
-    </main>
+    </div>
   );
 }
 
@@ -921,21 +950,24 @@ export function EditDocumentView({
   fileTransfer: FileTransfer;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const document = useQuery(
     documentQuery(apiClient, session.data?.user.id, documentId),
   );
   return (
     <Page
-      title="编辑文档"
+      title={message('documents.edit')}
       actions={
         <Button variant="outline" onClick={onBack}>
-          返回文档
+          {message('documents.backToDocument')}
         </Button>
       }
     >
       <IdentityGate session={session}>
-        {document.isPending ? <p role="status">正在读取文档…</p> : null}
+        {document.isPending ? (
+          <p role="status">{message('documents.readingDocument')}</p>
+        ) : null}
         {document.isError ? <Failure error={document.error} /> : null}
         {document.data && session.data ? (
           <DocumentForm

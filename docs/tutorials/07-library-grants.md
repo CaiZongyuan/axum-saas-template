@@ -1,13 +1,31 @@
 # 跟做：共享知识库与权限继承
 
-个人写作仍然是注册后点击“我的文档”，直接保存第一篇正文。本章增加共享空间：Owner/Admin 从首页“知识库”创建共享库、修改库名，并选择已经注册的成员授予只读或编辑权限。
+个人写作仍然是注册后从侧栏进入“我的文档”，直接保存第一篇正文。本章增加共享空间：Owner/Admin 从侧栏“知识库”创建共享库、修改库名，并选择已经注册的成员授予只读或编辑权限。
+
+库与授权管理页面的操作名称中英文一致：
+
+| 页面元素   | 中文               | English                 |
+| ---------- | ------------------ | ----------------------- |
+| 业务导航   | 知识库             | Knowledge bases         |
+| 库名字段   | 知识库名称         | Knowledge base name     |
+| 保存库名   | 保存库名           | Save name               |
+| 新建按钮   | 新建文档           | New document            |
+| 所在知识库 | 所在知识库         | Open the knowledge base |
+| 授权区块   | 知识库授权         | Knowledge base access   |
+| 成员选择   | 选择成员           | Select member           |
+| 权限选择   | 访问权限           | Access                  |
+| 只读       | 只读               | Read-only               |
+| 可编辑     | 可编辑             | Editable                |
+| 保存授权   | 保存授权           | Save grant              |
+| 撤销授权   | 撤销 {邮箱} 的授权 | Revoke {email}’s access |
+| 删除知识库 | 删除知识库         | Delete knowledge base   |
 
 ## 1. 用两个账号跟做
 
 1. 用 Owner 登录，进入“知识库”，创建“团队手册”。点击库内“新建文档”，保存一篇 Markdown。
 2. 用另一个浏览器注册同事账号。此时不能直接读取刚才的文档，也看不到对应共享库。
 3. Owner 从文档点击“所在知识库”，在“知识库授权”选择同事，保存“只读”。
-4. 同事从首页“知识库”打开共享库，能搜索和阅读文档，无法新建或编辑。
+4. 同事从侧栏“知识库”打开共享库，能搜索和阅读文档，无法新建或编辑。
 5. Owner 把同事改为“可编辑”。同事刷新后可以新建或显式修改文档。
 6. Owner 撤销授权。同事后续查询库、搜索、读取或保存都会被拒绝；刷新页面可看到拒绝结果。
 
@@ -48,6 +66,8 @@
 
 [知识库 Views](../../packages/views/src/knowledge/knowledge-bases-view.tsx)复用 Core 成员目录选择已注册用户，无邀请步骤。个人文档与库内文档使用同一个[列表/编辑 View](../../packages/views/src/knowledge/documents-view.tsx)；库范围进入 Query key 与 API 参数，未保存草稿也按账号和库分开。
 
+授权控件的名称随界面语言解析，撤销按钮的可访问名称携带目标邮箱（“撤销 {邮箱} 的授权” / “Revoke {email}’s access”），屏幕阅读器在两种语言下都能明确目标；双语 View 测试覆盖代表页面。
+
 Reader 看到只读页面，即使直接打开编辑 URL，保存控件也不可用。保存收到 403/404 后立即禁用再次提交并重新读取权限，未保存文本保持原样；只有显式点击“重新查询权限”且服务器确认恢复写入资格后，才重新允许保存。权限重新读取失败时也不能据旧的界面权限继续提交。所有已保存资源仍由 Query 管理，不复制到第二份业务 store。
 
 库、授权和成员列表默认每页 50、最大 100 条。页面提供“加载更多”和失败重读，浏览器每组列表最多保留十页，避免无限增长。后台系统不会向普通用户先返回全部库，再让前端过滤。
@@ -56,7 +76,7 @@ Reader 看到只读页面，即使直接打开编辑 URL，保存控件也不可
 
 ```bash
 node scripts/test-backend.mjs --test knowledge
-pnpm exec vitest run apps/web/src/knowledge.test.tsx apps/web/src/knowledge-bases.test.tsx
+pnpm exec vitest run apps/web/src/knowledge.test.tsx apps/web/src/knowledge-bases.test.tsx apps/web/src/knowledge-bilingual.test.tsx
 just check
 ```
 

@@ -1,4 +1,3 @@
-import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState } from 'react';
 import {
   useInfiniteQuery,
@@ -18,8 +17,7 @@ import {
   type CurrentSession,
   type GrantAccess,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
-import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
+import { RequestErrorAlert } from './request-error';
 import { Button } from '@saas/ui/components/button';
 import {
   Field,
@@ -32,6 +30,7 @@ import {
   NativeSelectOption,
 } from '@saas/ui/components/native-select';
 import { sessionKey, sessionQuery } from '../identity';
+import { useAppMessage } from '../shell/messages';
 import { DeleteResource } from './delete-resource';
 import { Input } from '@saas/ui/components/input';
 import {
@@ -44,16 +43,13 @@ import { DocumentList } from './documents-view';
 import { knowledgeBaseQuery } from './knowledge-base-query';
 
 function Failure({ error }: { error: unknown }) {
-  const id = requestIdFromError(error);
+  const message = useAppMessage('knowledge');
   return (
-    <Alert variant="destructive">
-      <AlertTitle>操作未完成</AlertTitle>
-      <AlertDescription>
-        知识库不存在、权限已变化或服务暂时不可用，请重新查询。
-        <RateLimitHint error={error} />
-        {id ? <p>请求编号：{id}</p> : null}
-      </AlertDescription>
-    </Alert>
+    <RequestErrorAlert
+      title={message('errors.actionIncomplete')}
+      text={message('errors.baseUnavailable')}
+      error={error}
+    />
   );
 }
 
@@ -70,6 +66,7 @@ function BaseNameForm({
   action: string;
   onSave: (name: string) => void;
 }) {
+  const message = useAppMessage('knowledge');
   const [invalid, setInvalid] = useState(false);
   return (
     <form
@@ -85,7 +82,9 @@ function BaseNameForm({
     >
       <FieldGroup>
         <Field data-disabled={pending} data-invalid={invalid}>
-          <FieldLabel htmlFor="base-name">知识库名称</FieldLabel>
+          <FieldLabel htmlFor="base-name">
+            {message('bases.nameLabel')}
+          </FieldLabel>
           <Input
             id="base-name"
             name="name"
@@ -96,14 +95,12 @@ function BaseNameForm({
             aria-invalid={invalid}
           />
           <FieldDescription>
-            {invalid
-              ? '请填写 1–120 个字符的有效名称。'
-              : '管理员可修改名称与成员授权。'}
+            {invalid ? message('bases.nameInvalid') : message('bases.nameHint')}
           </FieldDescription>
         </Field>
         {error ? <Failure error={error} /> : null}
         <Button type="submit" disabled={pending}>
-          {pending ? '正在保存…' : action}
+          {pending ? message('common.saving') : action}
         </Button>
       </FieldGroup>
     </form>
@@ -122,6 +119,7 @@ function RenameBase({
   name: string;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const rename = useMutation({
     mutationFn: async (name: string) =>
       (
@@ -144,7 +142,7 @@ function RenameBase({
       initialName={name}
       pending={rename.isPending}
       error={rename.error}
-      action="保存库名"
+      action={message('bases.rename')}
       onSave={(name) => rename.mutate(name)}
     />
   );
@@ -162,17 +160,18 @@ export function KnowledgeBasesView({
   onOpen: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
       <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">知识库</h1>
+        <h1 className="text-2xl font-semibold">{message('bases.title')}</h1>
         <Button variant="outline" onClick={onBack}>
-          返回首页
+          {message('bases.backHome')}
         </Button>
       </header>
       {session.isPending ? (
-        <p role="status">正在读取会话…</p>
+        <p role="status">{message('common.readingSession')}</p>
       ) : session.isError ? (
         <Failure error={session.error} />
       ) : session.data ? (
@@ -183,9 +182,9 @@ export function KnowledgeBasesView({
           onOpen={onOpen}
         />
       ) : (
-        <Button onClick={onLogin}>登录后访问知识库</Button>
+        <Button onClick={onLogin}>{message('bases.signInToAccess')}</Button>
       )}
-    </main>
+    </div>
   );
 }
 
@@ -199,6 +198,7 @@ function BaseList({
   onOpen: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const attempt = useRef<{ name: string; key: string } | null>(null);
   const active = useRef(true);
   useEffect(() => {
@@ -270,10 +270,10 @@ function BaseList({
           void bases.refetch();
         }}
       >
-        重新查询知识库
+        {message('bases.retry')}
       </Button>
       {bases.isPending ? (
-        <p role="status">正在读取知识库…</p>
+        <p role="status">{message('bases.loading')}</p>
       ) : bases.isError ? (
         <Failure error={bases.error} />
       ) : (
@@ -282,7 +282,7 @@ function BaseList({
             <BaseNameForm
               pending={creation.isPending}
               error={creation.error}
-              action="创建共享知识库"
+              action={message('bases.create')}
               onSave={(name) => {
                 if (attempt.current?.name !== name)
                   attempt.current = { name, key: crypto.randomUUID() };
@@ -293,9 +293,9 @@ function BaseList({
           {items.length === 0 ? (
             <Empty>
               <EmptyHeader>
-                <EmptyTitle>还没有可访问的知识库</EmptyTitle>
+                <EmptyTitle>{message('bases.emptyTitle')}</EmptyTitle>
                 <EmptyDescription>
-                  个人知识库会在首次保存文档时准备。
+                  {message('bases.emptyHint')}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -310,8 +310,13 @@ function BaseList({
                     {base.name}
                   </Button>
                   <span>
-                    {base.personal ? '个人库' : '共享库'} ·{' '}
-                    {base.can_edit ? '可编辑' : '只读'}
+                    {base.personal
+                      ? message('bases.personalBadge')
+                      : message('bases.sharedBadge')}{' '}
+                    ·{' '}
+                    {base.can_edit
+                      ? message('bases.accessEditor')
+                      : message('bases.accessReader')}
                   </span>
                 </li>
               ))}
@@ -327,7 +332,7 @@ function BaseList({
             void bases.fetchNextPage();
           }}
         >
-          加载更多知识库
+          {message('bases.loadMore')}
         </Button>
       ) : null}
     </>
@@ -350,23 +355,24 @@ export function KnowledgeBaseView({
   onOpen: (id: string) => void;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const base = useQuery(
     knowledgeBaseQuery(apiClient, session.data?.user.id, baseId),
   );
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
       <Button variant="outline" onClick={onBack}>
-        知识库列表
+        {message('bases.backToList')}
       </Button>
       {session.isPending ? (
-        <p role="status">正在读取会话…</p>
+        <p role="status">{message('common.readingSession')}</p>
       ) : session.isError ? (
         <Failure error={session.error} />
       ) : !session.data ? (
-        <Button onClick={onLogin}>登录后访问知识库</Button>
+        <Button onClick={onLogin}>{message('bases.signInToAccess')}</Button>
       ) : base.isPending ? (
-        <p role="status">正在读取知识库…</p>
+        <p role="status">{message('bases.loading')}</p>
       ) : base.isError ? (
         <>
           <Failure error={base.error} />
@@ -376,7 +382,7 @@ export function KnowledgeBaseView({
               void base.refetch();
             }}
           >
-            重新查询知识库
+            {message('bases.retry')}
           </Button>
         </>
       ) : (
@@ -384,9 +390,9 @@ export function KnowledgeBaseView({
           <header className="flex items-center justify-between gap-4">
             <h1 className="text-2xl font-semibold">{base.data.name}</h1>
             {base.data.can_edit ? (
-              <Button onClick={onNew}>新建文档</Button>
+              <Button onClick={onNew}>{message('common.newDocument')}</Button>
             ) : (
-              <p>只读知识库</p>
+              <p>{message('bases.readonlyStatus')}</p>
             )}
           </header>
           <DocumentList
@@ -428,14 +434,10 @@ export function KnowledgeBaseView({
           ) : null}
         </>
       )}
-    </main>
+    </div>
   );
 }
 
-const accessNames: Record<GrantAccess, string> = {
-  reader: '只读',
-  editor: '可编辑',
-};
 function Grants({
   apiClient,
   identity,
@@ -445,6 +447,11 @@ function Grants({
   identity: CurrentSession;
   baseId: string;
 }) {
+  const message = useAppMessage('knowledge');
+  const accessNames = {
+    reader: message('bases.accessReader'),
+    editor: message('bases.accessEditor'),
+  };
   const queryClient = useQueryClient();
   const [userId, setUserId] = useState('');
   const [access, setAccess] = useState<GrantAccess>('reader');
@@ -507,13 +514,13 @@ function Grants({
   const items = grants.data?.pages.flatMap((page) => page.data) ?? [];
   return (
     <section
-      aria-label="知识库授权"
+      aria-label={message('grants.section')}
       className="flex flex-col gap-4 rounded-lg border p-6"
     >
-      <h2 className="text-xl font-semibold">知识库授权</h2>
-      <p>文档和附件继承知识库权限。企业 Owner/Admin 始终拥有管理与读写权限。</p>
+      <h2 className="text-xl font-semibold">{message('grants.section')}</h2>
+      <p>{message('grants.hint')}</p>
       {members.isPending || grants.isPending ? (
-        <p role="status">正在读取授权与成员…</p>
+        <p role="status">{message('grants.loading')}</p>
       ) : null}
       {members.isError ? (
         <>
@@ -524,7 +531,7 @@ function Grants({
               void members.refetch();
             }}
           >
-            重读成员
+            {message('grants.retryMembers')}
           </Button>
         </>
       ) : null}
@@ -537,7 +544,7 @@ function Grants({
               void grants.refetch();
             }}
           >
-            重读授权
+            {message('grants.retryGrants')}
           </Button>
         </>
       ) : null}
@@ -551,7 +558,9 @@ function Grants({
         >
           <FieldGroup>
             <Field data-disabled={mutation.isPending}>
-              <FieldLabel htmlFor="grant-user">选择成员</FieldLabel>
+              <FieldLabel htmlFor="grant-user">
+                {message('grants.memberLabel')}
+              </FieldLabel>
               <NativeSelect
                 id="grant-user"
                 required
@@ -560,7 +569,7 @@ function Grants({
                 onChange={(event) => setUserId(event.currentTarget.value)}
               >
                 <NativeSelectOption value="" disabled>
-                  选择已启用成员
+                  {message('grants.memberPlaceholder')}
                 </NativeSelectOption>
                 {members.data.pages
                   .flatMap((page) => page.data)
@@ -575,11 +584,13 @@ function Grants({
                   ))}
               </NativeSelect>
               <FieldDescription>
-                无需邀请，直接选择已经注册的成员。
+                {message('grants.memberHint')}
               </FieldDescription>
             </Field>
             <Field data-disabled={mutation.isPending}>
-              <FieldLabel htmlFor="grant-access">访问权限</FieldLabel>
+              <FieldLabel htmlFor="grant-access">
+                {message('grants.accessLabel')}
+              </FieldLabel>
               <NativeSelect
                 id="grant-access"
                 value={access}
@@ -596,7 +607,9 @@ function Grants({
               </NativeSelect>
             </Field>
             <Button type="submit" disabled={mutation.isPending || !userId}>
-              {mutation.isPending ? '正在保存…' : '保存授权'}
+              {mutation.isPending
+                ? message('common.saving')
+                : message('grants.save')}
             </Button>
           </FieldGroup>
         </form>
@@ -609,17 +622,15 @@ function Grants({
             void members.fetchNextPage();
           }}
         >
-          加载更多成员
+          {message('grants.loadMoreMembers')}
         </Button>
       ) : null}
       {mutation.isError ? <Failure error={mutation.error} /> : null}
       {!grants.isPending && !grants.isError && items.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>还没有额外授权</EmptyTitle>
-            <EmptyDescription>
-              选择已注册成员，授予只读或编辑权限。
-            </EmptyDescription>
+            <EmptyTitle>{message('grants.emptyTitle')}</EmptyTitle>
+            <EmptyDescription>{message('grants.emptyHint')}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : null}
@@ -636,10 +647,10 @@ function Grants({
               <Button
                 variant="outline"
                 disabled={mutation.isPending}
-                aria-label={`撤销 ${grant.email} 的授权`}
+                aria-label={message('grants.revoke', { email: grant.email })}
                 onClick={() => mutation.mutate({ target: grant.user_id })}
               >
-                撤销
+                {message('grants.revokeAction')}
               </Button>
             </li>
           ))}
@@ -653,7 +664,7 @@ function Grants({
             void grants.fetchNextPage();
           }}
         >
-          加载更多授权
+          {message('grants.loadMore')}
         </Button>
       ) : null}
     </section>

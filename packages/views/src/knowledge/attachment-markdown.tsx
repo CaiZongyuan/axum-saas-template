@@ -12,6 +12,7 @@ import { Button } from '@saas/ui/components/button';
 import { retryAfterSeconds } from '@saas/core';
 import { RateLimitHint, useRetryDelay } from '../system/rate-limit';
 import type { FileTransfer } from './file-transfer';
+import { useAppMessage } from '../shell/messages';
 
 export type AttachmentContextValue = {
   apiClient: ApiClient;
@@ -29,6 +30,7 @@ export function attachmentId(url: string | undefined): string | undefined {
 }
 
 export function AttachmentImage({ id, alt }: { id: string; alt: string }) {
+  const message = useAppMessage('knowledge');
   const context = useContext(AttachmentContext);
   const element = useRef<HTMLSpanElement>(null);
   const [visible, setVisible] = useState(
@@ -84,7 +86,7 @@ export function AttachmentImage({ id, alt }: { id: string; alt: string }) {
   return (
     <span ref={element}>
       {!context ? (
-        `附件图片：${alt}`
+        message('reader.attachmentImage', { alt })
       ) : download.isError || imageFailed ? (
         <>
           <RateLimitHint error={download.error} inline />
@@ -97,9 +99,9 @@ export function AttachmentImage({ id, alt }: { id: string; alt: string }) {
             }}
           >
             {cooldown.remaining > 0
-              ? `请等待 ${cooldown.remaining} 秒`
-              : '重新读取图片'}
-            ：{alt}
+              ? message('reader.waitRetry', { seconds: cooldown.remaining })
+              : message('reader.retryImage')}
+            {message('reader.nameSuffix', { alt })}
           </Button>
         </>
       ) : download.data?.file.previewable ? (
@@ -113,7 +115,7 @@ export function AttachmentImage({ id, alt }: { id: string; alt: string }) {
           onError={() => setImageFailed(true)}
         />
       ) : (
-        <span>附件图片：{alt}</span>
+        <span>{message('reader.attachmentImage', { alt })}</span>
       )}
     </span>
   );
@@ -126,6 +128,7 @@ export function AttachmentLink({
   id: string;
   children: ReactNode;
 }) {
+  const message = useAppMessage('knowledge');
   const context = useContext(AttachmentContext);
   const controller = useRef<AbortController | null>(null);
   const [pending, setPending] = useState(false);
@@ -174,9 +177,9 @@ export function AttachmentLink({
       >
         {children}
         {pending
-          ? '（正在下载）'
+          ? message('reader.downloadingInline')
           : cooldown.remaining > 0
-            ? `（请等待 ${cooldown.remaining} 秒）`
+            ? message('reader.waitInline', { seconds: cooldown.remaining })
             : ''}
       </Button>
       {failure ? (
@@ -184,7 +187,7 @@ export function AttachmentLink({
           {retryAfterSeconds(failure.error) ? (
             <RateLimitHint error={failure.error} inline />
           ) : (
-            ' 下载失败，请重试。'
+            message('reader.downloadFailed')
           )}
         </span>
       ) : null}
