@@ -25,6 +25,16 @@ import {
 // miniature of the template so each contract is observable in isolation;
 // the real-repository removal runs in the CI example-removal job.
 
+// Fixture commits carry an explicit identity: CI runners have no global
+// git user, so a commit without one fails there but not on a configured
+// developer machine.
+const gitIdentity = {
+  GIT_AUTHOR_NAME: 'test',
+  GIT_AUTHOR_EMAIL: 'test@example.test',
+  GIT_COMMITTER_NAME: 'test',
+  GIT_COMMITTER_EMAIL: 'test@example.test',
+};
+
 function buildFixture() {
   const root = mkdtempSync(join(tmpdir(), 'example-remove-'));
   const write = (path, content) => {
@@ -176,13 +186,7 @@ function buildFixture() {
   execFileSync('git', ['init', '--quiet', '-b', 'main', root]);
   const git = (...args) =>
     execFileSync('git', ['-C', root, ...args], {
-      env: {
-        ...process.env,
-        GIT_AUTHOR_NAME: 'test',
-        GIT_AUTHOR_EMAIL: 'test@example.test',
-        GIT_COMMITTER_NAME: 'test',
-        GIT_COMMITTER_EMAIL: 'test@example.test',
-      },
+      env: { ...process.env, ...gitIdentity },
     });
   git('add', '.');
   git('commit', '--quiet', '-m', 'template');
@@ -455,7 +459,13 @@ function addNotesExample(root) {
     ].join('\n'),
   );
   execFileSync('git', ['-C', root, 'add', '.']);
-  execFileSync('git', ['-C', root, 'commit', '--quiet', '-m', 'notes example']);
+  execFileSync(
+    'git',
+    ['-C', root, 'commit', '--quiet', '-m', 'notes example'],
+    {
+      env: { ...process.env, ...gitIdentity },
+    },
+  );
 }
 
 test('removing one example leaves the other registered and untouched', () => {
