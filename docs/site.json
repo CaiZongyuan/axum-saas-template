@@ -130,10 +130,11 @@
     {
       "id": "job-recovery",
       "source": "docs/tutorials/11-job-recovery.md",
+      "sourceEn": "docs/tutorials/11-job-recovery.en.md",
       "route": "tutorials/job-recovery.md",
       "title": "任务恢复与管理员重试",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI11" }
+      "titleEn": "Job recovery and administrator retries",
+      "group": "跟做教程"
     },
     {
       "id": "deletion-cleanup",
@@ -154,10 +155,11 @@
     {
       "id": "audit-history",
       "source": "docs/tutorials/14-audit-history.md",
+      "sourceEn": "docs/tutorials/14-audit-history.en.md",
       "route": "tutorials/audit-history.md",
       "title": "管理员审计与业务追溯",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI11" }
+      "titleEn": "Administrator audits and business tracing",
+      "group": "跟做教程"
     },
     {
       "id": "api-keys",
@@ -195,10 +197,11 @@
     {
       "id": "observability",
       "source": "docs/tutorials/19-observability.md",
+      "sourceEn": "docs/tutorials/19-observability.en.md",
       "route": "tutorials/observability.md",
       "title": "从导出追踪到任务与存储",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI11" }
+      "titleEn": "From exports to jobs and storage",
+      "group": "跟做教程"
     },
     {
       "id": "electron-shell",

@@ -1,9 +1,7 @@
-import { RateLimitHint } from '../system/rate-limit';
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef } from 'react';
 import {
   useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from '@tanstack/react-query';
 import {
@@ -15,8 +13,7 @@ import {
   type JobInfo,
   type ListJobsData,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
-import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
+import { errorCodeOf } from '@saas/core';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
 import {
@@ -30,111 +27,116 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from '@saas/ui/components/native-select';
-import { sessionKey, sessionQuery } from '../identity';
+import { sessionKey } from '../identity';
+import { AdminFrame } from '../shell/admin-frame';
+import { ErrorAlert } from '../shell/error-alert';
+import { useAppFormat } from '../shell/format';
+import { useAppMessage } from '../shell/messages';
 
-type StatusFilter = NonNullable<NonNullable<ListJobsData['query']>['status']>;
-const names: Record<string, string> = {
-  queued: '等待处理',
-  running: '执行中',
-  retry_wait: '等待重试',
-  succeeded: '已完成',
-  failed: '已失败',
-  lease_expired: '租约已过期',
-};
+// Background-job tracking inside the universal shell (docs/ui/design.md
+// §4): the administration group reaches list and detail, and every fixed
+// string speaks the active language. Job states stay server facts — the
+// view never invents a second source for can_retry, batch numbers or
+// authorization; job kinds, identifiers and error summaries render as
+// the raw protocol values. The status filter travels through the router
+// (URL), so switching the language or theme cannot clear it.
+
+export type JobStatusFilter = NonNullable<
+  NonNullable<ListJobsData['query']>['status']
+>;
+/** Select value `all` means no status condition; the router owns it. */
+export type JobsListStatus = JobStatusFilter | 'all';
+const statusKeys = {
+  queued: 'jobs.status.queued',
+  running: 'jobs.status.running',
+  retry_wait: 'jobs.status.retry_wait',
+  succeeded: 'jobs.status.succeeded',
+  failed: 'jobs.status.failed',
+  lease_expired: 'jobs.status.lease_expired',
+} as const satisfies Record<string, `jobs.status.${string}`>;
+type KnownJobStatus = keyof typeof statusKeys;
+export const filterableStatuses: JobStatusFilter[] = [
+  'failed',
+  'queued',
+  'running',
+  'retry_wait',
+  'succeeded',
+];
 const active = new Set(['queued', 'running', 'retry_wait']);
-function code(error: unknown): string | undefined {
-  return error && typeof error === 'object' && 'error' in error
-    ? (error.error as { code?: string }).code
-    : undefined;
+function statusText(status: string, translate: (key: string) => string) {
+  const key = statusKeys[status as KnownJobStatus];
+  return key ? translate(key) : status;
 }
 function Failure({ error }: { error: unknown }) {
-  const messages: Record<string, string> = {
-    'jobs.forbidden': '仅企业所有者或管理员可以管理后台任务。',
-    'jobs.not_failed': '任务状态已改变，请重新读取；只有失败任务可以重试。',
-    'jobs.not_found': '任务不存在。',
-    'auth.unauthorized': '会话已失效，请重新登录。',
-  };
-  const id = requestIdFromError(error);
+  const message = useAppMessage();
   return (
-    <Alert variant="destructive">
-      <AlertTitle>任务操作未完成</AlertTitle>
-      <AlertDescription>
-        {messages[code(error) ?? ''] ?? '暂时无法完成，请重试。'}
-        <RateLimitHint error={error} />
-        {id ? <p>请求编号：{id}</p> : null}
-      </AlertDescription>
-    </Alert>
-  );
-}
-function Frame({
-  apiClient,
-  title,
-  onBack,
-  children,
-}: {
-  apiClient: ApiClient;
-  title: string;
-  onBack: () => void;
-  children: (identity: CurrentSession) => ReactNode;
-}) {
-  const queryClient = useQueryClient();
-  const session = useQuery(sessionQuery(apiClient, queryClient));
-  return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        <Button variant="link" onClick={onBack}>
-          返回
-        </Button>
-      </header>
-      {session.isPending ? (
-        <p role="status">正在读取会话…</p>
-      ) : session.isError ? (
-        <Failure error={session.error} />
-      ) : !session.data ? (
-        <p>请先登录。</p>
-      ) : session.data.user.role === 'member' ? (
-        <p>仅企业所有者或管理员可以管理后台任务。</p>
-      ) : (
-        children(session.data)
-      )}
-    </main>
+    <ErrorAlert
+      error={error}
+      title={message('jobs.error.title')}
+      genericKey="jobs.error.generic"
+      codes={{
+        'jobs.forbidden': message('jobs.adminOnly'),
+        'jobs.not_failed': message('jobs.error.notFailed'),
+        'jobs.not_found': message('jobs.error.notFound'),
+        'auth.unauthorized': message('common.sessionExpired'),
+      }}
+    />
   );
 }
 export function JobsView({
   apiClient,
-  onBack,
+  docsUrl,
+  onOpen,
   onOpenJob,
+  status,
+  onStatusChange,
 }: {
   apiClient: ApiClient;
-  onBack: () => void;
+  docsUrl: string;
+  /** Router port for opening paths without a full page load. */
+  onOpen?: (path: string) => void;
   onOpenJob: (id: string) => void;
+  /** Active status filter, owned by the router's search params. */
+  status: JobsListStatus;
+  onStatusChange: (status: JobsListStatus) => void;
 }) {
   return (
-    <Frame apiClient={apiClient} title="后台任务" onBack={onBack}>
+    <AdminFrame
+      apiClient={apiClient}
+      docsUrl={docsUrl}
+      onOpen={onOpen}
+      titleKey="jobs.title"
+      adminOnlyKey="jobs.adminOnly"
+    >
       {(identity) => (
         <JobList
           key={identity.user.id}
           apiClient={apiClient}
           identity={identity}
           onOpenJob={onOpenJob}
+          status={status}
+          onStatusChange={onStatusChange}
         />
       )}
-    </Frame>
+    </AdminFrame>
   );
 }
 function JobList({
   apiClient,
   identity,
   onOpenJob,
+  status,
+  onStatusChange,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
   onOpenJob: (id: string) => void;
+  status: JobsListStatus;
+  onStatusChange: (status: JobsListStatus) => void;
 }) {
-  const [filter, setFilter] = useState<StatusFilter | ''>('failed');
+  const message = useAppMessage();
   const queryClient = useQueryClient();
-  const queryKey = ['jobs', 'list', identity.user.id, filter];
+  const queryKey = ['jobs', 'list', identity.user.id, status];
   const jobs = useInfiniteQuery({
     queryKey,
     initialPageParam: undefined as string | undefined,
@@ -142,7 +144,11 @@ function JobList({
       (
         await listJobs({
           client: apiClient,
-          query: { status: filter || undefined, limit: 20, cursor: pageParam },
+          query: {
+            status: status === 'all' ? undefined : status,
+            limit: 20,
+            cursor: pageParam,
+          },
           signal,
           throwOnError: true,
         })
@@ -160,24 +166,26 @@ function JobList({
   });
   return (
     <>
-      <p>查看执行状态、错误摘要和尝试历史，再决定是否重新执行失败任务。</p>
+      <p>{message('jobs.hint')}</p>
       <Field>
-        <FieldLabel htmlFor="job-status">任务状态</FieldLabel>
+        <FieldLabel htmlFor="job-status">
+          {message('jobs.form.status')}
+        </FieldLabel>
         <NativeSelect
           id="job-status"
-          value={filter}
+          value={status}
           onChange={(event) =>
-            setFilter(event.target.value as StatusFilter | '')
+            onStatusChange(event.target.value as JobsListStatus)
           }
         >
-          <NativeSelectOption value="">全部状态</NativeSelectOption>
-          {['failed', 'queued', 'running', 'retry_wait', 'succeeded'].map(
-            (status) => (
-              <NativeSelectOption key={status} value={status}>
-                {names[status]}
-              </NativeSelectOption>
-            ),
-          )}
+          <NativeSelectOption value="all">
+            {message('jobs.form.allStatuses')}
+          </NativeSelectOption>
+          {filterableStatuses.map((value) => (
+            <NativeSelectOption key={value} value={value}>
+              {message(statusKeys[value])}
+            </NativeSelectOption>
+          ))}
         </NativeSelect>
       </Field>
       <Button
@@ -187,14 +195,14 @@ function JobList({
           void queryClient.resetQueries({ queryKey, exact: true });
         }}
       >
-        刷新任务列表
+        {message('jobs.reload')}
       </Button>
-      {jobs.isPending ? <p role="status">正在读取任务…</p> : null}
+      {jobs.isPending ? <p role="status">{message('jobs.loading')}</p> : null}
       {jobs.isError ? <Failure error={jobs.error} /> : null}
       {!jobs.isPending &&
       !jobs.isError &&
       jobs.data.pages.every((page) => page.data.length === 0) ? (
-        <p>当前没有符合条件的任务。</p>
+        <p>{message('jobs.empty')}</p>
       ) : null}
       {!jobs.isError
         ? jobs.data?.pages.flatMap((page) =>
@@ -209,24 +217,31 @@ function JobList({
                       job.status === 'failed' ? 'destructive' : 'secondary'
                     }
                   >
-                    {names[job.status] ?? job.status}
+                    {statusText(job.status, message)}
                   </Badge>
-                  <p className="break-all text-sm">任务编号：{job.id}</p>
+                  <p className="break-all text-sm">
+                    {message('jobs.item.id', { id: job.id })}
+                  </p>
                   <p>
-                    第 {job.batch} 批 · 已尝试 {job.attempts} /{' '}
-                    {job.max_attempts} 次
+                    {message('jobs.item.batch', {
+                      batch: job.batch,
+                      attempts: job.attempts,
+                      max: job.max_attempts,
+                    })}
                   </p>
                   {job.last_error ? (
                     <p className="break-all text-sm">
-                      错误摘要：{job.last_error}
+                      {message('jobs.item.lastError', {
+                        error: job.last_error,
+                      })}
                     </p>
                   ) : null}
                   <Button
                     variant="outline"
-                    aria-label={`查看任务 ${job.id}`}
+                    aria-label={message('jobs.item.openName', { id: job.id })}
                     onClick={() => onOpenJob(job.id)}
                   >
-                    查看记录
+                    {message('jobs.item.open')}
                   </Button>
                 </CardContent>
               </Card>
@@ -241,7 +256,9 @@ function JobList({
             void jobs.fetchNextPage();
           }}
         >
-          加载更多任务
+          {jobs.isFetchingNextPage
+            ? message('common.loadingMore')
+            : message('jobs.loadMore')}
         </Button>
       ) : null}
     </>
@@ -249,24 +266,43 @@ function JobList({
 }
 export function JobView({
   apiClient,
+  docsUrl,
+  onOpen,
   jobId,
-  onBack,
 }: {
   apiClient: ApiClient;
+  docsUrl: string;
+  /** Router port for opening paths without a full page load. */
+  onOpen?: (path: string) => void;
   jobId: string;
-  onBack: () => void;
 }) {
+  const message = useAppMessage();
   return (
-    <Frame apiClient={apiClient} title="任务详情" onBack={onBack}>
+    <AdminFrame
+      apiClient={apiClient}
+      docsUrl={docsUrl}
+      onOpen={onOpen}
+      titleKey="jobs.detail.title"
+      adminOnlyKey="jobs.adminOnly"
+    >
       {(identity) => (
-        <JobRecord
-          key={`${identity.user.id}:${jobId}`}
-          apiClient={apiClient}
-          identity={identity}
-          jobId={jobId}
-        />
+        <>
+          <Button
+            variant="link"
+            className="self-start px-0"
+            onClick={() => onOpen?.('/jobs')}
+          >
+            {message('jobs.back')}
+          </Button>
+          <JobRecord
+            key={`${identity.user.id}:${jobId}`}
+            apiClient={apiClient}
+            identity={identity}
+            jobId={jobId}
+          />
+        </>
       )}
-    </Frame>
+    </AdminFrame>
   );
 }
 function JobRecord({
@@ -278,6 +314,8 @@ function JobRecord({
   identity: CurrentSession;
   jobId: string;
 }) {
+  const message = useAppMessage();
+  const { formatDateTime } = useAppFormat();
   const queryClient = useQueryClient();
   const queryKey = ['jobs', 'detail', identity.user.id, jobId];
   const requestKey = useRef(crypto.randomUUID());
@@ -332,7 +370,7 @@ function JobRecord({
           'jobs.not_found',
           'jobs.not_failed',
           'auth.unauthorized',
-        ].includes(code(error) ?? '')
+        ].includes(errorCodeOf(error) ?? '')
       ) {
         void queryClient.invalidateQueries({ queryKey: ['jobs'] });
         void queryClient.invalidateQueries({ queryKey: sessionKey(apiClient) });
@@ -349,9 +387,11 @@ function JobRecord({
           void queryClient.resetQueries({ queryKey, exact: true });
         }}
       >
-        刷新任务记录
+        {message('jobs.detail.reload')}
       </Button>
-      {details.isPending ? <p role="status">正在读取执行记录…</p> : null}
+      {details.isPending ? (
+        <p role="status">{message('jobs.detail.loading')}</p>
+      ) : null}
       {details.isError ? <Failure error={details.error} /> : null}
       {retry.isError ? <Failure error={retry.error} /> : null}
       {job && !details.isError ? (
@@ -360,31 +400,45 @@ function JobRecord({
           {job.can_retry ? (
             <section className="flex flex-col gap-3">
               <p>
-                保持原任务和业务请求，开启最多 {job.max_attempts}{' '}
-                次尝试的新批次。仍会检查原请求者的权限和源资源。
+                {message('jobs.detail.retryHint', { max: job.max_attempts })}
               </p>
               <Button
                 disabled={retry.isPending || details.isFetching}
                 onClick={() => retry.mutate()}
               >
-                {retry.isPending ? '正在提交…' : '重试失败任务'}
+                {retry.isPending
+                  ? message('jobs.detail.submitting')
+                  : message('jobs.detail.retry')}
               </Button>
             </section>
           ) : null}
-          <h2 className="text-xl font-semibold">执行历史</h2>
+          <h2 className="text-xl font-semibold">
+            {message('jobs.detail.history')}
+          </h2>
           {details.data?.pages.flatMap((page) =>
             page.batches.map((batch) => (
               <Card key={batch.number}>
                 <CardHeader>
-                  <CardTitle>第 {batch.number} 批</CardTitle>
+                  <CardTitle>
+                    {message('jobs.detail.batchTitle', {
+                      number: batch.number,
+                    })}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-3">
                   <p>
-                    {names[batch.status] ?? batch.status} · {batch.attempts} /{' '}
-                    {batch.max_attempts} 次
+                    {message('jobs.detail.batchLine', {
+                      status: statusText(batch.status, message),
+                      attempts: batch.attempts,
+                      max: batch.max_attempts,
+                    })}
                   </p>
                   {batch.legacy_attempts > 0 ? (
-                    <p>升级前 {batch.legacy_attempts} 次尝试仅保留汇总。</p>
+                    <p>
+                      {message('jobs.detail.legacy', {
+                        count: batch.legacy_attempts,
+                      })}
+                    </p>
                   ) : null}
                   <ul className="flex flex-col gap-2">
                     {page.attempts
@@ -395,11 +449,13 @@ function JobRecord({
                           className="rounded-lg border p-3"
                         >
                           <p>
-                            第 {attempt.number} 次 ·{' '}
-                            {names[attempt.status] ?? attempt.status}
+                            {message('jobs.detail.attempt', {
+                              number: attempt.number,
+                              status: statusText(attempt.status, message),
+                            })}
                           </p>
                           <p className="text-sm">
-                            {new Date(attempt.started_at).toLocaleString()}
+                            {formatDateTime(attempt.started_at)}
                           </p>
                           {attempt.last_error ? (
                             <p className="break-all text-sm">
@@ -423,13 +479,14 @@ function JobRecord({
             void details.fetchNextPage();
           }}
         >
-          读取更早批次
+          {message('jobs.detail.earlier')}
         </Button>
       ) : null}
     </>
   );
 }
 function JobSummary({ job }: { job: JobInfo }) {
+  const message = useAppMessage();
   return (
     <Card>
       <CardHeader>
@@ -437,15 +494,25 @@ function JobSummary({ job }: { job: JobInfo }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <Badge variant={job.status === 'failed' ? 'destructive' : 'secondary'}>
-          {names[job.status] ?? job.status}
+          {statusText(job.status, message)}
         </Badge>
-        <p className="break-all text-sm">任务编号：{job.id}</p>
-        <p>
-          当前第 {job.batch} 批 · 已尝试 {job.attempts} / {job.max_attempts} 次
+        <p className="break-all text-sm">
+          {message('jobs.item.id', { id: job.id })}
         </p>
-        <p className="break-all text-sm">关联请求：{job.correlation_id}</p>
+        <p>
+          {message('jobs.summary.batch', {
+            batch: job.batch,
+            attempts: job.attempts,
+            max: job.max_attempts,
+          })}
+        </p>
+        <p className="break-all text-sm">
+          {message('jobs.summary.correlation', { id: job.correlation_id })}
+        </p>
         {job.last_error ? (
-          <p className="break-all text-sm">当前错误摘要：{job.last_error}</p>
+          <p className="break-all text-sm">
+            {message('jobs.summary.lastError', { error: job.last_error })}
+          </p>
         ) : null}
       </CardContent>
     </Card>
