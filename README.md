@@ -1,51 +1,149 @@
 # Axum SaaS Template
 
-Rust/Axum + React 的模块化全栈模板，以可移除的知识库 example 作为可运行教程。
+**A Rust + React foundation for your next SaaS, with a working application to learn from.**
 
-**Core：全栈状态链路与邮箱密码认证。** 打开 `/register` 创建账号并自动登录，首个成功注册者成为 Owner，其余为 Member；已有账号从 `/login` 登录，首页可退出。Owner/Admin 可管理企业成员，停用撤销会话，并发操作保护最后一位 Owner。管理员可查看后台任务与尝试历史，并显式重试失败任务。桌面用户可用 `just desktop` 在 Electron 壳中打开同一 Web 入口，复用全部业务页面与合同。
+English · [简体中文](README.zh-CN.md)
 
-<!-- example:knowledge:readme:start -->
+[![CI](https://github.com/CaiZongyuan/axum-saas-template/actions/workflows/ci.yml/badge.svg)](https://github.com/CaiZongyuan/axum-saas-template/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**知识库示例：** 首页点击“我的文档”，即可新建 Markdown、保存、刷新读取。首次写作自动准备个人库；重复请求幂等处理，私有内容按授权访问。支持标题搜索、安全 Markdown 预览与分页；支持显式编辑、版本冲突保护及共享库 Reader/Editor 授权与撤权；支持 RustFS 附件上传、校验、授权下载与 Markdown 图片引用，当前文档可通过真实 Worker 导出 ZIP。支持确认删除文档、附件和知识库，后台可靠清理对象及过期数据。
+Start with authentication, permissions, background jobs, file storage, and a shared Web/Desktop UI. Keep the reusable SaaS Core, follow the reference application through real business flows, then replace it with your own domain.
 
-<!-- example:knowledge:readme:end -->
+[Online tutorials](https://caizongyuan.github.io/axum-saas-template/) · [Quick start](docs/getting-started/quickstart.md) · [Architecture](docs/saas-template-architecture-spec.md) · [Capability coverage](docs/architecture/v1-coverage.md)
 
-[在线教程](https://caizongyuan.github.io/axum-saas-template/) · [实施计划](docs/plans/template-v1.md) · [架构规范](docs/saas-template-architecture-spec.md)
+## Why this template
 
-在线教程随 `main` 持续发布：每个教程页脚的“源码版本”标注该页验收时对应的仓库提交，`git checkout <该提交>` 即可精确复现该页步骤；能力覆盖与 v1 验收记录见[覆盖与验收页](docs/architecture/v1-coverage.md)。
+- **Core capabilities already connected.** Sessions, membership, files, jobs, audit, and notifications work through the same application and database.
+- **A reference application you can remove.** An ownership manifest tracks example code, routes, dependencies, and tutorials. CI exercises removal and verifies that Core still works.
+- **One API contract across clients.** Rust generates OpenAPI, TypeScript contracts, and the SDK. Web and Electron share views; checks catch contract drift.
+- **Performance you can investigate.** Deterministic budgets check database work and payload sizes; reproducible load scenarios produce latency, throughput, and memory reports.
+- **Learn from the implementation.** Tutorials connect user actions to source code, public interfaces, tests, and deployment steps.
 
-## 启动
+The current deployment model serves **one Organization per deployment**, with multiple members and resource-level permissions. It fits products and internal tools deployed separately for each customer organization.
 
-准备 Docker/Compose、Rust 1.96.0、Node 24.18.0、pnpm 11.17.0、just 1.58.0。
+## What's included
+
+| Capability     | Included behavior                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Identity       | Email/password registration, cookie sessions, CSRF protection, logout, password reset, and session revocation        |
+| Access control | Organization roles, member administration, resource authorization, and scoped, revocable API keys                    |
+| Reliable work  | PostgreSQL-backed jobs, leases, retries, attempt history, idempotent operations, and notifications                   |
+| Files          | Private S3-compatible storage through RustFS, upload/download flows, and background object cleanup                   |
+| Operations     | Audit history, request IDs, structured logs, tracing and metrics, Redis caching, and rate limiting                   |
+| Clients        | React Web UI and an Electron shell sharing views, generated contracts, and an API SDK                                |
+| Deployment     | Single-machine Docker Compose, Caddy HTTPS, database migrations, backups, and an isolated restore drill              |
+| Verification   | Rust HTTP/integration tests, UI tests, browser journeys, module boundaries, contract checks, and performance budgets |
+
+Built with **Rust, Axum, Tokio, Tower, SQLx, PostgreSQL, Redis, RustFS, React, TypeScript, TanStack Router/Query, Tailwind CSS, shadcn/ui, and Electron**.
+
+## Quick start
+
+Install Docker with Compose and the pinned toolchain: **Rust 1.96.0, Node 24.18.0, pnpm 11.17.0, and just 1.58.0**. Versions are recorded in [rust-toolchain.toml](rust-toolchain.toml), [.node-version](.node-version), and [.tool-versions](.tool-versions).
 
 ```bash
+git clone https://github.com/CaiZongyuan/axum-saas-template.git
+cd axum-saas-template
 pnpm install --frozen-lockfile
 just dev
 ```
 
-访问 http://127.0.0.1:5173/。PostgreSQL/RustFS/Redis 运行在 Docker 中，API/Worker/Web 在宿主机运行，支持 API 源码重启与 Web HMR。缺少 `.env` 时使用 `.env.example` 的本地默认值；自定义配置放入不提交的 `.env`。
+Open **[http://127.0.0.1:5173/register](http://127.0.0.1:5173/register)** and create an account. The first registered user becomes the Organization Owner; later users become Members. Passwords must contain 12–128 characters.
 
-`Ctrl+C` 停止 API/Worker/Web，保留数据；`just services-down` 停止开发 PostgreSQL/RustFS/Redis，保留数据卷。
+`just dev` starts PostgreSQL, Redis, RustFS, and Mailpit in Docker, applies migrations, initializes storage, then starts the API, Worker, and Web app on the host. Rust changes restart the API/Worker; the Web app supports hot reload.
 
-## 验证
+Development defaults come from [.env.example](.env.example). Copy it to an untracked `.env` to customize your setup.
+
+| Local service     | Address                                |
+| ----------------- | -------------------------------------- |
+| Web app           | http://127.0.0.1:5173                  |
+| API readiness     | http://127.0.0.1:3000/health/ready     |
+| OpenAPI schema    | http://127.0.0.1:3000/api/openapi.json |
+| Development email | http://127.0.0.1:8025                  |
+
+With `just dev` running, use `just desktop` to open the same application in Electron. `Ctrl+C` stops the host processes; `just services-down` stops the Docker services while preserving their data volumes.
+
+<!-- example:knowledge:readme:start -->
+
+## Learn through the knowledge base example
+
+The included reference application supports personal and shared knowledge bases. It demonstrates how a business module uses Core:
+
+1. Register and create a Markdown document in your personal knowledge base.
+2. Edit, preview, search, and paginate documents; handle concurrent edit conflicts.
+3. Grant Reader or Editor access to a shared knowledge base and verify revocation.
+4. Upload attachments, download authorized files, and insert image references.
+5. Request a ZIP export, follow the Worker job, and receive a notification.
+6. Inspect audit history, then delete content and let background jobs clean up objects.
+
+Start with [your first document](docs/tutorials/04-personal-documents.md), [resource permissions](docs/tutorials/07-library-grants.md), or [exports and jobs](docs/tutorials/10-document-exports.md).
+
+<!-- example:knowledge:readme:end -->
+
+## Make it your own
+
+Core owns reusable SaaS capabilities. The reference application owns its business model, views, routes, and teaching materials. See the [module boundaries](docs/architecture/module-boundaries.md) for the dependency rules.
+
+Preview example removal with:
 
 ```bash
-just check
+just example-remove --dry-run
 ```
 
-`just test-backend` 使用独立 PostgreSQL/RustFS/Redis 容器，`just test-frontend` 使用 Vitest/Testing Library，`just e2e` 运行真实 API 与 Chromium。测试不会清空开发数据库。
+The [replacement guide](docs/tutorials/23-example-removal.md) walks through removal and adding your own module. Applying removal requires a clean Git working copy. It preserves migration history by default and leaves databases, object storage, and secrets untouched.
 
-日常运行 `just check`；关键旅程完成后运行 `just e2e`（首次需 `pnpm exec playwright install chromium`），里程碑完整验证用 `just check-full`。
+## Performance and validation
 
-## 文档与合同
+Performance contracts cover database round trips, rows written, response sizes, and frontend bundle sizes. They run with the normal checks. Load results are recorded separately for nightly and release analysis.
+
+<!-- example:knowledge:performance:start -->
 
 ```bash
-just docs
-just docs-build
-just generate
-pnpm contracts:check
+just perf-ci            # Bundle budgets and query-plan reports
+just perf-load          # Steady mixed workload
+just perf-saturation    # Increasing concurrency
+just perf-trajectory    # Complete user journeys
+just perf-soak          # Sustained workload and resource samples
 ```
 
-本地文档：http://127.0.0.1:5174/axum-saas-template/。仓库 Markdown 是唯一可编辑来源，VitePress 投影不提交。OpenAPI、TS contracts 和 SDK 从 Rust 生成并检查漂移。
+Load commands require [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/) and start an isolated, disposable stack using release builds. The current scenarios use the knowledge base example. Reports include data size, throughput, P50/P95/P99, business errors, expected throttling, queue depth, database connection samples, and API/Worker RSS.
 
-新增能力时同步更新源码、测试和教程。参见 [Core/示例边界](docs/architecture/module-boundaries.md)与 [T01 教程](docs/tutorials/01-full-stack-request.md)。
+See [performance budgets](docs/tutorials/24-perf-gates.md) and [load reports](docs/tutorials/25-load-reports.md) for commands, conditions, and the initial measurements. Interpret each result with its workload and machine configuration when sizing a deployment.
+
+<!-- example:knowledge:performance:end -->
+
+```bash
+just check              # Main checks, tests, builds, and documentation
+just test-backend       # Backend tests with isolated services
+just test-frontend      # Vitest and Testing Library
+just e2e                # Real API and Chromium user journeys
+just check-full         # Main checks plus browser E2E
+```
+
+Install Chromium once with `pnpm exec playwright install chromium` before running browser tests. Test infrastructure uses isolated resources; see the [testing guide](docs/testing/t01-feedback-loop.md).
+
+## Project layout
+
+```text
+apps/          API, Worker, Web, Desktop, and documentation entry points
+crates/        Application modules and shared platform infrastructure
+packages/      Contracts, SDK, client core, UI, and shared views
+migrations/    PostgreSQL schema history
+examples/      Reference application ownership manifests
+scripts/       Development, verification, performance, and deployment tools
+docs/          Tutorials, architecture, decisions, and operational guides
+```
+
+## Documentation and deployment
+
+The [online tutorials](https://caizongyuan.github.io/axum-saas-template/) are currently in Chinese. Each page links to its source revision. Run `just docs` for the local site at http://127.0.0.1:5174/axum-saas-template/.
+
+- [Follow a request through the full stack](docs/tutorials/01-full-stack-request.md)
+- [Deploy on a single machine](docs/tutorials/21-single-machine-production.md)
+- [Back up and restore a deployment](docs/tutorials/22-backup-restore.md)
+- [Review implemented capabilities](docs/architecture/v1-coverage.md)
+
+When adding a feature, update its behavior, tests, and tutorial together. Use `just generate` to regenerate API contracts, `pnpm contracts:check` to check drift, and `just docs-build` to validate the documentation build.
+
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 Axum SaaS Template contributors.

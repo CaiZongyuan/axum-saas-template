@@ -18,11 +18,20 @@ The reviewed v1 spec and 28 implementation issues are published on GitHub. Their
 2. Claim only an implementation ticket whose blockers are complete. Keep unrelated repository/user changes intact.
 3. Run implement: one behavior test goes red, the minimal end-to-end change turns it green, then take the next behavior. Use tdd at the agreed public interfaces rather than private implementation details.
 4. Run focused tests/type checks during development. Update the actual example, online tutorial, generated references and example ownership manifest with the feature.
-5. Use focused HTTP/View tests and type checks during development. Run `just check` before delivery; it excludes browser E2E. Run E2E once when a new critical user journey is complete, for a browser-specific regression, or at milestone integration. Record the tested revision; avoid repeating the same browser suite locally, on every push and after merge.
-6. Run code-review against a fixed point using Standards and Spec reviews, fix actionable findings, then commit. The review skill controls its own parallel review agents.
-7. Commit and push each reviewed slice promptly. Open a PR linked to the ticket and include behavior, evidence and limitations. For the approved v1 build, the user has authorized autonomous Issue/PR management and merging after required checks pass; continue to the next unblocked ticket until v1 is complete.
+5. Once the behavior works, run the repository-owned [reduce-complexity](../../.agents/skills/reduce-complexity/SKILL.md) step on the ticket's changes. Apply small, behavior-preserving improvements; leave larger refactors and behavior changes as proposals. No-change is a valid outcome.
+6. Run affected tests after simplification and `just check` before delivery; it excludes browser E2E. Run E2E once when a new critical user journey is complete, for a browser-specific regression, or at milestone integration. Record the tested revision and any uncommitted scope; avoid repeating the same browser suite locally, on every push and after merge.
+7. Run the existing code-review against a fixed point using Standards and Spec reviews, fix actionable findings, then commit. The review skill controls its own parallel review agents. Review the result after simplification; fixes require refreshing affected tests and review before delivery. Optional cleanup does not block delivery by itself.
+8. Commit and push each reviewed slice promptly. Open a PR linked to the ticket and include behavior, evidence and limitations. Before merging, confirm the final PR changes are covered by simplification, review and required checks; reuse completed passes while their inputs remain unchanged. For the approved v1 build, the user has authorized autonomous Issue/PR management and merging after required checks pass; continue to the next unblocked ticket until v1 is complete.
 
 Do not save tests, documentation or example removability for a final cleanup ticket. The release ticket checks that already-delivered chapters form a coherent learning path.
+
+## Epic completion
+
+Once the Epic's implementation tickets are integrated, run the reduce-complexity Epic survey over the whole Epic and its current consumers. Use the pre-Epic revision and integrated head, or an explicit child-PR inventory; the last child's diff alone is insufficient. Report supported opportunities to reduce duplicated state, APIs, configuration and other maintenance costs.
+
+The survey produces proposals. Required behavior defects affect acceptance; optional cleanup can become follow-up work without reopening completed tickets or blocking an otherwise complete Epic. Implement accepted proposals as bounded changes through the same validation and code-review flow. Publishing follow-ups or changing parent/spec state still follows [issue-tracker.md](issue-tracker.md) and existing authorization.
+
+Keep imported skills intact for upstream updates. Repository-specific additions belong in AGENTS.md, this workflow and repository-owned skills.
 
 ## Context and detours
 
