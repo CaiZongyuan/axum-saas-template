@@ -1,6 +1,18 @@
 # 跟做：保存第一篇 Markdown 文档
 
-运行 `just dev`，注册或登录后点击“我的文档”。新账号先看到空状态，点击“新建文档”，输入标题与 Markdown，再点击“保存文档”。刷新详情页，内容仍从 PostgreSQL 读取。
+运行 `just dev`，注册或登录后从共享壳侧栏进入“我的文档”。新账号先看到空状态，点击“新建文档”，输入标题与 Markdown，再点击“保存文档”。刷新详情页，内容仍从 PostgreSQL 读取。
+
+本章页面的固定文案由知识库示例的双语消息目录提供，界面语言可在注册页、登录页或“外观与语言”中切换；中英文操作名称保持一致：
+
+| 页面元素 | 中文          | English       |
+| -------- | ------------- | ------------- |
+| 业务导航 | 我的文档      | My documents  |
+| 新建按钮 | 新建文档      | New document  |
+| 标题字段 | 标题          | Title         |
+| 正文字段 | Markdown 正文 | Markdown body |
+| 保存动作 | 保存文档      | Save document |
+| 编辑入口 | 编辑文档      | Edit document |
+| 加载更多 | 加载更多      | Load more     |
 
 普通 Member 不用等待管理员建库。第一次成功保存会在同一事务准备个人 Knowledge Base、Editor Grant、Document 和对应审计。当前章节展示新建、列表和原文读取；[下一章](05-search-preview.md)加入安全预览和搜索，并发编辑由后续章节交付。
 
@@ -39,13 +51,15 @@ pnpm contracts:check
 
 [Knowledge Views](../../packages/views/src/knowledge/documents-view.tsx)复用 Core 会话、生成 SDK 和通用 UI。列表仅返回摘要，采用默认 50、最多 100 条的 cursor 分页；cursor 绑定当前身份与排序，不能换账号沿用。查询每次仍独立授权，cursor 不是访问凭据。
 
+页面自身只渲染工作区内容：侧栏导航、页面地标与角色可见入口由应用适配器提供的共享壳渲染，业务导航条目和全部文案来自示例注册的导航与消息目录。切换界面语言时页面原地重新渲染，列表与输入不丢失，用户内容保持原文。
+
 本章最初通过原文详情接通读取；当前版本已按[下一章](05-search-preview.md)显示安全预览。保存失败会保留输入和请求编号；切换账号后上一身份的保存响应不能更新新身份的界面。
 
 ## 5. 验证行为和可移除性
 
 ```bash
 node scripts/test-backend.mjs --test knowledge
-pnpm exec vitest run apps/web/src/knowledge.test.tsx
+pnpm exec vitest run apps/web/src/knowledge.test.tsx apps/web/src/knowledge-bilingual.test.tsx
 pnpm boundaries:check
 just check
 ```

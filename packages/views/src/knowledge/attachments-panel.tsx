@@ -1,4 +1,3 @@
-import { RateLimitHint } from '../system/rate-limit';
 import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -10,8 +9,8 @@ import {
   type CurrentSession,
   type FileInfo,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
-import { Alert, AlertTitle, AlertDescription } from '@saas/ui/components/alert';
+import { errorCodeOf } from '@saas/core';
+import { RequestErrorAlert } from './request-error';
 import { Button } from '@saas/ui/components/button';
 import { Empty, EmptyHeader, EmptyTitle } from '@saas/ui/components/empty';
 import {
@@ -25,6 +24,7 @@ import { Progress } from '@saas/ui/components/progress';
 import type { FileTransfer } from './file-transfer';
 import { DeleteResource } from './delete-resource';
 import { sessionKey } from '../identity';
+import { useAppMessage } from '../shell/messages';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -34,31 +34,25 @@ function formatBytes(bytes: number): string {
 
 type Phase =
   'idle' | 'hashing' | 'uploading' | 'completing' | 'done' | 'failed';
-function code(error: unknown): string | undefined {
-  return error && typeof error === 'object' && 'error' in error
-    ? (error.error as { code?: string }).code
-    : undefined;
-}
+const FAILURE_KEYS: Record<string, string> = {
+  'files.too_large': 'attachments.tooLarge',
+  'files.upload_expired': 'attachments.uploadExpired',
+  'files.upload_rejected': 'attachments.uploadRejected',
+  'files.invalid_input': 'attachments.invalidInput',
+  'knowledge.forbidden': 'attachments.forbidden',
+  'knowledge.not_found': 'errors.docAccessLost',
+  'auth.unauthorized': 'errors.unauthorized',
+};
 function Failure({ error }: { error: unknown }) {
-  const messages: Record<string, string> = {
-    'files.too_large': '文件超过上传上限，请选择较小的文件。',
-    'files.upload_expired': '上传已过期，请重新上传。',
-    'files.upload_rejected': '文件校验失败，请重新选择文件或重新上传。',
-    'files.invalid_input': '文件名、类型或校验信息无效，请重新选择。',
-    'knowledge.forbidden': '上传权限已失效，无法继续完成附件。',
-    'knowledge.not_found': '文档不存在或访问权限已失效。',
-    'auth.unauthorized': '会话已失效，请重新登录。',
-  };
-  const id = requestIdFromError(error);
+  const message = useAppMessage('knowledge');
   return (
-    <Alert variant="destructive">
-      <AlertTitle>附件操作未完成</AlertTitle>
-      <AlertDescription>
-        {messages[code(error) ?? ''] ?? '上传失败或下载暂时不可用，请重试。'}
-        <RateLimitHint error={error} />
-        {id ? <p>请求编号：{id}</p> : null}
-      </AlertDescription>
-    </Alert>
+    <RequestErrorAlert
+      title={message('attachments.errorTitle')}
+      text={message(
+        FAILURE_KEYS[errorCodeOf(error) ?? ''] ?? 'attachments.fallback',
+      )}
+      error={error}
+    />
   );
 }
 
@@ -77,6 +71,7 @@ export function AttachmentsPanel({
   transfer: FileTransfer;
   onInsert?: (markdown: string) => void;
 }) {
+  const message = useAppMessage('knowledge');
   const queryClient = useQueryClient();
   const attachments = useInfiniteQuery({
     queryKey: ['knowledge', 'attachments', identity.user.id, documentId],
@@ -126,7 +121,7 @@ export function AttachmentsPanel({
   const serverCanDelete = attachments.data?.pages[0]?.can_delete;
   const canDelete =
     canEdit && serverCanDelete === true && !attachments.isError && !denied;
-  const accessError = code(attachments.error);
+  const accessError = errorCodeOf(attachments.error);
   useEffect(() => {
     if (
       (canEdit && serverCanDelete === false) ||
@@ -162,7 +157,7 @@ export function AttachmentsPanel({
         'knowledge.forbidden',
         'knowledge.not_found',
         'auth.unauthorized',
-      ].includes(code(error) ?? '')
+      ].includes(errorCodeOf(error) ?? '')
     ) {
       setDenied(true);
       void queryClient.invalidateQueries({
@@ -239,7 +234,7 @@ export function AttachmentsPanel({
       if (controller.signal.aborted || !mounted.current) return;
       if (
         ['files.upload_expired', 'files.upload_rejected'].includes(
-          code(error) ?? '',
+          errorCodeOf(error) ?? '',
         )
       )
         attempt.current = null;
@@ -274,8 +269,13 @@ export function AttachmentsPanel({
   }
 
   return (
-    <section aria-label="文档附件" className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold">附件</h2>
+    <section
+      aria-label={message('attachments.section')}
+      className="flex flex-col gap-4"
+    >
+      <h2 className="text-xl font-semibold">
+        {message('attachments.heading')}
+      </h2>
       <Button
         variant="outline"
         disabled={attachments.isFetching}
@@ -285,14 +285,18 @@ export function AttachmentsPanel({
             setDenied(!refreshed.data.pages[0]?.can_delete);
         }}
       >
-        重新查询附件
+        {message('attachments.retry')}
       </Button>
-      {attachments.isPending ? <p role="status">正在读取附件…</p> : null}
+      {attachments.isPending ? (
+        <p role="status">{message('attachments.loading')}</p>
+      ) : null}
       {attachments.isError ? <Failure error={attachments.error} /> : null}
       {canEdit ? (
         <FieldGroup>
           <Field data-disabled={busy || !canUpload}>
-            <FieldLabel htmlFor="attachment-file">选择附件</FieldLabel>
+            <FieldLabel htmlFor="attachment-file">
+              {message('attachments.fileLabel')}
+            </FieldLabel>
             <Input
               ref={input}
               id="attachment-file"
@@ -306,8 +310,7 @@ export function AttachmentsPanel({
               }}
             />
             <FieldDescription>
-              上传后完成校验才会出现在附件列表。单文件上限{' '}
-              {formatBytes(maxBytes)}。
+              {message('attachments.hint', { size: formatBytes(maxBytes) })}
             </FieldDescription>
           </Field>
           <Button
@@ -316,28 +319,35 @@ export function AttachmentsPanel({
               void upload();
             }}
           >
-            {phase === 'failed' ? '重试上传' : '上传附件'}
+            {phase === 'failed'
+              ? message('attachments.retryUpload')
+              : message('attachments.upload')}
           </Button>
         </FieldGroup>
       ) : null}
       {busy ? (
         <>
-          <Progress aria-label="附件上传进度" value={progress} />
+          <Progress
+            aria-label={message('attachments.progress')}
+            value={progress}
+          />
           <p role="status">
             {phase === 'hashing'
-              ? '正在准备文件…'
+              ? message('attachments.preparing')
               : phase === 'completing'
-                ? '正在校验附件…'
-                : `正在上传 ${progress}%`}
+                ? message('attachments.verifying')
+                : message('attachments.uploading', { percent: progress })}
           </p>
         </>
       ) : null}
-      {phase === 'done' ? <p role="status">上传完成</p> : null}
+      {phase === 'done' ? (
+        <p role="status">{message('attachments.uploaded')}</p>
+      ) : null}
       {error ? <Failure error={error} /> : null}
       {!attachments.isPending && !attachments.isError && items.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>暂无附件</EmptyTitle>
+            <EmptyTitle>{message('attachments.empty')}</EmptyTitle>
           </EmptyHeader>
         </Empty>
       ) : null}
@@ -351,12 +361,16 @@ export function AttachmentsPanel({
               <Button
                 variant="outline"
                 disabled={!!downloading}
-                aria-label={`下载 ${file.file_name}`}
+                aria-label={message('attachments.download', {
+                  name: file.file_name,
+                })}
                 onClick={() => {
                   void download(file);
                 }}
               >
-                {downloading === file.id ? '正在下载…' : '下载'}
+                {downloading === file.id
+                  ? message('common.downloading')
+                  : message('attachments.downloadAction')}
               </Button>
               {canDelete ? (
                 <DeleteResource
@@ -381,7 +395,7 @@ export function AttachmentsPanel({
                     );
                   }}
                 >
-                  插入引用
+                  {message('attachments.insertRef')}
                 </Button>
               ) : null}
             </li>
@@ -396,7 +410,7 @@ export function AttachmentsPanel({
             void attachments.fetchNextPage();
           }}
         >
-          加载更多附件
+          {message('attachments.loadMore')}
         </Button>
       ) : null}
     </section>

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createRootRouteWithContext,
   createRoute,
@@ -12,7 +13,9 @@ import {
 import type { ApiClient } from '@saas/sdk';
 import {
   AppMessagesProvider,
+  AppShellLayout,
   PreferencesProvider,
+  sessionQuery,
   useAppMessage,
   usePageTitle,
   SettingsView,
@@ -415,6 +418,10 @@ const provideByExample = new Map(
   exampleEntries.map((entry) => [entry.id, entry.provide]),
 );
 
+// Every example page renders inside the universal shell (docs/ui/design.md
+// §4.1): the adapter — not the example — resolves the session for the
+// role-aware navigation and owns the router ports. Example views render
+// page content only; the shell provides the landmarks.
 function adapterRoute(route: AssembledApp['routes'][number]) {
   return createRoute({
     getParentRoute: () => rootRoute,
@@ -422,13 +429,26 @@ function adapterRoute(route: AssembledApp['routes'][number]) {
     component: function ExamplePage() {
       const params = useParams({ strict: false }) as Record<string, string>;
       const navigate = useNavigate();
-      const { apiClient } = rootRoute.useRouteContext();
+      const { apiClient, docsUrl } = rootRoute.useRouteContext();
+      const queryClient = useQueryClient();
+      const session = useQuery(sessionQuery(apiClient, queryClient));
       const page = route.component({
         params,
         apiClient,
         navigate: navigatePort(navigate),
       });
-      return provideByExample.get(route.exampleId)?.(page) ?? page;
+      return (
+        <AppShellLayout
+          docsUrl={docsUrl}
+          navigation={assembledApp.navigation}
+          role={session.data?.user.role}
+          onOpen={(path) => {
+            void navigate({ to: path });
+          }}
+        >
+          {provideByExample.get(route.exampleId)?.(page) ?? page}
+        </AppShellLayout>
+      );
     },
   });
 }

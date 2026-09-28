@@ -10,7 +10,7 @@ import type { ExampleContribution } from '../shell/app-contract';
 function NotesPage() {
   const message = useAppMessage('notes');
   return (
-    <main className="mx-auto max-w-2xl p-8">
+    <div className="mx-auto max-w-2xl p-8">
       <h1 className="text-xl font-semibold">{message('page.title')}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         {message('page.intro')}
@@ -19,7 +19,7 @@ function NotesPage() {
         <li>{message('item.read')}</li>
         <li>{message('item.write')}</li>
       </ul>
-    </main>
+    </div>
   );
 }
 

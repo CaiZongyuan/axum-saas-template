@@ -9,6 +9,7 @@ import {
   type FileTransfer,
 } from './index';
 import { useDocumentGuard } from './document-guard';
+import { knowledgeMessages } from './messages';
 import type { AppPageProps, ExampleContribution } from '../shell/app-contract';
 import type { NotificationTarget } from '@saas/sdk';
 
@@ -204,11 +205,13 @@ export function createKnowledgeExample({
     ],
     messages: {
       zh: {
+        ...knowledgeMessages.zh,
         'group.label': '知识库',
         'nav.documents': '我的文档',
         'nav.knowledge-bases': '知识库',
       },
       en: {
+        ...knowledgeMessages.en,
         'group.label': 'Knowledge base',
         'nav.documents': 'My documents',
         'nav.knowledge-bases': 'Knowledge bases',

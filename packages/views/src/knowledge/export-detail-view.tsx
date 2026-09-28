@@ -13,9 +13,15 @@ import {
   CardTitle,
 } from '@saas/ui/components/card';
 import { sessionQuery } from '../identity';
-import { ExportFailure, exportLabels, exportPending } from './export-feedback';
+import {
+  ExportFailure,
+  exportLabelKeys,
+  exportPending,
+} from './export-feedback';
 import { useExportDownload } from './export-download';
 import type { FileTransfer } from './file-transfer';
+import { useAppMessage } from '../shell/messages';
+import { useAppFormat } from '../shell/format';
 
 export function DocumentExportView({
   apiClient,
@@ -30,22 +36,25 @@ export function DocumentExportView({
   transfer: FileTransfer;
   onBack: () => void;
 }) {
+  const message = useAppMessage('knowledge');
   const client = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, client));
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
       <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">导出详情</h1>
+        <h1 className="text-2xl font-semibold">
+          {message('exports.detailTitle')}
+        </h1>
         <Button variant="link" onClick={onBack}>
-          返回通知
+          {message('exports.backToNotifications')}
         </Button>
       </header>
       {session.isPending ? (
-        <p role="status">正在读取会话…</p>
+        <p role="status">{message('common.readingSession')}</p>
       ) : session.isError ? (
         <ExportFailure error={session.error} />
       ) : !session.data ? (
-        <p>请先登录。</p>
+        <p>{message('exports.signInFirst')}</p>
       ) : (
         <Result
           key={`${session.data.user.id}:${documentId}:${exportId}`}
@@ -56,7 +65,7 @@ export function DocumentExportView({
           transfer={transfer}
         />
       )}
-    </main>
+    </div>
   );
 }
 function Result({
@@ -89,6 +98,8 @@ function Result({
         ? 1500
         : false,
   });
+  const message = useAppMessage('knowledge');
+  const { formatDateTime } = useAppFormat();
   const { error, clearError, downloading, download } = useExportDownload({
     apiClient,
     documentId,
@@ -108,30 +119,36 @@ function Result({
           void result.refetch();
         }}
       >
-        刷新导出状态
+        {message('exports.refresh')}
       </Button>
       {result.isPending ? (
-        <p role="status">正在读取导出结果…</p>
+        <p role="status">{message('exports.detailLoading')}</p>
       ) : result.isError ? (
         <ExportFailure error={result.error} />
       ) : item ? (
         <Card>
           <CardHeader>
-            <CardTitle>版本 {item.document_version}</CardTitle>
+            <CardTitle>
+              {message('common.version', { version: item.document_version })}
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div>
               <Badge
                 variant={item.status === 'failed' ? 'destructive' : 'secondary'}
               >
-                {exportLabels[item.status] ?? '状态更新中'}
+                {message(
+                  exportLabelKeys[item.status] ?? 'exports.statusUpdating',
+                )}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground">
-              有效期至 {new Date(item.expires_at).toLocaleString()}
+              {message('exports.expires', {
+                date: formatDateTime(item.expires_at),
+              })}
             </p>
             {item.status === 'failed' || item.status === 'expired' ? (
-              <p>可回到文档重新申请导出。</p>
+              <p>{message('exports.reusableHint')}</p>
             ) : null}
             {item.can_download ? (
               <Button
@@ -140,7 +157,9 @@ function Result({
                   void download(exportId);
                 }}
               >
-                {downloading ? '正在下载…' : '下载 ZIP'}
+                {downloading
+                  ? message('common.downloading')
+                  : message('exports.downloadZip')}
               </Button>
             ) : null}
           </CardContent>
