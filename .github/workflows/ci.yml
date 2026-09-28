@@ -158,6 +158,10 @@ jobs:
         run: |
           just check-core
           just docs-build
+          pnpm typecheck
+          pnpm test:frontend
+          pnpm --filter @saas/web build
+          pnpm boundaries:check
       # Notes-only → core-only: the shell must assemble an empty example
       # set and fall back to the universal home.
       - name: Commit the first removal (the tool only edits clean copies)

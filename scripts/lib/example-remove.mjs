@@ -34,9 +34,12 @@ export function listExampleIds(root) {
 }
 
 export function loadExampleManifest(root, exampleId) {
-  return JSON.parse(
-    readFileSync(join(root, manifestPathFor(exampleId)), 'utf8'),
-  );
+  const path = join(root, manifestPathFor(exampleId));
+  if (!existsSync(path))
+    throw new Error(
+      `unknown example id: ${exampleId} (registered: ${listExampleIds(root).join(', ') || 'none'})`,
+    );
+  return JSON.parse(readFileSync(path, 'utf8'));
 }
 
 // Whether the example is still registered in this copy. Journeys that click
@@ -112,11 +115,38 @@ export function verifyExampleManifest(root, exampleId = 'knowledge-base') {
 }
 
 // Every registered example must still describe this copy exactly. Removed
-// examples verify trivially against their emptied manifests.
+// examples verify trivially against their emptied manifests. Exclusive
+// ownership is a hard constraint: two examples claiming the same path, or
+// the same dependency in the same manifest, is a conflict the removal tool
+// could never adjudicate, so verification refuses it. Composition points
+// are deliberately shared and stay exempt.
 export function verifyExampleManifests(root) {
-  return listExampleIds(root).map((exampleId) =>
+  const examples = listExampleIds(root).map((exampleId) =>
     verifyExampleManifest(root, exampleId),
   );
+  const refuse = (subject, previousId, currentId) => {
+    throw new Error(
+      `Examples ${previousId} and ${currentId} both own ${subject}; ownership must be exclusive`,
+    );
+  };
+  const pathOwners = new Map();
+  const dependencyOwners = new Map();
+  for (const example of examples) {
+    for (const path of example.ownedPaths) {
+      const previous = pathOwners.get(path);
+      if (previous) refuse(path, previous, example.id);
+      pathOwners.set(path, example.id);
+    }
+    for (const kind of ['ownedDependencies', 'ownedCargoDependencies'])
+      for (const [file, names] of Object.entries(example[kind] ?? {}))
+        for (const name of names) {
+          const key = `${file}::${name}`;
+          const previous = dependencyOwners.get(key);
+          if (previous) refuse(`${name} in ${file}`, previous, example.id);
+          dependencyOwners.set(key, example.id);
+        }
+  }
+  return examples;
 }
 
 // Pure planning: what the removal would change. Writes nothing.
@@ -179,6 +209,15 @@ export function planExampleRemoval(
 // and every registered marker must still be an intact start/end pair.
 export function checkRemovalSafety(root, plan) {
   const problems = [];
+  // The manifests must still describe this copy exactly, and their
+  // ownership claims must not conflict: a removal that proceeds on a
+  // contradictory description could delete a path or strip a dependency
+  // another registered example still needs.
+  try {
+    verifyExampleManifests(root);
+  } catch (error) {
+    problems.push({ subject: 'ownership manifests', detail: error.message });
+  }
   let status = '';
   try {
     status = execFileSync('git', ['-C', root, 'status', '--porcelain'], {

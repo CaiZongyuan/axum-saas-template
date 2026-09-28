@@ -532,3 +532,97 @@ test('planning targets the requested example only', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('an unknown example id fails, naming the registered ids', () => {
+  const root = buildFixture();
+  try {
+    assert.throws(
+      () => loadExampleManifest(root, 'no-such-example'),
+      /unknown example id: no-such-example \(registered: knowledge-base\)/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('overlapping owned paths fail verification', () => {
+  const root = buildFixture();
+  try {
+    addNotesExample(root);
+    writeFileSync(
+      join(root, 'examples', 'notes', 'manifest.json'),
+      JSON.stringify(
+        {
+          id: 'notes',
+          status: 'active',
+          markerPrefix: 'notes',
+          description: 'The composition proving example.',
+          ownedPaths: [
+            'packages/views/src/notes',
+            'packages/views/src/knowledge',
+          ],
+          compositionPoints: { views: 'packages/views/src/index.ts' },
+          registrationMarkers: {
+            'packages/views/src/index.ts': ['views'],
+          },
+        },
+        null,
+        2,
+      ),
+    );
+    assert.throws(
+      () => verifyExampleManifests(root),
+      /knowledge-base and notes both own packages\/views\/src\/knowledge/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('overlapping owned dependencies fail verification', () => {
+  const root = buildFixture();
+  try {
+    addNotesExample(root);
+    const claimSharedDependency = (id) => {
+      const path = join(root, 'examples', id, 'manifest.json');
+      const manifest = JSON.parse(readFileSync(path, 'utf8'));
+      manifest.ownedDependencies = {
+        'packages/views/package.json': ['react-markdown'],
+      };
+      writeFileSync(path, JSON.stringify(manifest, null, 2));
+    };
+    claimSharedDependency('knowledge-base');
+    claimSharedDependency('notes');
+    assert.throws(
+      () => verifyExampleManifests(root),
+      /knowledge-base and notes both own react-markdown in packages\/views\/package\.json/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the removal command refuses a copy whose manifests conflict', () => {
+  const root = buildFixture();
+  try {
+    addNotesExample(root);
+    const claimSharedDependency = (id) => {
+      const path = join(root, 'examples', id, 'manifest.json');
+      const manifest = JSON.parse(readFileSync(path, 'utf8'));
+      manifest.ownedDependencies = {
+        'packages/views/package.json': ['react-markdown'],
+      };
+      writeFileSync(path, JSON.stringify(manifest, null, 2));
+    };
+    claimSharedDependency('knowledge-base');
+    claimSharedDependency('notes');
+    assert.throws(
+      () => removeExample(root, { exampleId: 'notes', run: () => undefined }),
+      /ownership manifests/,
+    );
+    // The refusal precedes any deletion: the contested copy is untouched.
+    assert(existsSync(join(root, 'packages/views/src/notes')));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

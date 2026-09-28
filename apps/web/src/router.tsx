@@ -32,7 +32,7 @@ import { assembledApp, exampleEntries } from './app-examples';
 type AppContext = { apiClient: ApiClient; docsUrl: string };
 const rootRoute = createRootRouteWithContext<AppContext>()({
   component: RootLayout,
-  notFoundComponent: NotFoundRedirect,
+  notFoundComponent: RouteNotFoundPage,
 });
 
 // The universal shell renders the assembled result; the actual Router
@@ -47,14 +47,28 @@ function RootLayout() {
   );
 }
 
-// Unknown paths and unrenderable business targets fall back to the Core
-// home without a loop ('/' always exists).
-function NotFoundRedirect() {
+// Unknown paths render the shell's unavailable page instead of silently
+// rewriting the address: the URL may be an old bookmark of a removed
+// example, and the page keeps a visible way home without a loop.
+function RouteNotFoundPage() {
   const navigate = useNavigate();
-  useEffect(() => {
-    void navigate({ to: '/', replace: true });
-  }, [navigate]);
-  return null;
+  return (
+    <main className="mx-auto max-w-2xl p-8">
+      <h1 className="text-xl font-semibold">相关功能当前不可用</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        这个地址指向的功能可能已被移除，或从未存在。
+      </p>
+      <button
+        type="button"
+        className="mt-4 text-sm underline"
+        onClick={() => {
+          void navigate({ to: '/' });
+        }}
+      >
+        返回首页
+      </button>
+    </main>
+  );
 }
 
 // Example routes register at runtime, so TanStack's typed `to` unions can
