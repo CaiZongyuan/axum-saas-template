@@ -105,10 +105,11 @@
     {
       "id": "members",
       "source": "docs/tutorials/08-members.md",
+      "sourceEn": "docs/tutorials/08-members.en.md",
       "route": "tutorials/members.md",
       "title": "成员管理与最后 Owner",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI10" }
+      "titleEn": "Member management and the last owner",
+      "group": "跟做教程"
     },
     {
       "id": "attachments",
@@ -161,10 +162,11 @@
     {
       "id": "api-keys",
       "source": "docs/tutorials/15-api-keys.md",
+      "sourceEn": "docs/tutorials/15-api-keys.en.md",
       "route": "tutorials/api-keys.md",
       "title": "API Key 与当前资源权限",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI10" }
+      "titleEn": "API keys and current resource permissions",
+      "group": "跟做教程"
     },
     {
       "id": "versioned-cache",

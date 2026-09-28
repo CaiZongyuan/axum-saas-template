@@ -14,7 +14,7 @@ import {
   type Member,
   type MemberRole,
 } from '@saas/sdk';
-import { requestIdFromError } from '@saas/core';
+import { errorCodeOf, requestIdFromError } from '@saas/core';
 import { Alert, AlertTitle, AlertDescription } from '@saas/ui/components/alert';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
@@ -32,32 +32,34 @@ import {
 } from '@saas/ui/components/native-select';
 import { Switch } from '@saas/ui/components/switch';
 import { sessionQuery } from '../identity';
+import { AppShellLayout } from '../shell/app-shell';
+import { roleMessageKeys, useAppMessage } from '../shell/messages';
+import { usePageTitle } from '../shell/page-title';
 
-const roleNames: Record<MemberRole, string> = {
-  owner: '企业所有者',
-  admin: '管理员',
-  member: '成员',
-};
+// Member administration inside the universal shell (docs/ui/design.md
+// §5 Q4): the view resolves its own session — once for the shell's
+// role-aware navigation, once for the roster — and speaks the active
+// language through the Core catalog. The versioned save contract and the
+// server-decided error codes are unchanged.
+
 function Failure({ error }: { error: unknown }) {
-  const code =
-    error && typeof error === 'object' && 'error' in error
-      ? (error.error as { code?: string }).code
-      : undefined;
-  const messages: Record<string, string> = {
-    'organization.last_owner':
-      '必须保留至少一位启用的企业所有者。请先任命其他 Owner。',
-    'organization.forbidden': '你没有管理这些成员或角色的权限。',
-    'organization.version_conflict': '成员已被修改，请重新读取列表后再操作。',
-    'auth.unauthorized': '会话已失效，请重新登录。',
+  const message = useAppMessage();
+  const codes: Record<string, string> = {
+    'organization.last_owner': message('members.error.lastOwner'),
+    'organization.forbidden': message('members.error.forbidden'),
+    'organization.version_conflict': message('members.error.versionConflict'),
+    'auth.unauthorized': message('members.error.unauthorized'),
   };
   const requestId = requestIdFromError(error);
   return (
     <Alert variant="destructive">
-      <AlertTitle>操作未完成</AlertTitle>
+      <AlertTitle>{message('members.error.title')}</AlertTitle>
       <AlertDescription>
-        {messages[code ?? ''] ?? '暂时无法完成，请稍后重试。'}
+        {codes[errorCodeOf(error) ?? ''] ?? message('members.error.generic')}
         <RateLimitHint error={error} />
-        {requestId ? <p>请求编号：{requestId}</p> : null}
+        {requestId ? (
+          <p>{message('common.requestId', { id: requestId })}</p>
+        ) : null}
       </AlertDescription>
     </Alert>
   );
@@ -65,43 +67,48 @@ function Failure({ error }: { error: unknown }) {
 
 export function MembersView({
   apiClient,
-  onBack,
+  docsUrl,
+  onOpen,
   onLogin,
 }: {
   apiClient: ApiClient;
-  onBack: () => void;
+  docsUrl: string;
+  /** Router port for opening paths without a full page load. */
+  onOpen?: (path: string) => void;
   onLogin: () => void;
 }) {
+  const message = useAppMessage();
+  usePageTitle('members.title');
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
   return (
-    <main className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
-      <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">企业成员</h1>
-        <Button variant="link" onClick={onBack}>
-          返回首页
-        </Button>
-      </header>
-      {session.isPending ? (
-        <p role="status">正在读取会话…</p>
-      ) : session.isError ? (
-        <Failure error={session.error} />
-      ) : session.data ? (
-        <MembersList
-          key={session.data.user.id}
-          apiClient={apiClient}
-          identity={session.data}
-        />
-      ) : (
-        <p>
-          会话已失效，请
-          <Button variant="link" onClick={onLogin}>
-            重新登录
-          </Button>
-          。
-        </p>
-      )}
-    </main>
+    <AppShellLayout
+      docsUrl={docsUrl}
+      onOpen={onOpen}
+      role={session.data?.user.role}
+    >
+      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-10">
+        <h1 className="text-2xl font-semibold">{message('members.title')}</h1>
+        {session.isPending ? (
+          <p role="status">{message('common.loadingSession')}</p>
+        ) : session.isError ? (
+          <Failure error={session.error} />
+        ) : session.data ? (
+          <MembersList
+            key={session.data.user.id}
+            apiClient={apiClient}
+            identity={session.data}
+          />
+        ) : (
+          <p>
+            {message('members.sessionExpired')}{' '}
+            <Button variant="link" onClick={onLogin}>
+              {message('members.loginLink')}
+            </Button>
+          </p>
+        )}
+      </div>
+    </AppShellLayout>
   );
 }
 
@@ -112,6 +119,7 @@ function MembersList({
   apiClient: ApiClient;
   identity: CurrentSession;
 }) {
+  const message = useAppMessage();
   const queryClient = useQueryClient();
   const [reload, setReload] = useState(0);
   const queryKey = ['organization', 'members', identity.user.id];
@@ -133,9 +141,7 @@ function MembersList({
   });
   return (
     <>
-      <p>
-        修改角色或启用状态后点击保存。停用会撤销该成员的全部会话；重新启用后需要重新登录。
-      </p>
+      <p>{message('members.hint')}</p>
       <Button
         variant="outline"
         disabled={members.isFetching}
@@ -144,9 +150,11 @@ function MembersList({
           setReload((previous) => previous + 1);
         }}
       >
-        重新读取列表
+        {message('members.reload')}
       </Button>
-      {members.isPending ? <p role="status">正在读取成员…</p> : null}
+      {members.isPending ? (
+        <p role="status">{message('members.loading')}</p>
+      ) : null}
       {members.isError ? <Failure error={members.error} /> : null}
       {!members.isError || members.isFetchNextPageError
         ? members.data?.pages.flatMap((page) =>
@@ -169,7 +177,9 @@ function MembersList({
             void members.fetchNextPage();
           }}
         >
-          {members.isFetchingNextPage ? '正在加载…' : '加载更多成员'}
+          {members.isFetchingNextPage
+            ? message('common.loadingMore')
+            : message('members.loadMore')}
         </Button>
       ) : null}
     </>
@@ -187,6 +197,7 @@ function MemberCard({
   member: Member;
   assignableRoles: MemberRole[];
 }) {
+  const message = useAppMessage();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(() => ({
     role: member.role,
@@ -224,10 +235,12 @@ function MemberCard({
         <CardHeader>
           <CardTitle>{member.display_name || member.email}</CardTitle>
           <CardDescription>
-            {member.email} · {roleNames[member.role]}
+            {member.email} · {message(roleMessageKeys[member.role])}
           </CardDescription>
           <Badge variant="secondary">
-            {member.active ? '已启用' : '已停用'}
+            {member.active
+              ? message('members.badge.active')
+              : message('members.badge.inactive')}
           </Badge>
         </CardHeader>
         <CardContent>
@@ -241,7 +254,7 @@ function MemberCard({
               <FieldGroup>
                 <Field data-disabled={mutation.isPending}>
                   <FieldLabel htmlFor={`role-${member.user_id}`}>
-                    角色
+                    {message('members.form.role')}
                   </FieldLabel>
                   <NativeSelect
                     id={`role-${member.user_id}`}
@@ -256,7 +269,7 @@ function MemberCard({
                   >
                     {assignableRoles.map((role) => (
                       <NativeSelectOption key={role} value={role}>
-                        {roleNames[role]}
+                        {message(roleMessageKeys[role])}
                       </NativeSelectOption>
                     ))}
                   </NativeSelect>
@@ -272,18 +285,22 @@ function MemberCard({
                     onCheckedChange={(active) => setDraft({ ...draft, active })}
                   />
                   <FieldLabel htmlFor={`active-${member.user_id}`}>
-                    启用成员
+                    {message('members.form.active')}
                   </FieldLabel>
                 </Field>
                 {mutation.isError ? <Failure error={mutation.error} /> : null}
-                {mutation.isSuccess ? <p role="status">成员已保存</p> : null}
+                {mutation.isSuccess ? (
+                  <p role="status">{message('members.form.saved')}</p>
+                ) : null}
                 <Button type="submit" disabled={mutation.isPending}>
-                  {mutation.isPending ? '正在保存…' : '保存成员'}
+                  {mutation.isPending
+                    ? message('members.form.saving')
+                    : message('members.form.save')}
                 </Button>
               </FieldGroup>
             </form>
           ) : (
-            <p>当前角色不能修改这位成员。</p>
+            <p>{message('members.form.readonly')}</p>
           )}
         </CardContent>
       </Card>

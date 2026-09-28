@@ -5,6 +5,7 @@ import {
   useMemo,
   type ReactNode,
 } from 'react';
+import type { MemberRole } from '@saas/sdk';
 import type { AssembledApp } from './app-contract';
 import { usePreferences, type AppLocale } from './preferences';
 
@@ -20,6 +21,15 @@ const GENERIC_HINT: Record<AppLocale, string> = {
 };
 
 export type MessageParams = Record<string, string | number>;
+
+// Role labels share the `roles.*` catalog namespace; total over the SDK
+// role union, so a newly added role fails typecheck here instead of
+// silently rendering the generic hint at runtime.
+export const roleMessageKeys: Record<MemberRole, `roles.${MemberRole}`> = {
+  owner: 'roles.owner',
+  admin: 'roles.admin',
+  member: 'roles.member',
+};
 
 function interpolate(text: string, params: MessageParams | undefined): string {
   if (!params) return text;

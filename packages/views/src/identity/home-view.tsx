@@ -1,7 +1,7 @@
 import { RateLimitHint } from '../system/rate-limit';
 import { AppShellLayout, type ShellRole } from '../shell/app-shell';
 import { usePageTitle } from '../shell/page-title';
-import { useAppMessage } from '../shell/messages';
+import { roleMessageKeys, useAppMessage } from '../shell/messages';
 import type { AssembledApp } from '../shell/app-contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { logoutUser, type ApiClient } from '@saas/sdk';
@@ -77,7 +77,7 @@ export function HomeView({
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {session.isPending ? (
-              <p role="status">{message('home.loadingSession')}</p>
+              <p role="status">{message('common.loadingSession')}</p>
             ) : null}
             {session.isError ? (
               <>
@@ -102,7 +102,7 @@ export function HomeView({
               <>
                 <p>{user.email}</p>
                 <Badge variant="secondary">
-                  {message(`home.role.${user.role}`)}
+                  {message(roleMessageKeys[user.role])}
                 </Badge>
                 {logout.isError ? (
                   <Alert variant="destructive">
