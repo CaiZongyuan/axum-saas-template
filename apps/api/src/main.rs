@@ -1,7 +1,5 @@
-use saas_app::modules::files::{FilePolicy, FileService};
-use saas_platform::object_storage::S3ObjectStorage;
+use saas_app::modules::files::FileService;
 use saas_platform::{config::Settings, postgres, telemetry};
-use std::sync::Arc;
 use std::{future::IntoFuture, time::Duration};
 
 #[tokio::main]
@@ -9,17 +7,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let settings = Settings::from_env()?;
     let telemetry = telemetry::init(settings.log_filter, "saas-api").await?;
     let pool = postgres::connect_lazy(settings.database);
-    let files = settings.storage.as_ref().map(|storage| {
-        FileService::new(
-            Arc::new(S3ObjectStorage::new(storage)),
-            storage.bucket.clone(),
-            FilePolicy {
-                max_bytes: settings.file_limits.max_bytes,
-                upload_secs: settings.file_limits.upload_secs,
-                download_secs: settings.file_limits.download_secs,
-            },
-        )
-    });
+    let files = settings
+        .storage
+        .as_ref()
+        .map(|storage| FileService::from_settings(storage, &settings.file_limits));
     let app = saas_api::configured_router(pool.clone(), settings.auth, files)?;
     let listener = tokio::net::TcpListener::bind(settings.bind).await?;
     tracing::info!(address = %listener.local_addr()?, "API listening");

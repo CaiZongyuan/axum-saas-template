@@ -4,7 +4,13 @@ use axum::{http::StatusCode, response::Response};
 use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::{DateTime, Utc};
 pub use cleanup::{cleanup_handler, cleanup_maintenance, mark_deleting, rescan_handler};
-use saas_platform::object_storage::{ObjectLocation, ObjectStorage, StorageError, UploadHeaders};
+use saas_platform::{
+    config::FileLimits,
+    object_storage::{
+        ObjectLocation, ObjectStorage, S3ObjectStorage, StorageError, StorageSettings,
+        UploadHeaders,
+    },
+};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::PgConnection;
@@ -166,6 +172,19 @@ impl Error {
 
 const UPLOAD_COLUMNS: &str = "id::text, file_name, content_type, declared_size, sha256, state, bucket, staging_key, ready_key, actual_size, expires_at, created_at";
 impl FileService {
+    /// Wire the validated deployment settings identically in API and Worker.
+    pub fn from_settings(storage: &StorageSettings, limits: &FileLimits) -> Self {
+        Self::new(
+            Arc::new(S3ObjectStorage::new(storage)),
+            storage.bucket.clone(),
+            FilePolicy {
+                max_bytes: limits.max_bytes,
+                upload_secs: limits.upload_secs,
+                download_secs: limits.download_secs,
+            },
+        )
+    }
+
     pub fn new(storage: Arc<dyn ObjectStorage>, bucket: String, policy: FilePolicy) -> Self {
         Self {
             storage,

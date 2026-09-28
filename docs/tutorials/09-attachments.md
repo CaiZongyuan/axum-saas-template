@@ -55,6 +55,8 @@ Markdown 保存的是 `attachment:<附件 ID>`，不会保存预签名 URL 或�
 - `S3_BUCKET / S3_REGION / S3_ACCESS_KEY / S3_SECRET_KEY`：专用 bucket 与显式服务端凭据。
 - `FILE_MAX_BYTES / UPLOAD_SESSION_SECS / DOWNLOAD_URL_SECS`：实际上传与签名边界。
 
+API 与 Worker 都把已校验的存储配置和文件限制交给 `FileService::from_settings`，由 Core Files 统一创建 S3 适配器与文件策略。替换存储实现时，仍可通过 `FileService::new` 注入 `ObjectStorage`。
+
 ```bash
 just bootstrap-storage
 ```

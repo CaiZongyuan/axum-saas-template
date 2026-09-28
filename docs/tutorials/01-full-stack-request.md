@@ -53,7 +53,7 @@ just test-frontend
 just e2e
 ```
 
-后端测试使用真实数据库与 Router；View 测试只在 HTTP 边界使用 MSW；E2E 启动独立数据库、真实 API 和浏览器，还会暂停数据库观察失败与恢复。
+后端测试使用真实数据库与 Router；View 测试只在 HTTP 边界使用 MSW；E2E 启动独立数据库、真实 API 和浏览器，还会暂停数据库观察失败与恢复。后端、浏览器和桌面运行器通过同一份[临时服务组装](../../scripts/lib/test-services.mjs)取得隔离依赖；迁移、应用进程、故障场景与测试命令留在各自入口。
 
 具体测试位置与观察点见[测试说明](../testing/t01-feedback-loop.md)。
 

@@ -8,7 +8,9 @@ T01 的测试对象是第一条公开全栈请求。下面命令是真实检查�
 just test-backend
 ```
 
-脚本创建独立 PostgreSQL 容器；SQLx 测试执行真实迁移。开发数据库的数据卷不会被测试清空。测试通过 Router 请求验证 liveness、readiness、公开错误/request_id、OpenAPI，以及真实数据库迁移状态。启动配置测试运行真实 API 可执行文件，检查失败是否发生在监听前且不会泄露凭据。
+后端测试、浏览器 E2E 与桌面测试共用[临时依赖服务组装](../../scripts/lib/test-services.mjs)：按序启动独立 PostgreSQL、RustFS、Redis 和 Mailpit，注入本次运行的连接配置，结束或失败时按相反顺序清理。各服务的就绪检查与清理仍由自己的 fixture 负责；后端邮件故障测试额外创建一个 Mailpit，不干扰正常投递。
+
+SQLx 测试执行真实迁移，开发数据库的数据卷不会被测试清空。测试通过 Router 请求验证 liveness、readiness、公开错误/request_id、OpenAPI，以及真实数据库迁移状态。启动配置测试运行真实 API 可执行文件，检查失败是否发生在监听前且不会泄露凭据。
 
 迁移测试还会持有真实 PostgreSQL 迁移锁，再运行迁移命令，验证它在配置的期限内失败退出；HTTP 测试用数据库锁验证查询不会无限等待。
 

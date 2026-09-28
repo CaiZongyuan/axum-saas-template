@@ -4,12 +4,12 @@ use axum::{
 use saas_app::{
     http,
     modules::{
-        files::{self, FilePolicy, FileService},
+        files::{self, FileService},
         jobs::{self, Handler, Maintenance, Worker, WorkerPolicy},
         system,
     },
 };
-use saas_platform::{config::Settings, object_storage::S3ObjectStorage, postgres, telemetry};
+use saas_platform::{config::Settings, postgres, telemetry};
 use std::{future::IntoFuture, sync::Arc, time::Duration};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,17 +27,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let bind = jobs::worker_bind()?;
     let telemetry = telemetry::init(settings.log_filter, "saas-worker").await?;
     let pool = postgres::connect_lazy(settings.database);
-    let _files = settings.storage.as_ref().map(|storage| {
-        FileService::new(
-            Arc::new(S3ObjectStorage::new(storage)),
-            storage.bucket.clone(),
-            FilePolicy {
-                max_bytes: settings.file_limits.max_bytes,
-                upload_secs: settings.file_limits.upload_secs,
-                download_secs: settings.file_limits.download_secs,
-            },
-        )
-    });
+    let _files = settings
+        .storage
+        .as_ref()
+        .map(|storage| FileService::from_settings(storage, &settings.file_limits));
     let mut handlers: Vec<Arc<dyn Handler>> = Vec::new();
     let maintenance: Vec<Arc<dyn Maintenance>> = vec![
         files::cleanup_maintenance(pool.clone()),
