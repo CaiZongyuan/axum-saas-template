@@ -88,8 +88,8 @@ test('the sidebar navigation mirrors the assembled groups and opens assembled ro
   await screen.findByRole('main');
   // Business groups arrive with the session; await the first entry rather
   // than racing the shell's signed-out first paint.
-  const first = assembledApp.navigation[0].items[0];
   if (assembledApp.navigation.length === 0) return;
+  const first = assembledApp.navigation[0].items[0];
   const navigation = screen.getByRole('navigation', { name: '主菜单' });
   await within(navigation).findByRole('link', {
     name: assembledApp.messages.zh[first.labelKey],
