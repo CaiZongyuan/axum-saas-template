@@ -3,8 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { strFromU8, unzipSync } from 'fflate';
 
 test('a real Worker creates a downloadable document ZIP with its attachment bytes', async ({
-  page,
+  browser,
 }) => {
+  // The journey asserts zh copy; a fresh Chromium reports en, so the
+  // context pins the locale (see password-reset.spec.ts).
+  const context = await browser.newContext({ locale: 'zh-CN' });
+  const page = await context.newPage();
   await page.goto('/register');
   await page
     .getByLabel('邮箱', { exact: true })

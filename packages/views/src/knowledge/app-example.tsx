@@ -12,8 +12,13 @@ import { useDocumentGuard } from './document-guard';
 import { knowledgeMessages } from './messages';
 import { SaveConflictScene } from './save-conflict-scene';
 import { AttachmentScene } from './attachment-scene';
-import type { AppPageProps, ExampleContribution } from '../shell/app-contract';
-import type { NotificationTarget } from '@saas/sdk';
+import { ExportStatesScene } from './export-scene';
+import type {
+  AppPageProps,
+  ExampleContribution,
+  NotificationDisplay,
+} from '../shell/app-contract';
+import type { Notification, NotificationTarget } from '@saas/sdk';
 
 // The knowledge-base example's application contribution: its pages,
 // business navigation, bilingual messages, default entry and notification
@@ -26,6 +31,22 @@ import type { NotificationTarget } from '@saas/sdk';
 type PageProps = AppPageProps<Record<string, string>>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Notification display for this example's business, resolved from the
+// structured target type and outcome — never by matching the stored
+// subject, and without rewriting history records (docs/ui/design.md §6).
+// The inbox and the export-states scene share this one mapping.
+function knowledgeNotificationDisplay(
+  notice: Notification,
+): NotificationDisplay | undefined {
+  if (notice.target.kind !== 'knowledge.export') return undefined;
+  return {
+    titleKey:
+      notice.outcome === 'succeeded'
+        ? 'knowledge.notifications.exportSucceeded'
+        : 'knowledge.notifications.exportFailed',
+  };
+}
 
 function GuardedNewDocument({
   apiClient,
@@ -235,9 +256,10 @@ export function createKnowledgeExample({
         });
       };
     },
-    // The save-conflict scene (UI07): the editor's save feedback runs on
-    // the design-system page as a demo, through the same registration
-    // channel as every example scene.
+    describeNotification: knowledgeNotificationDisplay,
+    // The save-conflict (UI07), attachment (UI08) and export-states (UI09)
+    // scenes: demo feedback runs on the design-system page through the
+    // same registration channel as every example scene.
     scenes: [
       {
         id: 'save-conflict',
@@ -250,6 +272,14 @@ export function createKnowledgeExample({
         titleKey: 'scene.attachments.title',
         descriptionKey: 'scene.attachments.description',
         render: () => <AttachmentScene />,
+      },
+      {
+        id: 'export-states',
+        titleKey: 'scene.exportStates.title',
+        descriptionKey: 'scene.exportStates.description',
+        render: () => (
+          <ExportStatesScene describe={knowledgeNotificationDisplay} />
+        ),
       },
     ],
   };

@@ -393,6 +393,28 @@ export const coreMessages: {
     'audit.entry.trace': 'Trace ID',
     'audit.entry.subject': '受影响用户',
 
+    'notifications.title': '通知',
+    'notifications.signInFirst': '请先登录。',
+    'notifications.errorTitle': '通知操作未完成',
+    'notifications.errorHint': '暂时无法读取或更新通知，请刷新重试。',
+    'notifications.unreadCount': '{count} 条未读',
+    'notifications.refresh': '刷新通知',
+    'notifications.unreadOnly': '只看未读',
+    'notifications.loading': '正在读取通知…',
+    'notifications.empty': '暂无通知',
+    'notifications.emptyUnread': '暂无未读通知',
+    'notifications.read': '已读',
+    'notifications.unread': '未读',
+    // Fallback heading for notices no example claims: the server subject
+    // stays original and only the outcome word is UI text; the subject
+    // travels as a message param so each locale owns its own layout.
+    'notifications.outcomeSucceeded': '{subject}完成',
+    'notifications.outcomeFailed': '{subject}失败',
+    'notifications.openResult': '查看结果',
+    'notifications.targetUnavailable': '此通知的功能当前不可用。',
+    'notifications.markRead': '标记已读',
+    'notifications.loadMore': '加载更多通知',
+
     'unavailable.title': '相关功能当前不可用',
     'unavailable.description': '这个地址指向的功能可能已被移除，或从未存在。',
     'unavailable.backHome': '返回首页',
@@ -813,6 +835,29 @@ export const coreMessages: {
     'audit.entry.resource': 'Resource',
     'audit.entry.trace': 'Trace ID',
     'audit.entry.subject': 'Affected user',
+
+    'notifications.title': 'Notifications',
+    'notifications.signInFirst': 'Please sign in first.',
+    'notifications.errorTitle': 'Notification action not completed',
+    'notifications.errorHint':
+      'Notifications could not be read or updated right now. Refresh and try again.',
+    'notifications.unreadCount': '{count} unread',
+    'notifications.refresh': 'Refresh notifications',
+    'notifications.unreadOnly': 'Unread only',
+    'notifications.loading': 'Reading notifications…',
+    'notifications.empty': 'No notifications yet',
+    'notifications.emptyUnread': 'No unread notifications',
+    'notifications.read': 'Read',
+    'notifications.unread': 'Unread',
+    // Same fallback templates as the zh catalog; each locale owns the
+    // spacing between the original subject and the outcome word.
+    'notifications.outcomeSucceeded': '{subject} (completed)',
+    'notifications.outcomeFailed': '{subject} (failed)',
+    'notifications.openResult': 'View result',
+    'notifications.targetUnavailable':
+      'The feature behind this notification is currently unavailable.',
+    'notifications.markRead': 'Mark as read',
+    'notifications.loadMore': 'Load more notifications',
 
     'unavailable.title': 'This feature is currently unavailable',
     'unavailable.description':

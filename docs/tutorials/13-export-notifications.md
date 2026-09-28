@@ -38,15 +38,20 @@
 
 查询和更新都以当前用户为收件人，管理员也不能读取或修改别人的收件箱。返回内容不含 Job payload、凭据或下载能力。读通知不代表获得目标资源访问权。
 
-[共享 NotificationsView](../../packages/views/src/notifications/notifications-view.tsx)调用生成 SDK，展示加载、空列表、未读、失败、重试和分页。点击“刷新通知”回到最新一页；页面状态和 Query 缓存按身份隔离。
+[共享 NotificationsView](../../packages/views/src/notifications/notifications-view.tsx)调用生成 SDK，展示加载、空列表、未读、失败、重试和分页；页面文字、错误提示和日期都来自 Core 双语目录，随界面语言切换（UI09）。点击“刷新通知”回到最新一页；页面状态和 Query 缓存按身份隔离。
 
-## 5. 导航目标不是下载授权
+## 5. 展示与目标解析归示例所有
 
-[Web 入口](../../apps/web/src/router.tsx)在示例组装区识别 `knowledge.export`，检查文档/导出 ID，然后把导航回调交给 Core View。未知类型只能标记已读，显示功能当前不可用。
+展示与导航目标都归知识库示例所有，Core 只消费组装后的注册接口（docs/ui/design.md §4.1）。[示例贡献](../../packages/views/src/knowledge/app-example.tsx)注册两件事：
+
+- `describeNotification` 按结构化信息（目标类型 `knowledge.export` 与 outcome）在显示时给出标题键；Core 收件箱据此把历史记录本地化为“文档导出完成/失败”，不匹配中文 subject，也不改写历史记录。把界面切到英文，同一条既有通知立即显示英文标题。
+- `resolveNotificationTarget` 识别 `knowledge.export`，检查文档/导出 ID 后把导航回调交给 Core View；点击“查看结果”仍走真实授权。
+
+未注册或已移除的类型保留原 subject 加 outcome 词的通用显示，只提供标记已读和“此通知的功能当前不可用”反馈，不会跳向不存在的页面；未知扩展 subject 原样安全显示。
 
 [导出详情 View](../../packages/views/src/knowledge/export-detail-view.tsx)重新请求该次导出，后端检查当前会话、结果归属和源文档读取权限。源文档删除或撤权后，仍能阅读通用通知，但无法取得结果或新下载链接。结果过期时不能下载；已签发链接的 TTL 仍遵守附件与导出章节约定。
 
-这使模板移除知识库示例后仍保留通知列表和已读能力。示例清单登记导出详情、目标解析区块、业务测试及本章；Core 通知迁移、API、View 和通用 HTTP 测试继续存在。
+这使模板移除知识库示例后仍保留通知列表、已读能力和通用回退显示。示例清单登记导出详情、目标解析与显示映射、业务测试及本章；Core 通知迁移、API、View 和通用 HTTP 测试继续存在。
 
 ## 6. 验证
 
@@ -57,6 +62,8 @@ just check
 ```
 
 HTTP/公开 Job 测试验证收件人隔离、管理员不能越权、CSRF、持久已读、游标限制、失败预算、失效租约、重试去重以及通知故障与结果的原子回滚。真实 RustFS 导出测试覆盖成功/失败通知、删除源资源后的拒绝，以及恢复后只发布一份结果。
+
+View 测试沿用既有接口：操作申请、状态、标记已读和打开目标。`export-notifications.test.tsx` 把同一份既有通知切到英文，验证结构化显示跟随界面语言；未知类型用例验证通用回退与安全显示。设计系统展厅的场景页在演示数据上隔离展示导出状态与通知显示契约。
 
 完成整条关键旅程后运行一次：
 
@@ -70,4 +77,4 @@ node scripts/e2e.mjs tests/e2e/exports.spec.ts
 
 在自己的业务请求事务里先 `jobs::enqueue`，再用 `notifications::on_job_outcome` 登记稳定的业务事件键和收件人。使用通用描述，目标仅携带业务标识；不要把不能永久展示的内容复制进收件箱。
 
-在 Worker 中保持已有的租约锁与 `Lease::succeed` 事务边界；Core 会自动发布结果通知，包括最终失败和崩溃耗尽预算。最后在应用壳组装自己的目标解析回调、详情页及其授权 API，按[所有权清单](../../examples/knowledge-base/manifest.json)登记可替换资源。无需让 Notifications 了解自己的业务表。
+在 Worker 中保持已有的租约锁与 `Lease::succeed` 事务边界；Core 会自动发布结果通知，包括最终失败和崩溃耗尽预算。最后在示例贡献里注册自己的 `describeNotification` 显示映射与 `resolveNotificationTarget` 目标解析回调、详情页及其授权 API，按[所有权清单](../../examples/knowledge-base/manifest.json)登记可替换资源。无需让 Notifications 了解自己的业务表。

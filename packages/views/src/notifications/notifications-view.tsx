@@ -19,17 +19,21 @@ import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
 import { Empty, EmptyHeader, EmptyTitle } from '@saas/ui/components/empty';
+import type { NotificationDisplay } from '../shell/app-contract';
 import { sessionKey, sessionQuery } from '../identity';
+import { useAppMessage, type MessageParams } from '../shell/messages';
+import { useAppFormat } from '../shell/format';
 
 function Failure({ error }: { error: unknown }) {
+  const message = useAppMessage();
   const id = requestIdFromError(error);
   return (
     <Alert variant="destructive">
-      <AlertTitle>通知操作未完成</AlertTitle>
+      <AlertTitle>{message('notifications.errorTitle')}</AlertTitle>
       <AlertDescription>
-        暂时无法读取或更新通知，请刷新重试。
+        {message('notifications.errorHint')}
         <RateLimitHint error={error} />
-        {id ? <p>请求编号：{id}</p> : null}
+        {id ? <p>{message('common.requestId', { id })}</p> : null}
       </AlertDescription>
     </Alert>
   );
@@ -37,37 +41,64 @@ function Failure({ error }: { error: unknown }) {
 export type NotificationTargetResolver = (
   target: NotificationTarget,
 ) => (() => void) | undefined;
+
+// One heading for every notice: a display registered by the notice's
+// business wins; anything else keeps the original server subject with
+// only the outcome word translated (docs/ui/design.md §6 Q1) — the
+// subject travels as a param so each locale owns its own layout.
+export function notificationHeading(
+  notice: Pick<Notification, 'subject' | 'outcome'>,
+  display: NotificationDisplay | undefined,
+  text: (key: string, params?: MessageParams) => string,
+): string {
+  if (display) return text(display.titleKey);
+  return text(
+    notice.outcome === 'succeeded'
+      ? 'notifications.outcomeSucceeded'
+      : 'notifications.outcomeFailed',
+    { subject: notice.subject },
+  );
+}
+
 export function NotificationsView({
   apiClient,
   onBack,
   resolveTarget,
+  describeNotification,
 }: {
   apiClient: ApiClient;
   onBack: () => void;
   resolveTarget?: NotificationTargetResolver;
+  describeNotification?: (
+    notice: Notification,
+  ) => NotificationDisplay | undefined;
 }) {
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
+  const message = useAppMessage();
   return (
     <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
       <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">通知</h1>
+        <h1 className="text-2xl font-semibold">
+          {message('notifications.title')}
+        </h1>
         <Button variant="link" onClick={onBack}>
-          返回首页
+          {message('common.backHome')}
         </Button>
       </header>
       {session.isPending ? (
-        <p role="status">正在读取会话…</p>
+        <p role="status">{message('common.loadingSession')}</p>
       ) : session.isError ? (
         <Failure error={session.error} />
       ) : !session.data ? (
-        <p>请先登录。</p>
+        <p>{message('notifications.signInFirst')}</p>
       ) : (
         <Inbox
           key={session.data.user.id}
           apiClient={apiClient}
           identity={session.data}
           resolveTarget={resolveTarget}
+          describeNotification={describeNotification}
         />
       )}
     </main>
@@ -77,12 +108,18 @@ function Inbox({
   apiClient,
   identity,
   resolveTarget,
+  describeNotification,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
   resolveTarget?: NotificationTargetResolver;
+  describeNotification?: (
+    notice: Notification,
+  ) => NotificationDisplay | undefined;
 }) {
   const queryClient = useQueryClient();
+  const message = useAppMessage();
+  const { formatDateTime, formatNumber } = useAppFormat();
   const [unreadOnly, setUnreadOnly] = useState(false);
   const inboxKey = [
     'notifications',
@@ -135,7 +172,11 @@ function Inbox({
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
-        <p>{query.data?.pages.at(-1)?.unread_count ?? 0} 条未读</p>
+        <p>
+          {message('notifications.unreadCount', {
+            count: formatNumber(query.data?.pages.at(-1)?.unread_count ?? 0),
+          })}
+        </p>
         <Button
           variant="outline"
           disabled={query.isFetching}
@@ -144,7 +185,7 @@ function Inbox({
             void queryClient.resetQueries({ queryKey, exact: true });
           }}
         >
-          刷新通知
+          {message('notifications.refresh')}
         </Button>
         <Button
           variant={unreadOnly ? 'secondary' : 'outline'}
@@ -154,17 +195,23 @@ function Inbox({
             setUnreadOnly((value) => !value);
           }}
         >
-          只看未读
+          {message('notifications.unreadOnly')}
         </Button>
       </div>
       {query.isPending ? (
-        <p role="status">正在读取通知…</p>
+        <p role="status">{message('notifications.loading')}</p>
       ) : query.isError ? (
         <Failure error={query.error} />
       ) : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
-            <EmptyTitle>{unreadOnly ? '暂无未读通知' : '暂无通知'}</EmptyTitle>
+            <EmptyTitle>
+              {message(
+                unreadOnly
+                  ? 'notifications.emptyUnread'
+                  : 'notifications.empty',
+              )}
+            </EmptyTitle>
           </EmptyHeader>
         </Empty>
       ) : null}
@@ -173,6 +220,7 @@ function Inbox({
         <ul className="flex flex-col gap-3">
           {items.map((notice) => {
             const open = resolveTarget?.(notice.target);
+            const display = describeNotification?.(notice);
             return (
               <li
                 key={notice.id}
@@ -180,18 +228,21 @@ function Inbox({
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <h2 className="font-semibold">
-                    {notice.subject}
-                    {notice.outcome === 'succeeded' ? '完成' : '失败'}
+                    {notificationHeading(notice, display, message)}
                   </h2>
                   <Badge variant={notice.read_at ? 'outline' : 'secondary'}>
-                    {notice.read_at ? '已读' : '未读'}
+                    {message(
+                      notice.read_at
+                        ? 'notifications.read'
+                        : 'notifications.unread',
+                    )}
                   </Badge>
                 </div>
                 <time
                   className="text-sm text-muted-foreground"
                   dateTime={notice.created_at}
                 >
-                  {new Date(notice.created_at).toLocaleString()}
+                  {formatDateTime(notice.created_at)}
                 </time>
                 <div className="flex flex-wrap items-center gap-3">
                   {open ? (
@@ -202,11 +253,11 @@ function Inbox({
                         read.mutate({ notice }, { onSuccess: open });
                       }}
                     >
-                      查看结果
+                      {message('notifications.openResult')}
                     </Button>
                   ) : (
                     <p className="text-sm text-muted-foreground">
-                      此通知的功能当前不可用。
+                      {message('notifications.targetUnavailable')}
                     </p>
                   )}
                   {!notice.read_at ? (
@@ -217,7 +268,7 @@ function Inbox({
                         read.mutate({ notice });
                       }}
                     >
-                      标记已读
+                      {message('notifications.markRead')}
                     </Button>
                   ) : null}
                 </div>
@@ -234,7 +285,7 @@ function Inbox({
             void query.fetchNextPage();
           }}
         >
-          加载更多通知
+          {message('notifications.loadMore')}
         </Button>
       ) : null}
     </>

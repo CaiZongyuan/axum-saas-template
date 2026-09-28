@@ -47,7 +47,8 @@ const exported = {
   expires_at: '2026-09-27T00:00:00Z',
 } satisfies DocumentExport;
 
-function open(canAccess: boolean) {
+function open(canAccess: boolean, locale: 'zh' | 'en' = 'zh') {
+  window.localStorage.setItem('saas.locale', locale);
   let readAt: string | null = null;
   server.use(
     http.get('http://api.test/api/v1/auth/session', () =>
@@ -129,6 +130,90 @@ test('a notice cannot expose a result after access is revoked', async () => {
   expect(
     screen.queryByRole('button', { name: '下载 ZIP' }),
   ).not.toBeInTheDocument();
+});
+
+// UI09: an existing structured notification (the stored subject never
+// changes) follows the interface language through the registered display
+// mapping, so switching to English localizes history records too.
+test('an English inbox localizes an existing export notice by its structured type and outcome', async () => {
+  const user = open(true, 'en');
+  expect(await screen.findByText('Document export completed')).toBeVisible();
+  expect(screen.queryByText('文档导出完成')).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'View result' }));
+  expect(
+    await screen.findByRole('heading', { name: 'Export details' }),
+  ).toBeVisible();
+  await user.click(
+    screen.getByRole('button', { name: 'Back to notifications' }),
+  );
+  await waitFor(() => expect(screen.getByText('0 unread')).toBeVisible());
+});
+
+// Unknown extension subjects stay original and render as text only, with
+// the unavailable-target feedback instead of a navigation button.
+test('a notice of an unregistered type keeps its subject safe and offers no target', async () => {
+  const subject = '笔记 <共享> & "导出"';
+  let readAt: string | null = null;
+  const unknown = {
+    ...notification,
+    subject,
+    outcome: 'failed' as const,
+    target: {
+      kind: 'notes.share',
+      resource_id: 'note-one',
+      context: {},
+    },
+  };
+  server.use(
+    http.get('http://api.test/api/v1/auth/session', () =>
+      HttpResponse.json(identity),
+    ),
+    http.get('http://api.test/api/v1/notifications', () =>
+      HttpResponse.json({
+        data: [{ ...unknown, id: 'notice-unknown', read_at: readAt }],
+        unread_count: readAt ? 0 : 1,
+        next_cursor: null,
+        has_more: false,
+      }),
+    ),
+    http.post(
+      'http://api.test/api/v1/notifications/notice-unknown/read',
+      () => {
+        readAt = '2026-09-26T01:00:00Z';
+        return HttpResponse.json({
+          ...unknown,
+          id: 'notice-unknown',
+          read_at: readAt,
+        });
+      },
+    ),
+  );
+  const router = createAppRouter(
+    {
+      apiClient: createApiClient('http://api.test'),
+      docsUrl: 'https://docs.test',
+    },
+    createMemoryHistory({ initialEntries: ['/notifications'] }),
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        })
+      }
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  const user = userEvent.setup();
+  expect(await screen.findByText(`${subject}失败`)).toBeVisible();
+  expect(screen.getByText('此通知的功能当前不可用。')).toBeVisible();
+  expect(
+    screen.queryByRole('button', { name: '查看结果' }),
+  ).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '标记已读' }));
+  expect(await screen.findByText('已读')).toBeVisible();
 });
 
 test('leaving while a read is pending does not navigate back to the old export', async () => {

@@ -1,4 +1,4 @@
-import type { NotificationTarget } from '@saas/sdk';
+import type { Notification, NotificationTarget } from '@saas/sdk';
 import type { ApiClient } from '@saas/sdk';
 import type { ReactNode } from 'react';
 import { coreMessages } from './core-messages';
@@ -79,6 +79,11 @@ export type AppScene = {
   render?: () => ReactNode;
 };
 
+/** Localized display info for one notification, resolved by its example. */
+export type NotificationDisplay = {
+  titleKey: string;
+};
+
 export type ExampleContribution = {
   id: string;
   routes: AppPage[];
@@ -90,6 +95,16 @@ export type ExampleContribution = {
     target: NotificationTarget,
     ports: { navigate: NavigatePort },
   ) => (() => void) | undefined;
+  /**
+   * Localized display for notices of this example's business, resolved at
+   * render time from structured data (target type and outcome) so history
+   * records follow the interface language without rewriting them. Returns
+   * the fully-namespaced title key; `undefined` keeps the Core fallback
+   * (original server subject plus the outcome word).
+   */
+  describeNotification?: (
+    notice: Notification,
+  ) => NotificationDisplay | undefined;
   scenes?: AppScene[];
   /** Wraps this example's pages, e.g. to provide example-owned ports. */
   provide?: (page: ReactNode) => ReactNode;
@@ -116,6 +131,8 @@ export type AssembledApp = {
         ports: { navigate: NavigatePort },
       ) => (() => void) | undefined)
     | undefined;
+  describeNotification?:
+    ((notice: Notification) => NotificationDisplay | undefined) | undefined;
   scenes: AssembledScene[];
 };
 
@@ -315,6 +332,9 @@ export function assembleApp({
   const resolvers = assembled
     .map((entry) => entry.example.resolveNotificationTarget)
     .filter((resolver) => resolver !== undefined);
+  const describers = assembled
+    .map((entry) => entry.example.describeNotification)
+    .filter((describe) => describe !== undefined);
 
   return {
     examples: assembled.map((entry) => entry.example.id),
@@ -334,6 +354,16 @@ export function assembleApp({
             for (const resolver of resolvers) {
               const open = resolver(target, ports);
               if (open) return open;
+            }
+            return undefined;
+          },
+    describeNotification:
+      describers.length === 0
+        ? undefined
+        : (notice) => {
+            for (const describe of describers) {
+              const display = describe(notice);
+              if (display) return display;
             }
             return undefined;
           },
