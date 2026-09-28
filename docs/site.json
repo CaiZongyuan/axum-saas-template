@@ -218,6 +218,15 @@
       "translation": { "status": "pending", "owner": "UI14" }
     },
     {
+      "id": "add-example",
+      "source": "docs/tutorials/27-add-example.md",
+      "sourceEn": "docs/tutorials/27-add-example.en.md",
+      "route": "tutorials/add-example.md",
+      "title": "接入一个参考业务",
+      "titleEn": "Add a reference example",
+      "group": "替换示例"
+    },
+    {
       "id": "example-removal",
       "source": "docs/tutorials/23-example-removal.md",
       "route": "tutorials/example-removal.md",

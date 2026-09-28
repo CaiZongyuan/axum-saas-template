@@ -1,6 +1,7 @@
 {
   "id": "knowledge-base",
   "status": "active",
+  "markerPrefix": "knowledge",
   "description": "Personal knowledge bases and Markdown documents are the removable reference domain. Identity, membership, audit, idempotency and shared HTTP infrastructure belong to Core.",
   "ownedPaths": [
     "crates/app/src/modules/knowledge",
@@ -58,7 +59,7 @@
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
     "rustModules": "crates/app/src/modules/mod.rs",
-    "web": "apps/web/src/router.tsx",
+    "web": "apps/web/src/app-examples.tsx",
     "views": "packages/views/src/index.ts",
     "docs": "docs/site.json",
     "quickstart": "docs/getting-started/quickstart.md",
@@ -72,13 +73,7 @@
   "registrationMarkers": {
     "apps/api/src/lib.rs": ["routes", "openapi", "configured-routes"],
     "crates/app/src/modules/mod.rs": ["module"],
-    "apps/web/src/router.tsx": [
-      "imports",
-      "home",
-      "routes",
-      "route-tree",
-      "notification-target"
-    ],
+    "apps/web/src/app-examples.tsx": ["assembly", "entries"],
     "packages/views/src/index.ts": ["views"],
     "docs/getting-started/quickstart.md": ["quickstart"],
     "README.md": ["readme", "performance"],

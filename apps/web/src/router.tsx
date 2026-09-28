@@ -5,561 +5,370 @@ import {
   createRouter,
   Outlet,
   useNavigate,
+  useParams,
   useLocation,
   type RouterHistory,
 } from '@tanstack/react-router';
 import type { ApiClient } from '@saas/sdk';
 import {
+  AppMessagesProvider,
   ForgotPasswordView,
   ResetPasswordView,
   ApiKeysView,
   AuditView,
   NotificationsView,
-  type NotificationTargetResolver,
   StatusView,
+  LoginView,
   RegisterView,
   HomeView,
-  LoginView,
   MembersView,
   JobsView,
   JobView,
+  type AssembledApp,
+  type NavigateTarget,
 } from '@saas/views';
-// example:knowledge:imports:start
-import { browserFileTransfer } from './knowledge-files';
-import { useDocumentNavigationGuard } from './knowledge-navigation';
-import {
-  DocumentExportView,
-  KnowledgeBaseView,
-  KnowledgeBasesView,
-  DocumentsView,
-  NewDocumentView,
-  DocumentView,
-  EditDocumentView,
-} from '@saas/views';
-// example:knowledge:imports:end
+import { assembledApp, exampleEntries } from './app-examples';
 
 type AppContext = { apiClient: ApiClient; docsUrl: string };
 const rootRoute = createRootRouteWithContext<AppContext>()({
-  component: Outlet,
+  component: RootLayout,
+  notFoundComponent: NotFoundRedirect,
 });
 
-function StatusPage() {
-  const { apiClient, docsUrl } = rootRoute.useRouteContext();
-  return <StatusView apiClient={apiClient} docsUrl={docsUrl} />;
+// The universal shell renders the assembled result; the actual Router
+// wiring (TanStack) lives only in this adapter. Core pages are registered
+// below, example pages come from the explicit assembly point.
+
+function RootLayout() {
+  return (
+    <AppMessagesProvider app={assembledApp}>
+      <Outlet />
+    </AppMessagesProvider>
+  );
+}
+
+// Unknown paths and unrenderable business targets fall back to the Core
+// home without a loop ('/' always exists).
+function NotFoundRedirect() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    void navigate({ to: '/', replace: true });
+  }, [navigate]);
+  return null;
+}
+
+// Example routes register at runtime, so TanStack's typed `to` unions can
+// never list them; typed navigation stays impossible for them and both
+// ports below go through the untyped options instead.
+function navigateOptions(target: NavigateTarget) {
+  return {
+    to: target.path,
+    params: target.params as never,
+    replace: target.replace,
+    ignoreBlocker: target.ignoreBlocker,
+  };
+}
+
+function navigatePort(
+  navigate: ReturnType<typeof useNavigate>,
+): (target: NavigateTarget) => void {
+  return (target) => {
+    void navigate(navigateOptions(target));
+  };
+}
+
+// Programmatic navigation to runtime-registered routes (tests, adapters).
+export function navigateExample(
+  router: ReturnType<typeof createAppRouter>,
+  target: NavigateTarget,
+): Promise<void> {
+  return router.navigate(navigateOptions(target));
 }
 
 const statusRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/system',
-  component: StatusPage,
+  component: function StatusPage() {
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    return <StatusView apiClient={apiClient} docsUrl={docsUrl} />;
+  },
 });
-function RegistrationPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <RegisterView
-      apiClient={apiClient}
-      onRegistered={() => {
-        void navigate({ to: '/' });
-      }}
-    />
-  );
-}
-function HomePage() {
-  const { apiClient, docsUrl } = rootRoute.useRouteContext();
-  return (
-    <HomeView
-      apiClient={apiClient}
-      docsUrl={docsUrl}
-      adminActions={
-        <>
-          <a href="/jobs" className="text-sm underline">
-            后台任务
-          </a>
-          <a href="/audit" className="text-sm underline">
-            审计记录
-          </a>
-        </>
-      }
-    >
-      <a href="/api-keys" className="text-sm underline">
-        API Keys
-      </a>
-      <a href="/notifications" className="text-sm underline">
-        通知
-      </a>
-      <a href="/members" className="text-sm underline">
-        企业成员
-      </a>
-      {/* example:knowledge:home:start */}
-      <a href="/knowledge-bases" className="text-sm underline">
-        知识库
-      </a>
-      <a href="/documents" className="text-sm underline">
-        我的文档
-      </a>
-      {/* example:knowledge:home:end */}
-    </HomeView>
-  );
-}
-function LoginPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <LoginView
-      apiClient={apiClient}
-      onLoggedIn={() => {
-        void navigate({ to: '/' });
-      }}
-    />
-  );
-}
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
-  component: LoginPage,
+  component: function LoginPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <LoginView
+        apiClient={apiClient}
+        onLoggedIn={() => {
+          void navigate({ to: assembledApp.defaultEntry });
+        }}
+      />
+    );
+  },
 });
+
 const registrationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/register',
-  component: RegistrationPage,
+  component: function RegistrationPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <RegisterView
+        apiClient={apiClient}
+        onRegistered={() => {
+          void navigate({ to: assembledApp.defaultEntry });
+        }}
+      />
+    );
+  },
 });
+
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: HomePage,
+  component: function HomePage() {
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <HomeView
+        apiClient={apiClient}
+        docsUrl={docsUrl}
+        navigation={assembledApp.navigation}
+        onOpenNavigation={(path) => {
+          void navigate({ to: path });
+        }}
+        adminActions={
+          <>
+            <a href="/jobs" className="text-sm underline">
+              后台任务
+            </a>
+            <a href="/audit" className="text-sm underline">
+              审计记录
+            </a>
+          </>
+        }
+      />
+    );
+  },
 });
-function MembersPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <MembersView
-      apiClient={apiClient}
-      onBack={() => {
-        void navigate({ to: '/' });
-      }}
-      onLogin={() => {
-        void navigate({ to: '/login' });
-      }}
-    />
-  );
-}
+
 const membersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/members',
-  component: MembersPage,
+  component: function MembersPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <MembersView
+        apiClient={apiClient}
+        onBack={() => {
+          void navigate({ to: '/' });
+        }}
+        onLogin={() => {
+          void navigate({ to: '/login' });
+        }}
+      />
+    );
+  },
 });
-function JobsPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <JobsView
-      apiClient={apiClient}
-      onBack={() => {
-        void navigate({ to: '/' });
-      }}
-      onOpenJob={(jobId) => {
-        void navigate({ to: '/jobs/$jobId', params: { jobId } });
-      }}
-    />
-  );
-}
+
 const jobsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs',
-  component: JobsPage,
+  component: function JobsPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <JobsView
+        apiClient={apiClient}
+        onBack={() => {
+          void navigate({ to: '/' });
+        }}
+        onOpenJob={(jobId) => {
+          void navigate({ to: '/jobs/$jobId', params: { jobId } });
+        }}
+      />
+    );
+  },
 });
-function JobPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const { jobId } = jobRoute.useParams();
-  const navigate = useNavigate();
-  return (
-    <JobView
-      apiClient={apiClient}
-      jobId={jobId}
-      onBack={() => {
-        void navigate({ to: '/jobs' });
-      }}
-    />
-  );
-}
+
 const jobRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs/$jobId',
-  component: JobPage,
+  component: function JobPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const { jobId } = jobRoute.useParams();
+    const navigate = useNavigate();
+    return (
+      <JobView
+        apiClient={apiClient}
+        jobId={jobId}
+        onBack={() => {
+          void navigate({ to: '/jobs' });
+        }}
+      />
+    );
+  },
 });
-function ForgotPasswordPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <ForgotPasswordView
-      apiClient={apiClient}
-      onLogin={() => {
-        void navigate({ to: '/login' });
-      }}
-    />
-  );
-}
+
 const forgotPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/forgot-password',
-  component: ForgotPasswordPage,
+  component: function ForgotPasswordPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <ForgotPasswordView
+        apiClient={apiClient}
+        onLogin={() => {
+          void navigate({ to: '/login' });
+        }}
+      />
+    );
+  },
 });
+
 function resetToken(hash: string) {
   if (hash.length > 256) return undefined;
   const value = new URLSearchParams(hash.replace(/^#/, '')).get('token');
   return value && /^[0-9a-f]{64}$/i.test(value) ? value : undefined;
 }
-function ResetPasswordPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  const hash = useLocation({ select: (location) => location.hash });
-  const [link, setLink] = useState(() => ({
-    observedHash: hash,
-    token: resetToken(hash),
-    revision: 0,
-  }));
-  // A new email link may navigate within this mounted route. Capture it before
-  // replacing the fragment; a fresh View drops prior form/success/request state.
-  if (hash !== link.observedHash) {
-    setLink({
-      observedHash: hash,
-      token: hash ? resetToken(hash) : link.token,
-      revision: hash ? link.revision + 1 : link.revision,
-    });
-  }
-  useEffect(() => {
-    if (hash) void navigate({ to: '/reset-password', hash: '', replace: true });
-  }, [hash, navigate]);
-  return (
-    <ResetPasswordView
-      apiClient={apiClient}
-      key={link.revision}
-      token={link.token}
-      onConsumed={() =>
-        setLink((current) => ({ ...current, token: undefined }))
-      }
-      onLogin={() => {
-        void navigate({ to: '/login' });
-      }}
-      onRequest={() => {
-        void navigate({ to: '/forgot-password' });
-      }}
-    />
-  );
-}
+
 const resetPasswordRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/reset-password',
-  component: ResetPasswordPage,
+  component: function ResetPasswordPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    const hash = useLocation({ select: (location) => location.hash });
+    const [link, setLink] = useState(() => ({
+      observedHash: hash,
+      token: resetToken(hash),
+      revision: 0,
+    }));
+    // A new email link may navigate within this mounted route. Capture it before
+    // replacing the fragment; a fresh View drops prior form/success/request state.
+    if (hash !== link.observedHash) {
+      setLink({
+        observedHash: hash,
+        token: hash ? resetToken(hash) : link.token,
+        revision: hash ? link.revision + 1 : link.revision,
+      });
+    }
+    useEffect(() => {
+      if (hash)
+        void navigate({ to: '/reset-password', hash: '', replace: true });
+    }, [hash, navigate]);
+    return (
+      <ResetPasswordView
+        apiClient={apiClient}
+        key={link.revision}
+        token={link.token}
+        onConsumed={() =>
+          setLink((current) => ({ ...current, token: undefined }))
+        }
+        onLogin={() => {
+          void navigate({ to: '/login' });
+        }}
+        onRequest={() => {
+          void navigate({ to: '/forgot-password' });
+        }}
+      />
+    );
+  },
 });
-function ApiKeysPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <ApiKeysView
-      apiClient={apiClient}
-      copySecret={(secret) => navigator.clipboard.writeText(secret)}
-      onBack={() => {
-        void navigate({ to: '/' });
-      }}
-    />
-  );
-}
+
 const apiKeysRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/api-keys',
-  component: ApiKeysPage,
+  component: function ApiKeysPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <ApiKeysView
+        apiClient={apiClient}
+        copySecret={(secret) => navigator.clipboard.writeText(secret)}
+        onBack={() => {
+          void navigate({ to: '/' });
+        }}
+      />
+    );
+  },
 });
-function AuditPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <AuditView
-      apiClient={apiClient}
-      onBack={() => {
-        void navigate({ to: '/' });
-      }}
-    />
-  );
-}
+
 const auditRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/audit',
-  component: AuditPage,
+  component: function AuditPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <AuditView
+        apiClient={apiClient}
+        onBack={() => {
+          void navigate({ to: '/' });
+        }}
+      />
+    );
+  },
 });
-function NotificationsPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  const navigation: { resolveTarget?: NotificationTargetResolver } = {};
-  // example:knowledge:notification-target:start
-  navigation.resolveTarget = (target) => {
-    const uuid =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const documentId = target.context.document_id;
-    const exportId = target.resource_id;
-    if (
-      target.kind !== 'knowledge.export' ||
-      !uuid.test(documentId ?? '') ||
-      !uuid.test(exportId)
-    )
-      return;
-    return () => {
-      void navigate({
-        to: '/documents/$documentId/exports/$exportId',
-        params: { documentId, exportId },
-      });
-    };
-  };
-  // example:knowledge:notification-target:end
-  return (
-    <NotificationsView
-      apiClient={apiClient}
-      {...navigation}
-      onBack={() => {
-        void navigate({ to: '/' });
-      }}
-    />
-  );
-}
+
 const notificationsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/notifications',
-  component: NotificationsPage,
-});
-// example:knowledge:routes:start
-function DocumentExportPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const { documentId, exportId } = documentExportRoute.useParams();
-  const navigate = useNavigate();
-  return (
-    <DocumentExportView
-      apiClient={apiClient}
-      documentId={documentId}
-      exportId={exportId}
-      transfer={browserFileTransfer}
-      onBack={() => {
-        void navigate({ to: '/notifications' });
-      }}
-    />
-  );
-}
-const documentExportRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/documents/$documentId/exports/$exportId',
-  component: DocumentExportPage,
-});
-function KnowledgeBasePage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const { baseId } = knowledgeBaseRoute.useParams();
-  const navigate = useNavigate();
-  return (
-    <KnowledgeBaseView
-      apiClient={apiClient}
-      baseId={baseId}
-      onBack={() => {
-        void navigate({ to: '/knowledge-bases' });
-      }}
-      onLogin={() => {
-        void navigate({ to: '/login' });
-      }}
-      onNew={() => {
-        void navigate({
-          to: '/knowledge-bases/$baseId/new',
-          params: { baseId },
-        });
-      }}
-      onOpen={(documentId) => {
-        void navigate({ to: '/documents/$documentId', params: { documentId } });
-      }}
-    />
-  );
-}
-const knowledgeBaseRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/knowledge-bases/$baseId',
-  component: KnowledgeBasePage,
-});
-function KnowledgeBasesPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <KnowledgeBasesView
-      apiClient={apiClient}
-      onBack={() => {
-        void navigate({ to: '/' });
-      }}
-      onLogin={() => {
-        void navigate({ to: '/login' });
-      }}
-      onOpen={(baseId) => {
-        void navigate({ to: '/knowledge-bases/$baseId', params: { baseId } });
-      }}
-    />
-  );
-}
-function NewLibraryDocumentPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const { baseId } = newLibraryDocumentRoute.useParams();
-  const navigate = useNavigate();
-  const guard = useDocumentNavigationGuard();
-  return (
-    <>
-      {guard.prompt}
-      <NewDocumentView
+  component: function NotificationsPage() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <NotificationsView
         apiClient={apiClient}
-        knowledgeBaseId={baseId}
-        onDirtyChange={guard.onDirtyChange}
+        resolveTarget={
+          assembledApp.resolveNotificationTarget
+            ? (target) =>
+                assembledApp.resolveNotificationTarget?.(target, {
+                  navigate: navigatePort(navigate),
+                })
+            : undefined
+        }
         onBack={() => {
-          void navigate({ to: '/knowledge-bases/$baseId', params: { baseId } });
-        }}
-        onCreated={(documentId) => {
-          void navigate({
-            to: '/documents/$documentId',
-            params: { documentId },
-            ignoreBlocker: true,
-          });
+          void navigate({ to: '/' });
         }}
       />
-    </>
-  );
+    );
+  },
+});
+
+// Example pages: one adapter turns assembled descriptors into real routes;
+// `provide` lets an example wrap its own pages with example-owned ports.
+const provideByExample = new Map(
+  exampleEntries.map((entry) => [entry.id, entry.provide]),
+);
+
+function adapterRoute(route: AssembledApp['routes'][number]) {
+  return createRoute({
+    getParentRoute: () => rootRoute,
+    path: route.path,
+    component: function ExamplePage() {
+      const params = useParams({ strict: false }) as Record<string, string>;
+      const navigate = useNavigate();
+      const { apiClient } = rootRoute.useRouteContext();
+      const page = route.component({
+        params,
+        apiClient,
+        navigate: navigatePort(navigate),
+      });
+      return provideByExample.get(route.exampleId)?.(page) ?? page;
+    },
+  });
 }
-const knowledgeBasesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/knowledge-bases',
-  component: KnowledgeBasesPage,
-});
-const newLibraryDocumentRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/knowledge-bases/$baseId/new',
-  component: NewLibraryDocumentPage,
-});
-function DocumentsPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  return (
-    <DocumentsView
-      apiClient={apiClient}
-      onNew={() => {
-        void navigate({ to: '/documents/new' });
-      }}
-      onOpen={(documentId) => {
-        void navigate({ to: '/documents/$documentId', params: { documentId } });
-      }}
-    />
-  );
-}
-function NewDocumentPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const navigate = useNavigate();
-  const guard = useDocumentNavigationGuard();
-  return (
-    <>
-      {guard.prompt}
-      <NewDocumentView
-        apiClient={apiClient}
-        onDirtyChange={guard.onDirtyChange}
-        onBack={() => {
-          void navigate({ to: '/documents' });
-        }}
-        onCreated={(documentId) => {
-          void navigate({
-            to: '/documents/$documentId',
-            params: { documentId },
-            ignoreBlocker: true,
-          });
-        }}
-      />
-    </>
-  );
-}
-function DocumentPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const { documentId } = documentRoute.useParams();
-  const navigate = useNavigate();
-  return (
-    <DocumentView
-      apiClient={apiClient}
-      fileTransfer={browserFileTransfer}
-      onLibrary={(baseId) => {
-        void navigate({ to: '/knowledge-bases/$baseId', params: { baseId } });
-      }}
-      documentId={documentId}
-      onEdit={() => {
-        void navigate({
-          to: '/documents/$documentId/edit',
-          params: { documentId },
-        });
-      }}
-      onBack={() => {
-        void navigate({ to: '/documents' });
-      }}
-    />
-  );
-}
-function EditDocumentPage() {
-  const { apiClient } = rootRoute.useRouteContext();
-  const { documentId } = editDocumentRoute.useParams();
-  const navigate = useNavigate();
-  const guard = useDocumentNavigationGuard();
-  return (
-    <>
-      {guard.prompt}
-      <EditDocumentView
-        apiClient={apiClient}
-        fileTransfer={browserFileTransfer}
-        documentId={documentId}
-        onDirtyChange={guard.onDirtyChange}
-        onBack={() => {
-          void navigate({
-            to: '/documents/$documentId',
-            params: { documentId },
-          });
-        }}
-        onSaved={(id) => {
-          void navigate({
-            to: '/documents/$documentId',
-            params: { documentId: id },
-            ignoreBlocker: true,
-          });
-        }}
-      />
-    </>
-  );
-}
-const editDocumentRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/documents/$documentId/edit',
-  component: EditDocumentPage,
-});
-const documentsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/documents',
-  component: DocumentsPage,
-});
-const newDocumentRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/documents/new',
-  component: NewDocumentPage,
-});
-const documentRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/documents/$documentId',
-  component: DocumentPage,
-});
-// example:knowledge:routes:end
 
 const routeTree = rootRoute.addChildren([
-  // example:knowledge:route-tree:start
-  documentExportRoute,
-  knowledgeBaseRoute,
-  knowledgeBasesRoute,
-  newLibraryDocumentRoute,
-  editDocumentRoute,
-  documentsRoute,
-  newDocumentRoute,
-  documentRoute,
-  // example:knowledge:route-tree:end
+  ...assembledApp.routes.map(adapterRoute),
   forgotPasswordRoute,
   resetPasswordRoute,
   apiKeysRoute,

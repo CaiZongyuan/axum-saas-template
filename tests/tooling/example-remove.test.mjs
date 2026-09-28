@@ -12,10 +12,12 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   checkRemovalSafety,
+  loadExampleManifest,
   planExampleRemoval,
   removeExample,
   retainedHistoryPaths,
   verifyExampleManifest,
+  verifyExampleManifests,
 } from '../../scripts/lib/example-remove.mjs';
 
 // The removal tool operates on a template working copy described by the
@@ -47,6 +49,7 @@ function buildFixture() {
       {
         id: 'knowledge-base',
         status: 'active',
+        markerPrefix: 'knowledge',
         description: 'The removable reference domain.',
         ownedPaths: [
           'crates/app/src/modules/knowledge',
@@ -401,6 +404,119 @@ test('refuses a copy whose registration markers were restructured', () => {
     assert.throws(
       () => removeExample(root, { run: () => undefined }),
       /marker/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// A miniature second example so the multi-example contract is observable:
+// removing one example leaves the other's registration and owned files
+// untouched, and the manifests stay independently verifiable.
+function addNotesExample(root) {
+  const write = (path, content) => {
+    writeFileSync(join(root, path), content);
+    return join(root, path);
+  };
+  execFileSync('mkdir', [
+    '-p',
+    join(root, 'examples/notes'),
+    join(root, 'packages/views/src/notes'),
+  ]);
+  write(
+    'examples/notes/manifest.json',
+    JSON.stringify(
+      {
+        id: 'notes',
+        status: 'active',
+        markerPrefix: 'notes',
+        description: 'The composition proving example.',
+        ownedPaths: ['packages/views/src/notes'],
+        compositionPoints: { views: 'packages/views/src/index.ts' },
+        registrationMarkers: {
+          'packages/views/src/index.ts': ['views'],
+        },
+      },
+      null,
+      2,
+    ),
+  );
+  write('packages/views/src/notes/index.ts', 'export const note = 1;\n');
+  write(
+    'packages/views/src/index.ts',
+    [
+      'export * from "./shared";',
+      '// example:knowledge:views:start',
+      'export * from "./knowledge";',
+      '// example:knowledge:views:end',
+      '// example:notes:views:start',
+      'export * from "./notes";',
+      '// example:notes:views:end',
+    ].join('\n'),
+  );
+  execFileSync('git', ['-C', root, 'add', '.']);
+  execFileSync('git', ['-C', root, 'commit', '--quiet', '-m', 'notes example']);
+}
+
+test('removing one example leaves the other registered and untouched', () => {
+  const root = buildFixture();
+  try {
+    addNotesExample(root);
+    verifyExampleManifests(root);
+    removeExample(root, { exampleId: 'notes', run: () => undefined });
+    // The knowledge example keeps everything...
+    assert(existsSync(join(root, 'packages/views/src/knowledge/index.ts')));
+    assert.equal(loadExampleManifest(root, 'knowledge-base').status, 'active');
+    verifyExampleManifest(root, 'knowledge-base');
+    // ...its views marker block survives the notes removal...
+    const views = readFileSync(
+      join(root, 'packages/views/src/index.ts'),
+      'utf8',
+    );
+    assert(views.includes('example:knowledge:views:start'));
+    assert(views.includes('export * from "./knowledge";'));
+    // ...and the notes example is gone with an emptied manifest.
+    assert(!existsSync(join(root, 'packages/views/src/notes')));
+    const notes = loadExampleManifest(root, 'notes');
+    assert.equal(notes.status, 'removed');
+    assert.deepEqual(notes.ownedPaths, []);
+    assert.deepEqual(
+      [...retainedHistoryPaths(notes)],
+      [],
+      'notes owns no migrations',
+    );
+    verifyExampleManifest(root, 'notes');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('planning targets the requested example only', () => {
+  const root = buildFixture();
+  try {
+    addNotesExample(root);
+    const notesPlan = planExampleRemoval(root, { exampleId: 'notes' });
+    assert.deepEqual(notesPlan.delete, ['packages/views/src/notes']);
+    assert.deepEqual(
+      notesPlan.edits.map((edit) => edit.file),
+      ['packages/views/src/index.ts'],
+    );
+    assert.equal(notesPlan.edits[0].prefix, 'notes');
+    assert.equal(
+      notesPlan.manifest.file,
+      join('examples', 'notes', 'manifest.json'),
+    );
+    const knowledgePlan = planExampleRemoval(root, {
+      exampleId: 'knowledge-base',
+    });
+    assert.deepEqual(
+      knowledgePlan.delete.sort(),
+      [
+        'crates/app/src/modules/knowledge',
+        'docs/tutorials/04-example.md',
+        'packages/views/src/knowledge',
+      ],
+      'the knowledge plan is unchanged by a second example',
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

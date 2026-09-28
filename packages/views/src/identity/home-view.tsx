@@ -1,4 +1,5 @@
 import { RateLimitHint } from '../system/rate-limit';
+import { BusinessNavigation } from '../shell/app-navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { logoutUser, type ApiClient } from '@saas/sdk';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
@@ -13,17 +14,20 @@ import {
   CardTitle,
 } from '@saas/ui/components/card';
 import { replaceSession, sessionQuery } from './session';
+import type { AssembledApp } from '../shell/app-contract';
 import type { ReactNode } from 'react';
 
 export function HomeView({
   apiClient,
   docsUrl,
-  children,
+  navigation,
+  onOpenNavigation,
   adminActions,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
-  children?: ReactNode;
+  navigation?: AssembledApp['navigation'];
+  onOpenNavigation?: (path: string) => void;
   adminActions?: ReactNode;
 }) {
   const queryClient = useQueryClient();
@@ -92,7 +96,23 @@ export function HomeView({
           {user ? (
             <>
               <p>{user.email}</p>
-              {children}
+              {navigation && onOpenNavigation ? (
+                <BusinessNavigation
+                  navigation={navigation}
+                  onOpen={onOpenNavigation}
+                />
+              ) : null}
+              <div className="flex flex-wrap gap-3">
+                <a href="/api-keys" className="text-sm underline">
+                  API Keys
+                </a>
+                <a href="/notifications" className="text-sm underline">
+                  通知
+                </a>
+                <a href="/members" className="text-sm underline">
+                  企业成员
+                </a>
+              </div>
               {user.role === 'owner' || user.role === 'admin'
                 ? adminActions
                 : null}

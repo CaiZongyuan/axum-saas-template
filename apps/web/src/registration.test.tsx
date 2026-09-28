@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession } from '@saas/sdk';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter } from './router';
+import { assembledApp } from './app-examples';
 
 const session = {
   user: {
@@ -40,7 +41,7 @@ function registrationPage() {
   return { router, user: userEvent.setup() };
 }
 
-test('registers with the generated contract and navigates to the signed-in home', async () => {
+test('registers with the generated contract and navigates to the default entry', async () => {
   server.use(
     http.post('http://api.test/api/v1/auth/register', async ({ request }) => {
       expect(await request.json()).toEqual({
@@ -59,11 +60,13 @@ test('registers with the generated contract and navigates to the signed-in home'
   await user.type(screen.getByLabelText('密码'), 'a-long-test-password');
   await user.type(screen.getByLabelText('显示名（可选）'), '学习者');
   await user.click(screen.getByRole('button', { name: '创建账号' }));
-  expect(
-    await screen.findByRole('heading', { name: '你好，学习者' }),
-  ).toBeVisible();
-  expect(router.state.location.pathname).toBe('/');
-  expect(screen.getByText('learner@example.com')).toBeVisible();
+  // Registration selects the assembled app's business default entry
+  // (design.md §5), not the Core home; the assertion reads the assembly so
+  // every source combination passes.
+  await waitFor(() =>
+    expect(router.state.location.pathname).toBe(assembledApp.defaultEntry),
+  );
+  expect(screen.queryByLabelText('密码')).toBeNull();
 });
 
 test('shows pending and correlated errors, retains input and allows retry', async () => {

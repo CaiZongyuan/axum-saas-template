@@ -7,32 +7,39 @@ import {
 } from './lib/example-remove.mjs';
 import { resolveRoot, root } from './lib/process.mjs';
 
-// Remove the knowledge example from a clean template working copy, exactly
-// as registered in examples/knowledge-base/manifest.json. Databases,
-// buckets and secrets are never touched, and migration history is kept
-// unless a fresh copy explicitly opts into trimming.
+// Remove a registered example from a clean template working copy, exactly
+// as registered in its examples/<id>/manifest.json. Databases, buckets and
+// secrets are never touched, and migration history is kept unless a fresh
+// copy explicitly opts into trimming.
 //
 //   just example-remove --dry-run
 //   just example-remove
 //   just example-remove --trim-migrations        # fresh copies only
 //   node scripts/example-remove.mjs --root /tmp/my-copy
+//   node scripts/example-remove.mjs --example notes
 //
 // After a real removal the derived artifacts are regenerated in place and
-// `just check-core` plus `just docs-build` verify the Core-only product.
+// `just check-core` plus `just docs-build` verify the reduced product.
 
 const { values } = parseArgs({
   options: {
     'dry-run': { type: 'boolean', default: false },
     'trim-migrations': { type: 'boolean', default: false },
+    example: { type: 'string', default: 'knowledge-base' },
     root: { type: 'string', default: root },
   },
 });
 const target = resolveRoot(values.root);
-const options = { trimMigrations: values['trim-migrations'], root: target };
+const options = {
+  trimMigrations: values['trim-migrations'],
+  exampleId: values.example,
+  root: target,
+};
 
 if (values['dry-run']) {
   const plan = planExampleRemoval(target, {
     trimMigrations: values['trim-migrations'],
+    exampleId: values.example,
   });
   const { problems } = checkRemovalSafety(target, plan);
   console.log(
@@ -57,7 +64,7 @@ if (values['dry-run']) {
       `- owned cargo dependencies to strip: ${plan.cargoDependencies
         .map((entry) => `${entry.file} (${entry.remove.join(', ')})`)
         .join('; ')}`,
-      '- manifest examples/knowledge-base/manifest.json -> status: removed',
+      `- manifest ${plan.manifest.file} -> status: removed`,
       '- regenerate: pnpm install, cargo update --workspace, pnpm generate, project-docs references',
       problems.length > 0
         ? `protection: applying now would refuse:\n${problems
