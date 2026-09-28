@@ -115,6 +115,14 @@ export async function signIn(window: Page): Promise<void> {
     requireSmokeEnv('DESKTOP_SMOKE_PASSWORD'),
   );
   await window.getByRole('button', { name: '登录', exact: true }).click();
+  // The assembly decides where login lands (a business default entry when an
+  // example declares one, the universal home otherwise). Wait for that
+  // landing, then take the Core home explicitly: its view owns the logout
+  // control this helper's contract promises.
+  await window.waitForURL((url) => url.pathname !== '/login', {
+    timeout: 15_000,
+  });
+  await window.goto(`${new URL(requireSmokeEnv('E2E_WEB_URL')).origin}/`);
   await visible(window.getByRole('button', { name: '退出登录' }));
 }
 
