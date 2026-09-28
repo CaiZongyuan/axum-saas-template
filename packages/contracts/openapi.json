@@ -6219,6 +6219,13 @@
         "properties": {
           "email": {
             "type": "string"
+          },
+          "locale": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Reset email language: `zh` or `en`. Omitted keeps the default\nChinese delivery for existing clients. Other values are rejected\nwith `auth.invalid_input`."
           }
         },
         "additionalProperties": false

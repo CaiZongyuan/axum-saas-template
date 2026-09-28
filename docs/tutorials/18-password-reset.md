@@ -14,13 +14,13 @@
 
 ## 2. 一次请求如何变成可靠邮件
 
-`POST /api/v1/auth/password-reset` 接受 `{email}`，校验受信 Origin。有效格式的存在、不存在、停用账号和冷却期内重复申请都得到相同的 202 与响应体。未配置邮件时所有邮箱得到相同的 503；普通注册和登录仍可用。请求沿用[认证限流](17-rate-limits.md)，同一可用账号默认 60 秒内的重复申请合并，不再创建新 Job。
+`POST /api/v1/auth/password-reset` 接受 `{email}`，校验受信 Origin。有效格式的存在、不存在、停用账号和冷却期内重复申请都得到相同的 202 与响应体。请求可用 `locale: "zh" | "en"` 指定邮件语言；省略时保持默认中文投递，其他值得到稳定的校验错误。未配置邮件时所有邮箱得到相同的 503；普通注册和登录仍可用。请求沿用[认证限流](17-rate-limits.md)，同一可用账号默认 60 秒内的重复申请合并，不再创建新 Job。
 
-[Identity 请求用例](../../crates/app/src/modules/identity/password_reset/requests.rs)在同一事务中保存重置 hash、短期加密材料并登记 `identity.password_reset` Job。Job payload 只有 `reset_id`；明文 token、邮箱和完整链接不会进入任务状态、Audit 或日志。新申请不会使此前有效的链接立即作废，避免别人反复请求导致用户手头链接失效。
+[Identity 请求用例](../../crates/app/src/modules/identity/password_reset/requests.rs)在同一事务中保存重置 hash、短期加密材料并登记 `identity.password_reset` Job。Job payload 只有 `reset_id`；明文 token、邮箱和完整链接不会进入任务状态、Audit 或日志。申请语言作为投递语言的快照密封进材料，冷却期内的跨语言重复申请合并并保留首个语言。新申请不会使此前有效的链接立即作废，避免别人反复请求导致用户手头链接失效。
 
-链接只由受信 `APP_ORIGIN` 构造，形如 `https://your-app.example/reset-password#token=…`，不采用请求 Host。fragment 不随 HTTP 请求路径或 Referer 发送；Web 页面读取并立即替换 URL，token 只用于本次提交，不写入浏览器存储或 Query/Mutation 缓存。刷新已清理 URL 的重置页需要重新打开邮件链接。
+链接只由受信 `APP_ORIGIN` 构造，形如 `https://your-app.example/reset-password#token=…`，不采用请求 Host。fragment 不随 HTTP 请求路径或 Referer 发送；Web 页面读取并立即替换 URL，token 只用于本次提交，不写入浏览器存储或 Query/Mutation 缓存。申请指定了语言时，fragment 追加非敏感的 `&lang=<locale>` 提示，重置页据此只把当前流程渲染为该语言，不写入已保存偏好；未指定语言的链接与既有格式字节一致。刷新已清理 URL 的重置页需要重新打开邮件链接。
 
-[重置邮件 Handler](../../crates/app/src/modules/identity/password_reset/worker.rs)领取持久任务后，验证当前成员有效、凭据存在、重置未过期/使用/撤销、Job 绑定和租约有效，再解密并发送。数据库事务在网络发送前结束；发送期间 Worker 继续续租，失去租约会取消正在等待的发送。到期时间也限制发送预算。已经发出的邮件无法撤回，消费时仍要再次验证链接。
+[重置邮件 Handler](../../crates/app/src/modules/identity/password_reset/worker.rs)领取持久任务后，验证当前成员有效、凭据存在、重置未过期/使用/撤销、Job 绑定和租约有效，再解密并发送。邮件主题与正文使用材料密封时记录的语言，因此每次尝试——包括重试——说同一种语言；早于该字段密封的材料保持默认中文。数据库事务在网络发送前结束；发送期间 Worker 继续续租，失去租约会取消正在等待的发送。到期时间也限制发送预算。已经发出的邮件无法撤回，消费时仍要再次验证链接。
 
 ## 3. Hash 与密文分别解决什么
 
@@ -59,7 +59,7 @@ node --test tests/tooling/development-mail-key.test.mjs
 just check
 ```
 
-真实 HTTP/PostgreSQL/Job/Mailpit 测试覆盖投递、重启后重新领取、旧租约拒绝、重复消费、并发、过期、停用后重新启用、审计失败回滚以及 SMTP 451/550。密码重置与登录的竞态用真实数据库行锁组织，不靠任意等待猜测顺序。View 测试覆盖中性提示、手动重试、确认密码、成功、无效链接与 URL fragment 清除。
+真实 HTTP/PostgreSQL/Job/Mailpit 测试覆盖投递、重启后重新领取、旧租约拒绝、重复消费、并发、过期、停用后重新启用、审计失败回滚以及 SMTP 451/550。申请语言决定投递语言与链接提示并在重试后保持，跨语言冷却合并保留首个语言，不支持的语言返回稳定校验错误。密码重置与登录的竞态用真实数据库行锁组织，不靠任意等待猜测顺序。View 测试覆盖中性提示、手动重试、确认密码、成功、无效链接与 URL fragment 清除；链接语言提示只覆盖当前流程，用户在流程内选择的语言按正常偏好规则持久化。
 
 新关键旅程完成时运行一次：
 
@@ -67,6 +67,6 @@ just check
 node scripts/e2e.mjs tests/e2e/password-reset.spec.ts
 ```
 
-浏览器从真实捕获邮件取得链接，重置后验证另一个浏览器的 Session 失效并使用新密码登录。认证旅程关闭 trace/截图，报告不保存邮件、token、密码或原始异常。
+浏览器从真实捕获邮件取得链接，重置后验证另一个浏览器的 Session 失效并使用新密码登录；语言旅程验证申请语言驱动邮件与链接提示，且只覆盖重置流程本身。认证旅程关闭 trace/截图，报告不保存邮件、token、密码或原始异常。
 
 扩展其他事务邮件时，业务模块拥有自己的有效性与短期材料表，通过公开 Mail 加密/发送能力和 Jobs 事务接口接入。让自己的 Handler 重新验证当前业务状态，失败使用静态码；不要把明文秘密直接放进普通 Job payload。

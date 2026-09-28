@@ -34,7 +34,10 @@ test('the forgot-password page gives neutral delivery feedback and allows explic
     http.post(
       'http://api.test/api/v1/auth/password-reset',
       async ({ request }) => {
-        expect(await request.json()).toEqual({ email: 'learner@example.com' });
+        expect(await request.json()).toEqual({
+          email: 'learner@example.com',
+          locale: 'zh',
+        });
         return fail
           ? HttpResponse.json(
               {
@@ -183,4 +186,63 @@ test('opening a fresh fragment in the same reset page replaces a consumed link a
     await waitFor(() => expect(router.state.location.hash).toBe(''));
   }
   expect(submitted).toEqual([first, next]);
+});
+
+test('the mail link language hint opens that language for this flow only', async () => {
+  const token = 'e'.repeat(64);
+  const { user } = open(`/reset-password#token=${token}&lang=en`);
+  // The flow renders in the email's language while the saved preference
+  // stays untouched (docs/ui/design.md §6 Q8).
+  await screen.findByLabelText('New password');
+  expect(document.documentElement.lang).toBe('en');
+  expect(window.localStorage.getItem('saas.locale')).toBe('zh');
+  // A language the user picks themselves follows normal preference rules.
+  await user.click(screen.getByRole('button', { name: '简体中文' }));
+  expect(await screen.findByLabelText('新密码')).toBeVisible();
+  expect(document.documentElement.lang).toBe('zh-CN');
+  expect(window.localStorage.getItem('saas.locale')).toBe('zh');
+  // Leaving the flow hands the document back to the base preference.
+  await user.click(screen.getByRole('button', { name: '返回登录' }));
+  expect(
+    await screen.findByRole('heading', { name: '登录企业空间' }),
+  ).toBeVisible();
+  expect(document.documentElement.lang).toBe('zh-CN');
+});
+
+test('a language the user picks inside the flow persists as the device choice', async () => {
+  const token = 'f'.repeat(64);
+  const { user } = open(`/reset-password#token=${token}&lang=en`);
+  await screen.findByLabelText('New password');
+  await user.click(screen.getByRole('button', { name: 'English' }));
+  expect(window.localStorage.getItem('saas.locale')).toBe('en');
+  expect(screen.getByLabelText('New password')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Back to sign-in' }));
+  expect(
+    await screen.findByRole('heading', { name: 'Sign in to your workspace' }),
+  ).toBeVisible();
+  expect(document.documentElement.lang).toBe('en');
+});
+
+test('a fresh mail link re-applies its language after the user switched inside the flow', async () => {
+  const first = '1'.repeat(64);
+  const next = '2'.repeat(64);
+  const { user, router } = open(`/reset-password#token=${first}&lang=en`);
+  await screen.findByLabelText('New password');
+  await user.click(screen.getByRole('button', { name: '简体中文' }));
+  expect(await screen.findByLabelText('新密码')).toBeVisible();
+  await act(async () => {
+    await router.navigate({
+      to: '/reset-password',
+      hash: `token=${next}&lang=en`,
+    });
+  });
+  expect(await screen.findByLabelText('New password')).toBeVisible();
+  expect(document.documentElement.lang).toBe('en');
+  expect(window.localStorage.getItem('saas.locale')).toBe('zh');
+});
+
+test('an unknown language hint falls back to the device preference', async () => {
+  open(`/reset-password#token=${'0'.repeat(64)}&lang=fr`);
+  expect(await screen.findByLabelText('新密码')).toBeVisible();
+  expect(document.documentElement.lang).toBe('zh-CN');
 });

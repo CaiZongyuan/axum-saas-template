@@ -252,7 +252,7 @@ Q9 已确认：分「基础 / 组件 / 场景 / 图标」四类，展示真实 t
 
 代码证据：`crates/app/src/modules/identity/password_reset/{mod.rs,requests.rs,worker.rs}`、`packages/views/src/identity/password-reset-views.tsx`、`crates/app/src/modules/knowledge/exports/requests.rs`、`packages/views/src/notifications/notifications-view.tsx`、`apps/desktop/src/{main.ts,error.html,ipc-contract.ts}`、`apps/docs/.vitepress/config.mts`、`scripts/lib/docs.mjs`、`scripts/lib/example-remove.mjs`。
 
-Q8 已确认：邮件采用申请页语言并在本次发送期间固定；邮件链接打开相同语言的重置页面。链接语言仅作为当前重置流程的覆盖值，不自动改写已保存的全局偏好；用户主动切换语言仍按正常偏好规则处理。Documentation 保留章节深链并以 `/docs/` 为入口，英文使用 `/en/docs/` 及对应章节路径，同章节切换并保留 VitePress 阅读布局、统一字体和明暗视觉；系统通知随界面语言，用户内容保留原文。
+Q8 已确认：邮件采用申请页语言并在本次发送期间固定；邮件链接打开相同语言的重置页面。链接语言仅作为当前重置流程的覆盖值，不自动改写已保存的全局偏好；用户主动切换语言仍按正常偏好规则处理。覆盖值由重置路由在其挂载期间通过偏好提供者生效，因此首帧仍按已保存或设备语言绘制，React 挂载后才切换为链接语言；index.html 的首绘脚本不读取链接提示。Documentation 保留章节深链并以 `/docs/` 为入口，英文使用 `/en/docs/` 及对应章节路径，同章节切换并保留 VitePress 阅读布局、统一字体和明暗视觉；系统通知随界面语言，用户内容保留原文。
 
 ### 公开站点：Landing / Documentation / Blog / Downloads
 

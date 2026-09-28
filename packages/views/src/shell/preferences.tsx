@@ -79,6 +79,15 @@ export type PreferencesValue = {
 
 const PreferencesContext = createContext<PreferencesValue | null>(null);
 
+// A reset-email link carries its own language hint (docs/ui/design.md
+// §6 Q8). While a flow locale is set, the whole preference surface —
+// rendered text, html.lang, formatting — resolves to it, but the saved
+// choice stays untouched; the first language the user picks themselves
+// ends the override through the normal setLocale rules.
+const FlowLocaleSetterContext = createContext<
+  ((locale: AppLocale | undefined) => void) | null
+>(null);
+
 function applyPreferences(locale: AppLocale, resolved: ResolvedTheme) {
   const root = document.documentElement;
   root.lang = localeTag(locale);
@@ -99,6 +108,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   );
   const [systemPrefersDark, setSystemPrefersDark] =
     useState(systemPrefersDarkNow);
+  // The flow override (the reset link's language hint) resolves here so
+  // the applyPreferences effect below stays the single writer of
+  // html.lang; a child effect would lose the mount-order race against it.
+  const [flowLocale, setFlowLocale] = useState<AppLocale>();
 
   // Only system mode follows OS changes — and the subscription exists
   // exactly while the provider is mounted, never after.
@@ -112,12 +125,15 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const resolvedTheme = resolveTheme(theme, systemPrefersDark);
+  const effectiveLocale = flowLocale ?? locale;
 
   useEffect(() => {
-    applyPreferences(locale, resolvedTheme);
-  }, [locale, resolvedTheme]);
+    applyPreferences(effectiveLocale, resolvedTheme);
+  }, [effectiveLocale, resolvedTheme]);
 
   const setLocale = useCallback((next: AppLocale) => {
+    // An explicit pick ends any flow override and persists as usual.
+    setFlowLocale(undefined);
     setLocaleState(next);
     writeStoredChoice(LOCALE_STORAGE_KEY, next);
   }, []);
@@ -127,13 +143,21 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ locale, theme, resolvedTheme, setLocale, setTheme }),
-    [locale, theme, resolvedTheme, setLocale, setTheme],
+    () => ({
+      locale: effectiveLocale,
+      theme,
+      resolvedTheme,
+      setLocale,
+      setTheme,
+    }),
+    [effectiveLocale, theme, resolvedTheme, setLocale, setTheme],
   );
   return (
-    <PreferencesContext.Provider value={value}>
-      {children}
-    </PreferencesContext.Provider>
+    <FlowLocaleSetterContext.Provider value={setFlowLocale}>
+      <PreferencesContext.Provider value={value}>
+        {children}
+      </PreferencesContext.Provider>
+    </FlowLocaleSetterContext.Provider>
   );
 }
 
@@ -142,4 +166,17 @@ export function usePreferences(): PreferencesValue {
   if (!value)
     throw new Error('usePreferences used outside PreferencesProvider');
   return value;
+}
+
+/**
+ * Route-scoped override for a flow that arrived with its own language
+ * (the reset link's hint). Set it on mount with the link's language and
+ * clear it on unmount; every consumer of usePreferences above follows
+ * until the user picks a language themselves.
+ */
+export function useFlowLocaleSetter() {
+  const setFlowLocale = useContext(FlowLocaleSetterContext);
+  if (!setFlowLocale)
+    throw new Error('useFlowLocaleSetter used outside PreferencesProvider');
+  return setFlowLocale;
 }

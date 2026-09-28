@@ -26,6 +26,7 @@ import { RateLimitHint, useRetryDelay } from '../system/rate-limit';
 import { AuthPreferencesRow } from '../shell/appearance-controls';
 import { useAppMessage } from '../shell/messages';
 import { usePageTitle } from '../shell/page-title';
+import { usePreferences } from '../shell/preferences';
 import { replaceSession } from './session';
 
 // Reset errors map from stable backend codes; an unknown code gets the
@@ -65,6 +66,7 @@ export function ForgotPasswordView({
 }) {
   const message = useAppMessage();
   usePageTitle('forgot.docTitle');
+  const { locale } = usePreferences();
   const [email, setEmail] = useState('');
   const [pending, setPending] = useState(false);
   const [sent, setSent] = useState(false);
@@ -79,9 +81,11 @@ export function ForgotPasswordView({
     setPending(true);
     setError(undefined);
     try {
+      // New clients carry the page language so the email speaks it;
+      // the backend treats an omitted field as the original behavior.
       await requestPasswordReset({
         client: apiClient,
-        body: { email: email.trim() },
+        body: { email: email.trim(), locale },
         signal: controller.signal,
         throwOnError: true,
       });
