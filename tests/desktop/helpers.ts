@@ -54,6 +54,13 @@ export async function launchApp(): Promise<{
     },
   });
   const window = await app.firstWindow();
+  // First visit follows the device language, and CI machines report en-US;
+  // this suite's labels are zh, so pin the manual choice through the same
+  // storage the app itself reads, then reload for a clean zh first paint.
+  await window.evaluate(() => {
+    window.localStorage.setItem('saas.locale', 'zh');
+  });
+  await window.reload();
   const cleanup = async () => {
     // Quit gracefully first; on headless CI a stalled quit must not hang the
     // whole Playwright worker, so bound the wait and force-kill the shell.

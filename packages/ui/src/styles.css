@@ -17,6 +17,10 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-link: var(--link);
+  --color-sidebar: var(--sidebar);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -26,9 +30,14 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* The visual baseline (docs/ui/design.md §4): neutral surfaces layered as
+   a white workspace plus a light-gray navigation column, hairline borders,
+   ~4–6px control radii with ~8px containers, and compact 14/20px body
+   type. Links, focus and selection use blue; success/warning/danger stay
+   small-area accents. Every token has a dark counterpart in `.dark`. */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.985 0 0);
+  --radius: 0.5rem;
+  --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -39,9 +48,36 @@
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.48 0 0);
   --destructive: oklch(0.577 0.245 27.325);
+  --success: oklch(0.55 0.16 150);
+  --warning: oklch(0.62 0.16 65);
+  --link: oklch(0.52 0.2 262);
+  --sidebar: oklch(0.97 0 0);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.556 0 0);
+  --ring: oklch(0.55 0.14 262);
+  color-scheme: light;
+}
+
+.dark {
+  --background: oklch(0.141 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.181 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.985 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.26 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.26 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --destructive: oklch(0.68 0.2 25);
+  --success: oklch(0.74 0.16 152);
+  --warning: oklch(0.8 0.14 75);
+  --link: oklch(0.72 0.13 255);
+  --sidebar: oklch(0.175 0 0);
+  --border: oklch(0.27 0 0);
+  --input: oklch(0.27 0 0);
+  --ring: oklch(0.62 0.13 258);
+  color-scheme: dark;
 }
 
 @layer base {
@@ -49,7 +85,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply m-0 bg-background text-foreground antialiased;
+    @apply m-0 bg-background text-sm text-foreground antialiased;
     font-family:
       ui-sans-serif,
       system-ui,
@@ -58,5 +94,8 @@
       'Noto Sans CJK SC',
       'Microsoft YaHei',
       sans-serif;
+  }
+  a {
+    color: var(--link);
   }
 }

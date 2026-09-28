@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { loginUser, type ApiClient, type Login } from '@saas/sdk';
-import { requestIdFromError, retryAfterSeconds } from '@saas/core';
+import { errorCodeOf, requestIdFromError, retryAfterSeconds } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Button } from '@saas/ui/components/button';
 import {
@@ -13,6 +13,9 @@ import {
 } from '@saas/ui/components/card';
 import { Field, FieldGroup, FieldLabel } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
+import { AuthPreferencesRow } from '../shell/appearance-controls';
+import { useAppMessage } from '../shell/messages';
+import { usePageTitle } from '../shell/page-title';
 import { replaceSession } from './session';
 import { useRetryDelay } from '../system/rate-limit';
 
@@ -23,6 +26,8 @@ export function LoginView({
   apiClient: ApiClient;
   onLoggedIn: () => void;
 }) {
+  const message = useAppMessage();
+  usePageTitle('login.docTitle');
   const queryClient = useQueryClient();
   const cooldown = useRetryDelay();
   const mutation = useMutation({
@@ -35,21 +40,17 @@ export function LoginView({
       await replaceSession(queryClient, apiClient, session);
     },
   });
-  const errorCode =
-    mutation.error &&
-    typeof mutation.error === 'object' &&
-    'error' in mutation.error
-      ? (mutation.error.error as { code?: string })?.code
-      : undefined;
+  const errorCode = errorCodeOf(mutation.error);
   const requestId = requestIdFromError(mutation.error);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-6 py-12">
+      <AuthPreferencesRow />
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>
-            <h1>登录企业空间</h1>
+            <h1 className="text-xl font-semibold">{message('login.title')}</h1>
           </CardTitle>
-          <CardDescription>使用你的邮箱和密码继续。</CardDescription>
+          <CardDescription>{message('login.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -68,7 +69,9 @@ export function LoginView({
           >
             <FieldGroup>
               <Field data-disabled={mutation.isPending}>
-                <FieldLabel htmlFor="login-email">邮箱</FieldLabel>
+                <FieldLabel htmlFor="login-email">
+                  {message('login.email')}
+                </FieldLabel>
                 <Input
                   id="login-email"
                   name="email"
@@ -80,7 +83,9 @@ export function LoginView({
                 />
               </Field>
               <Field data-disabled={mutation.isPending}>
-                <FieldLabel htmlFor="login-password">密码</FieldLabel>
+                <FieldLabel htmlFor="login-password">
+                  {message('login.password')}
+                </FieldLabel>
                 <Input
                   id="login-password"
                   name="password"
@@ -93,16 +98,18 @@ export function LoginView({
               </Field>
               {mutation.isError ? (
                 <Alert variant="destructive">
-                  <AlertTitle>登录未完成</AlertTitle>
+                  <AlertTitle>{message('login.error.title')}</AlertTitle>
                   <AlertDescription>
                     {retryAfterSeconds(mutation.error)
                       ? cooldown.remaining > 0
-                        ? '请求过于频繁，请等待后重试。'
-                        : '请求过于频繁，现在可以重新尝试。'
+                        ? message('login.error.rateLimitedWait')
+                        : message('login.error.rateLimitedReady')
                       : errorCode === 'auth.invalid_credentials'
-                        ? '邮箱或密码不正确，请重新输入。'
-                        : '暂时无法登录，请稍后重试。'}
-                    {requestId ? <p>请求编号：{requestId}</p> : null}
+                        ? message('login.error.invalidCredentials')
+                        : message('login.error.generic')}
+                    {requestId ? (
+                      <p>{message('common.requestId', { id: requestId })}</p>
+                    ) : null}
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -111,20 +118,22 @@ export function LoginView({
                 disabled={mutation.isPending || cooldown.remaining > 0}
               >
                 {mutation.isPending
-                  ? '正在登录…'
+                  ? message('login.pending')
                   : cooldown.remaining > 0
-                    ? `请等待 ${cooldown.remaining} 秒`
-                    : '登录'}
+                    ? message('login.cooldown', {
+                        seconds: cooldown.remaining,
+                      })
+                    : message('login.submit')}
               </Button>
             </FieldGroup>
           </form>
         </CardContent>
         <CardFooter className="flex gap-4">
           <a className="text-sm underline" href="/forgot-password">
-            忘记密码？
+            {message('login.forgotPassword')}
           </a>
           <a className="text-sm underline" href="/register">
-            还没有账号？创建账号
+            {message('login.createAccount')}
           </a>
         </CardFooter>
       </Card>

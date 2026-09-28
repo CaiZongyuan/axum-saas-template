@@ -1,46 +1,94 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  type ReactNode,
+} from 'react';
 import type { AssembledApp } from './app-contract';
+import { usePreferences, type AppLocale } from './preferences';
 
-// The message catalog assembles every example's namespace plus Core texts.
-// UI02 keeps the resolution minimal (fixed locale from the provider);
-// UI04 builds the preference switching on this catalog.
+// The message catalog assembles Core texts plus every example's namespace.
+// Release checks (and the assembly point) require both locales to be
+// complete; at runtime a key missing in the active locale falls back to
+// English and finally to an understandable generic hint — a missing key
+// never renders as a bare key and never throws (docs/ui/design.md §6 Q1).
 
-export type AppLocale = 'zh' | 'en';
+const GENERIC_HINT: Record<AppLocale, string> = {
+  zh: '这段界面文字暂不可用。',
+  en: 'This interface text is unavailable.',
+};
 
-const AppMessagesContext = createContext<{
+export type MessageParams = Record<string, string | number>;
+
+function interpolate(text: string, params: MessageParams | undefined): string {
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (whole, name: string) =>
+    name in params ? String(params[name]) : whole,
+  );
+}
+
+type MessagesValue = {
   locale: AppLocale;
-  messages: Record<string, string>;
-}>({ locale: 'zh', messages: {} });
+  resolve: (key: string, params?: MessageParams) => string;
+};
+
+const AppMessagesContext = createContext<MessagesValue>({
+  locale: 'zh',
+  resolve: (key) => key,
+});
 
 export function AppMessagesProvider({
   app,
-  locale = 'zh',
   children,
 }: {
   app: Pick<AssembledApp, 'messages'>;
-  locale?: AppLocale;
   children: ReactNode;
 }) {
+  const { locale } = usePreferences();
+  const value = useMemo<MessagesValue>(() => {
+    const active = app.messages[locale] ?? {};
+    const fallback = app.messages.en ?? {};
+    return {
+      locale,
+      resolve: (key, params) => {
+        const text = active[key] ?? fallback[key];
+        return text === undefined
+          ? GENERIC_HINT[locale]
+          : interpolate(text, params);
+      },
+    };
+  }, [app, locale]);
+
+  // Keep the document's meta description in the active language when the
+  // app declares one; apps without the key keep whatever they shipped.
+  useEffect(() => {
+    const description =
+      app.messages[locale]['app.description'] ??
+      app.messages.en['app.description'];
+    if (!description) return;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute('content', description);
+  }, [app, locale]);
+
   return (
-    <AppMessagesContext.Provider
-      value={{ locale, messages: app.messages[locale] }}
-    >
+    <AppMessagesContext.Provider value={value}>
       {children}
     </AppMessagesContext.Provider>
   );
 }
 
 /**
- * Resolves a message key against the assembled catalog; a missing key is a
- * wiring bug. Example pages pass their example id as the namespace so keys
- * stay in the example's own vocabulary (assembly adds the prefix).
+ * Resolves a message key against the assembled catalog. Example pages pass
+ * their example id as the namespace so keys stay in the example's own
+ * vocabulary (assembly adds the prefix); Core shell code resolves
+ * already-namespaced keys directly.
  */
-export function useAppMessage(namespace?: string): (key: string) => string {
-  const { locale, messages } = useContext(AppMessagesContext);
-  return (key: string) => {
-    const resolved = namespace ? `${namespace}.${key}` : key;
-    const text = messages[resolved];
-    if (!text) throw new Error(`Missing ${locale} message: ${resolved}`);
-    return text;
-  };
+export function useAppMessage(
+  namespace?: string,
+): (key: string, params?: MessageParams) => string {
+  const { resolve } = useContext(AppMessagesContext);
+  return (key, params) =>
+    resolve(namespace ? `${namespace}.${key}` : key, params);
 }

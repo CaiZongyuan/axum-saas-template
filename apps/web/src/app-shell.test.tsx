@@ -24,11 +24,18 @@ const signedIn = {
   csrf_token: 'shell-csrf',
 } satisfies CurrentSession;
 
-function open(path = '/') {
+function open(
+  path = '/',
+  role: CurrentSession['user']['role'] = signedIn.user.role,
+  { signedOut = false }: { signedOut?: boolean } = {},
+) {
+  if (!signedOut)
+    server.use(
+      http.get('http://api.test/api/v1/auth/session', () =>
+        HttpResponse.json({ ...signedIn, user: { ...signedIn.user, role } }),
+      ),
+    );
   server.use(
-    http.get('http://api.test/api/v1/auth/session', () =>
-      HttpResponse.json(signedIn),
-    ),
     // A business entry page may list its resources; an empty page is valid.
     http.get('http://api.test/api/v1/knowledge/documents', () =>
       HttpResponse.json({
@@ -76,31 +83,112 @@ test('unknown paths render the unavailable page with a way home, without a loop'
   expect(await screen.findByRole('main')).toBeVisible();
 });
 
-test('business navigation mirrors the assembled groups and opens assembled routes', async () => {
+test('the sidebar navigation mirrors the assembled groups and opens assembled routes', async () => {
   const { user, router } = open('/');
   await screen.findByRole('main');
-  const navigation = screen.queryByRole('navigation', { name: '业务导航' });
-  if (assembledApp.navigation.length === 0) {
-    expect(navigation).toBeNull();
-    return;
-  }
-  expect(navigation).not.toBeNull();
+  // Business groups arrive with the session; await the first entry rather
+  // than racing the shell's signed-out first paint.
+  if (assembledApp.navigation.length === 0) return;
+  const first = assembledApp.navigation[0].items[0];
+  const navigation = screen.getByRole('navigation', { name: '主菜单' });
+  await within(navigation).findByRole('link', {
+    name: assembledApp.messages.zh[first.labelKey],
+  });
   // A group label may legitimately repeat as one of its item labels, so
-  // presence is asserted with getAllByText.
+  // presence is asserted with getAllBy*.
   for (const group of assembledApp.navigation)
     expect(
-      within(navigation as HTMLElement).getAllByText(
-        assembledApp.messages.zh[group.labelKey],
-      ).length,
+      within(navigation).getAllByText(assembledApp.messages.zh[group.labelKey])
+        .length,
     ).toBeGreaterThan(0);
-  const first = assembledApp.navigation[0].items[0];
   await user.click(
-    within(navigation as HTMLElement).getByText(
-      assembledApp.messages.zh[first.labelKey],
-    ),
+    within(navigation).getAllByRole('link', {
+      name: assembledApp.messages.zh[first.labelKey],
+    })[0],
   );
   await waitFor(() => expect(router.state.location.pathname).toBe(first.path));
   expect(await screen.findByRole('main')).toBeVisible();
+});
+
+test('the sidebar holds the Core entries; a member sees no administration group', async () => {
+  open('/');
+  // Await the session-dependent greeting so the absence assertions below
+  // describe the signed-in sidebar, not the pre-session first paint.
+  expect(await screen.findByText('你好，壳用户')).toBeVisible();
+  const navigation = screen.getByRole('navigation', { name: '主菜单' });
+  for (const label of ['首页', '通知', '外观与语言', '使用教程', '系统状态'])
+    expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
+  expect(
+    within(navigation).queryByRole('link', { name: '企业成员' }),
+  ).toBeNull();
+});
+
+test('a signed-out visitor sees the public Core entries only', async () => {
+  server.use(
+    http.get('http://api.test/api/v1/auth/session', () =>
+      HttpResponse.json(null, { status: 401 }),
+    ),
+  );
+  open('/', signedIn.user.role, { signedOut: true });
+  // The home card settles signed-out (a login entry appears) before the
+  // absence assertions describe the final sidebar.
+  await screen.findByRole('link', { name: '登录' });
+  const navigation = screen.getByRole('navigation', { name: '主菜单' });
+  for (const label of ['首页', '外观与语言', '使用教程', '系统状态'])
+    expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
+  // Notification and API-key surfaces are authenticated capabilities; the
+  // sidebar does not advertise them before sign-in. Business groups are
+  // session-scoped too, so they stay out as well.
+  expect(within(navigation).queryByRole('link', { name: '通知' })).toBeNull();
+  expect(
+    within(navigation).queryByRole('link', { name: 'API Keys' }),
+  ).toBeNull();
+  expect(
+    within(navigation).queryByRole('link', { name: '我的文档' }),
+  ).toBeNull();
+});
+
+test('the administration group appears for owners', async () => {
+  const { user } = open('/', 'owner');
+  // The group mounts once the session resolves with the owner role.
+  const membersLink = await screen.findByRole('link', { name: '企业成员' });
+  const navigation = membersLink.closest('nav');
+  expect(navigation).not.toBeNull();
+  for (const label of ['后台任务', '审计记录'])
+    expect(
+      within(navigation as HTMLElement).getByRole('link', { name: label }),
+    ).toBeVisible();
+  await user.click(screen.getByRole('link', { name: '外观与语言' }));
+  expect(
+    await screen.findByRole('heading', { name: '外观与语言' }),
+  ).toBeVisible();
+});
+
+test('the narrow-screen drawer toggles with announced state and Escape dismisses it', async () => {
+  // jsdom applies no stylesheet, so visibility is asserted through the
+  // sidebar's own hidden class and the toggle's ARIA state.
+  const { user } = open('/');
+  await screen.findByRole('main');
+  const toggle = screen.getByRole('button', { name: '打开导航菜单' });
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(toggle).toHaveAttribute('aria-controls', 'app-sidebar');
+  expect(document.getElementById('app-sidebar')).toHaveClass('hidden');
+  await user.click(toggle);
+  expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  expect(document.getElementById('app-sidebar')).not.toHaveClass('hidden');
+  await user.keyboard('{Escape}');
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  expect(document.getElementById('app-sidebar')).toHaveClass('hidden');
+});
+
+test('the sidebar Documentation link points at the zh docs home, not the landing', async () => {
+  open('/');
+  const navigation = await screen.findByRole('navigation', {
+    name: '主菜单',
+  });
+  const docsLink = within(navigation).getByRole('link', { name: '使用教程' });
+  expect(docsLink).toHaveAttribute('href', 'https://docs.test/docs/');
+  expect(docsLink).toHaveAttribute('target', '_blank');
 });
 
 test('the business default entry is directly reachable as a deep link', async () => {

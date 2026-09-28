@@ -31,7 +31,7 @@ CSRF token 从当前会话通过 HMAC-SHA256 派生，用成熟库的恒定时�
 
 ## 4. 让页面跟随身份变化
 
-[登录 View](../../packages/views/src/identity/login-view.tsx)展示提交、受控失败和重试；[首页](../../packages/views/src/identity/home-view.tsx)通过 SDK 查询当前会话并执行退出。
+[登录 View](../../packages/views/src/identity/login-view.tsx)展示提交、受控失败和重试；[首页](../../packages/views/src/identity/home-view.tsx)通过 SDK 查询当前会话并执行退出。两个页面的文案都来自 Core 双语目录：登录前即可切换界面语言与明暗主题，登录失败按稳定码（`auth.invalid_credentials`）映射本地文案，并保留 request_id（见[外观与语言](28-appearance-language.md)）。
 
 成功登录或退出时，取消旧的查询并清理 Query 缓存，再写入新的当前会话状态。会话刷新发现身份/角色变化或失效时，同样先清理其他查询；这覆盖另一个标签页切换账号后当前页重新获得焦点的情况。测试特意保存上一身份的查询缓存，验证切换后被移除。密码表单使用短暂的组件/请求内存，mutation 离开后不保留缓存；密码和 session secret 不进入 localStorage 或业务持久状态。
 

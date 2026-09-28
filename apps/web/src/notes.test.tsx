@@ -45,13 +45,30 @@ function open(path = '/') {
 
 test('the notes page opens from the home business navigation and renders its own messages', async () => {
   const { user, router } = open('/');
-  const navigation = await screen.findByRole('navigation', {
-    name: '业务导航',
-  });
-  await user.click(within(navigation).getByRole('link', { name: '便签示例' }));
+  // Business groups mount with the session; await the link, not the nav.
+  await user.click(await screen.findByRole('link', { name: '便签示例' }));
   await waitFor(() => expect(router.state.location.pathname).toBe('/notes'));
   expect(
     await screen.findByRole('heading', { name: '便签示例页' }),
+  ).toBeVisible();
+});
+
+test('switching language in settings instantly re-renders the notes example', async () => {
+  // The second test example proves that example-owned messages follow the
+  // preference switch at runtime — no reload, no per-example wiring.
+  const { user } = open('/settings');
+  const english = await screen.findByRole('radio', { name: 'English' });
+  await user.click(english);
+  expect(document.documentElement.lang).toBe('en');
+  // Settings carries no business groups; go home to find the example link.
+  await user.click(
+    within(
+      await screen.findByRole('navigation', { name: 'Main menu' }),
+    ).getByRole('link', { name: 'Home' }),
+  );
+  await user.click(await screen.findByRole('link', { name: 'Notes example' }));
+  expect(
+    await screen.findByRole('heading', { name: 'Notes example page' }),
   ).toBeVisible();
 });
 

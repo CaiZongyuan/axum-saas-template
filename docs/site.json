@@ -52,18 +52,20 @@
     {
       "id": "registration",
       "source": "docs/tutorials/02-registration.md",
+      "sourceEn": "docs/tutorials/02-registration.en.md",
       "route": "tutorials/registration.md",
       "title": "注册、事务与会话",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Registration, transactions and sessions",
+      "group": "跟做教程"
     },
     {
       "id": "sessions",
       "source": "docs/tutorials/03-sessions.md",
+      "sourceEn": "docs/tutorials/03-sessions.en.md",
       "route": "tutorials/sessions.md",
       "title": "登录、退出与会话失效",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Sign-in, sign-out and session invalidation",
+      "group": "跟做教程"
     },
     {
       "id": "personal-documents",
@@ -216,6 +218,15 @@
       "title": "备份与独立环境恢复演练",
       "group": "跟做教程",
       "translation": { "status": "pending", "owner": "UI14" }
+    },
+    {
+      "id": "appearance-language",
+      "source": "docs/tutorials/28-appearance-language.md",
+      "sourceEn": "docs/tutorials/28-appearance-language.en.md",
+      "route": "tutorials/appearance-language.md",
+      "title": "外观与语言设置",
+      "titleEn": "Appearance and language settings",
+      "group": "跟做教程"
     },
     {
       "id": "add-example",

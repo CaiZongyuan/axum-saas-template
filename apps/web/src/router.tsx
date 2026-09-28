@@ -12,6 +12,10 @@ import {
 import type { ApiClient } from '@saas/sdk';
 import {
   AppMessagesProvider,
+  PreferencesProvider,
+  useAppMessage,
+  usePageTitle,
+  SettingsView,
   ForgotPasswordView,
   ResetPasswordView,
   ApiKeysView,
@@ -37,13 +41,17 @@ const rootRoute = createRootRouteWithContext<AppContext>()({
 
 // The universal shell renders the assembled result; the actual Router
 // wiring (TanStack) lives only in this adapter. Core pages are registered
-// below, example pages come from the explicit assembly point.
+// below, example pages come from the explicit assembly point. Preferences
+// (language + appearance) wrap the message catalog so every page — auth
+// included — renders in the resolved language and theme.
 
 function RootLayout() {
   return (
-    <AppMessagesProvider app={assembledApp}>
-      <Outlet />
-    </AppMessagesProvider>
+    <PreferencesProvider>
+      <AppMessagesProvider app={assembledApp}>
+        <Outlet />
+      </AppMessagesProvider>
+    </PreferencesProvider>
   );
 }
 
@@ -51,12 +59,14 @@ function RootLayout() {
 // rewriting the address: the URL may be an old bookmark of a removed
 // example, and the page keeps a visible way home without a loop.
 function RouteNotFoundPage() {
+  const message = useAppMessage();
+  usePageTitle('unavailable.title');
   const navigate = useNavigate();
   return (
     <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-xl font-semibold">相关功能当前不可用</h1>
+      <h1 className="text-xl font-semibold">{message('unavailable.title')}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        这个地址指向的功能可能已被移除，或从未存在。
+        {message('unavailable.description')}
       </p>
       <button
         type="button"
@@ -65,7 +75,7 @@ function RouteNotFoundPage() {
           void navigate({ to: '/' });
         }}
       >
-        返回首页
+        {message('unavailable.backHome')}
       </button>
     </main>
   );
@@ -156,16 +166,23 @@ const homeRoute = createRoute({
         onOpenNavigation={(path) => {
           void navigate({ to: path });
         }}
-        adminActions={
-          <>
-            <a href="/jobs" className="text-sm underline">
-              后台任务
-            </a>
-            <a href="/audit" className="text-sm underline">
-              审计记录
-            </a>
-          </>
-        }
+      />
+    );
+  },
+});
+
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: function SettingsPage() {
+    const { docsUrl } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    return (
+      <SettingsView
+        docsUrl={docsUrl}
+        onOpen={(path) => {
+          void navigate({ to: path });
+        }}
       />
     );
   },
@@ -392,6 +409,7 @@ const routeTree = rootRoute.addChildren([
   membersRoute,
   jobsRoute,
   jobRoute,
+  settingsRoute,
   homeRoute,
   registrationRoute,
   statusRoute,
