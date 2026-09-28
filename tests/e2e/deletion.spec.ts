@@ -1,8 +1,12 @@
 import { expect, test } from '@playwright/test';
 
+// The journey asserts the zh interface, so it pins the context locale
+// instead of relying on device detection (see password-reset.spec.ts).
 test('confirmed deletion hides attachments immediately and a Worker removes their objects', async ({
-  page,
+  browser,
 }) => {
+  const context = await browser.newContext({ locale: 'zh-CN' });
+  const page = await context.newPage();
   await page.goto('/register');
   await page
     .getByLabel('邮箱', { exact: true })

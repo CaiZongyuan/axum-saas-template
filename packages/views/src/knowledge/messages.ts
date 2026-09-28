@@ -149,6 +149,8 @@ const zh: Catalog = {
   'attachments.downloadAction': '下载',
   'attachments.insertRef': '插入引用',
   'attachments.loadMore': '加载更多附件',
+  'attachments.imageType': '图片文件',
+  'attachments.fileType': '文件',
 
   // Exports: panel, feedback, detail.
   'exports.section': '文档导出',
@@ -237,6 +239,23 @@ const zh: Catalog = {
   'scene.saveConflict.draftMarkdown':
     '# 演示文档\n\n我正在编辑这一段，尚未保存。',
   'scene.saveConflict.latestMarkdown': '# 演示文档\n\n另一位用户已更新这一段。',
+
+  // The design-system attachment scene (UI08): the attachment list's file
+  // icons (vendored Material Symbols subset) and upload lifecycle feedback
+  // demonstrated on demo data.
+  'scene.attachments.title': '附件图标与上传状态',
+  'scene.attachments.description':
+    '附件列表的文件图标与上传生命周期反馈在演示数据上运行，不会创建真实文件。',
+  'scene.attachments.galleryTitle': '文件图标（Material Symbols 子集）',
+  'scene.attachments.iconImage': '图片',
+  'scene.attachments.iconDocument': '文档',
+  'scene.attachments.stateUploading': '上传中',
+  'scene.attachments.stateDone': '上传完成',
+  'scene.attachments.stateFailed': '上传失败',
+  'scene.attachments.demoImageName': '截图.png',
+  'scene.attachments.demoImageMeta': '图片文件 · 24.0 KiB',
+  'scene.attachments.demoDocName': '报告.pdf',
+  'scene.attachments.demoDocMeta': '文件 · 1.2 MiB',
 };
 
 const en: Catalog = {
@@ -394,6 +413,8 @@ const en: Catalog = {
   'attachments.downloadAction': 'Download',
   'attachments.insertRef': 'Insert reference',
   'attachments.loadMore': 'Load more attachments',
+  'attachments.imageType': 'Image file',
+  'attachments.fileType': 'File',
 
   'exports.section': 'Document exports',
   'exports.heading': 'Export the document',
@@ -484,6 +505,20 @@ const en: Catalog = {
     '# Demo document\n\nI am editing this paragraph; it is not saved yet.',
   'scene.saveConflict.latestMarkdown':
     '# Demo document\n\nAnother user has updated this paragraph.',
+
+  'scene.attachments.title': 'Attachment icons and upload states',
+  'scene.attachments.description':
+    "The attachment list's file icons and upload lifecycle feedback run on demo data — no real files are created.",
+  'scene.attachments.galleryTitle': 'File icons (Material Symbols subset)',
+  'scene.attachments.iconImage': 'Image',
+  'scene.attachments.iconDocument': 'Document',
+  'scene.attachments.stateUploading': 'Uploading',
+  'scene.attachments.stateDone': 'Uploaded',
+  'scene.attachments.stateFailed': 'Upload failed',
+  'scene.attachments.demoImageName': 'screenshot.png',
+  'scene.attachments.demoImageMeta': 'Image file · 24.0 KiB',
+  'scene.attachments.demoDocName': 'report.pdf',
+  'scene.attachments.demoDocMeta': 'File · 1.2 MiB',
 };
 
 export const knowledgeMessages: {

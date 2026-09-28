@@ -54,6 +54,14 @@ const attachment = {
   created_at: '2026-09-26T00:00:00Z',
   previewable: false,
 } satisfies FileInfo;
+const imageAttachment = {
+  ...attachment,
+  id: 'upload-image',
+  file_name: '图.png',
+  content_type: 'image/png',
+  size: 2048,
+  previewable: true,
+} satisfies FileInfo;
 
 function open(
   path = '/documents/doc-one',
@@ -105,7 +113,7 @@ test('upload progress, failure and retry preserve the upload identity until publ
       'http://api.test/api/v1/knowledge/documents/doc-one/attachments',
       () =>
         HttpResponse.json({
-          data: published ? [attachment] : [],
+          data: published ? [attachment, imageAttachment] : [],
           can_upload: true,
           can_delete: true,
           max_upload_bytes: 20971520,
@@ -175,6 +183,10 @@ test('upload progress, failure and retry preserve the upload identity until publ
   expect(
     await screen.findByRole('button', { name: '下载 hello.txt' }),
   ).toBeVisible();
+  // Each published row carries its file-type icon with a localized
+  // accessible name; the type is never icon-only.
+  expect(screen.getByRole('img', { name: '文件' })).toBeVisible();
+  expect(screen.getByRole('img', { name: '图片文件' })).toBeVisible();
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBeTruthy();
   expect(keys[1]).toBe(keys[0]);
