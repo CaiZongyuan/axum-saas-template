@@ -6,9 +6,10 @@ const KiB = 1024;
 
 // shapes: { initial: [{name, gzip}], async: [{name, gzip}] } with gzip in
 // bytes; budgets: { initialGzipKiB, asyncChunkGzipKiB, lazyPatterns } where
-// lazyPatterns name chunks that must never ship in the initial set (the
-// markdown renderer is loaded through React.lazy — that boundary is a
-// contract, not an implementation detail).
+// lazyPatterns name chunks that must never ship in the initial set —
+// each is loaded through a dynamic import, and that boundary is a
+// contract, not an implementation detail (the markdown renderer, the
+// design-system page and its icon catalog all live behind one).
 export function evaluateBundle({ initial, async }, budgets) {
   const violations = [];
   const initialGzip = initial.reduce((total, chunk) => total + chunk.gzip, 0);

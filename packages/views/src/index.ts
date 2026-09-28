@@ -23,6 +23,7 @@ export {
   type AppPageProps,
   type AppScene,
   type AssembledApp,
+  type AssembledScene,
   type ExampleContribution,
   type NavigatePort,
   type NavigateTarget,

@@ -8,7 +8,7 @@ import { coreMessages } from './core-messages';
 //
 // - Each example contributes pages, business navigation, bilingual
 //   messages, an optional default entry, optional notification-target
-//   parsing and optional showcase scenes under one stable id.
+//   parsing and optional demo scenes under one stable id.
 // - The shell (this module) validates the assembled result — duplicate
 //   ids, route conflicts, Core reserved routes and unresolved messages
 //   fail loudly instead of letting the last registration win.
@@ -31,6 +31,8 @@ export const CORE_RESERVED_ROUTES: readonly string[] = [
   '/system',
   // Reserved for the settings framework the shell introduces.
   '/settings',
+  // The design-system showroom is Core-owned too.
+  '/design-system',
 ];
 
 export type NavigateTarget = {
@@ -63,7 +65,7 @@ export type AppNavigationGroup = {
   items: { id: string; labelKey: string; path: string }[];
 };
 
-/** Optional showcase scene declaration (rendering ships with the showcase). */
+/** Optional demo-scene declaration (rendering ships with the design-system page). */
 export type AppScene = {
   id: string;
   titleKey: string;
@@ -107,7 +109,17 @@ export type AssembledApp = {
         ports: { navigate: NavigatePort },
       ) => (() => void) | undefined)
     | undefined;
-  scenes: { exampleId: string; scene: AppScene }[];
+  scenes: AssembledScene[];
+};
+
+/** One assembled scene; its keys are namespaced and resolve in messages. */
+export type AssembledScene = {
+  exampleId: string;
+  /** Unchanged from the contribution; unique per example. */
+  id: string;
+  /** Namespaced message key into AssembledApp.messages. */
+  titleKey: string;
+  descriptionKey?: string;
 };
 
 function normalizePath(path: string): string {
@@ -188,11 +200,21 @@ function validatedExample(
     });
   }
 
-  const scenes: { exampleId: string; scene: AppScene }[] = [];
+  const scenes: AssembledScene[] = [];
   for (const scene of example.scenes ?? []) {
     messageKeys.add(scene.titleKey);
     if (scene.descriptionKey) messageKeys.add(scene.descriptionKey);
-    scenes.push({ exampleId: example.id, scene });
+    // Namespace the scene's message keys here, as navigation labels above:
+    // the namespacing rule lives in this one place and consumers resolve
+    // keys directly against AssembledApp.messages.
+    scenes.push({
+      exampleId: example.id,
+      id: scene.id,
+      titleKey: messageKey(scene.titleKey),
+      ...(scene.descriptionKey
+        ? { descriptionKey: messageKey(scene.descriptionKey) }
+        : {}),
+    });
   }
 
   for (const key of messageKeys)

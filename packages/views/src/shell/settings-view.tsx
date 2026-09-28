@@ -1,3 +1,5 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import type { ApiClient } from '@saas/sdk';
 import {
   Card,
   CardContent,
@@ -5,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@saas/ui/components/card';
-import { AppShellLayout } from './app-shell';
+import { AppShellLayout, type ShellRole } from './app-shell';
 import { docsChapterUrl } from './docs-links';
 import { useAppMessage } from './messages';
 import {
@@ -14,11 +16,15 @@ import {
   type ThemeChoice,
 } from './preferences';
 import { usePageTitle } from './page-title';
+import { sessionQuery } from '../identity/session';
 
 // The appearance-and-language settings (docs/ui/design.md §6): native
 // radio groups so keyboard behavior is the platform's, applied instantly
 // through the preferences provider — no reload, no lost input. The page
 // is reachable before sign-in; preferences are device-scoped either way.
+// Like every view, it resolves the session itself so the shell's
+// signed-in entries (including 设置 → 设计系统, §6 Q3) render from real
+// state instead of duplication.
 
 function ChoiceGroup<T extends string>({
   name,
@@ -63,15 +69,22 @@ function ChoiceGroup<T extends string>({
 
 export function SettingsView({
   docsUrl,
+  apiClient,
   onOpen,
 }: {
   docsUrl: string;
+  apiClient: ApiClient;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
 }) {
   const message = useAppMessage();
   const { locale, setLocale, theme, setTheme } = usePreferences();
   usePageTitle('settings.title');
+  const queryClient = useQueryClient();
+  const session = useQuery(sessionQuery(apiClient, queryClient));
+  const user = session.data?.user;
+  const role: ShellRole | undefined = user?.role;
+  const signedIn = role !== undefined;
   const languageOptions: { value: AppLocale; label: string }[] = [
     { value: 'zh', label: message('settings.language.zh') },
     { value: 'en', label: message('settings.language.en') },
@@ -82,7 +95,7 @@ export function SettingsView({
     { value: 'dark', label: message('settings.theme.dark') },
   ];
   return (
-    <AppShellLayout docsUrl={docsUrl} onOpen={onOpen}>
+    <AppShellLayout docsUrl={docsUrl} onOpen={onOpen} role={role}>
       <div className="mx-auto w-full max-w-xl px-6 py-12">
         <Card>
           <CardHeader>
@@ -122,6 +135,22 @@ export function SettingsView({
             >
               {message('settings.tutorial')}
             </a>
+            {/* The design-system entry (docs/ui/design.md §6 Q3): also
+                reachable as 设置 → 设计系统 for signed-in users. */}
+            {signedIn ? (
+              <button
+                type="button"
+                className="flex flex-col items-start gap-1 text-left"
+                onClick={() => onOpen?.('/design-system')}
+              >
+                <span className="text-sm text-link hover:underline">
+                  {message('shell.nav.designSystem')}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {message('settings.designSystemHint')}
+                </span>
+              </button>
+            ) : null}
           </CardContent>
         </Card>
       </div>

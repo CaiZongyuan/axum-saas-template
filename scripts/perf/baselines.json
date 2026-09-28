@@ -3,7 +3,7 @@
     "bundle": {
       "initialGzipKiB": 400,
       "asyncChunkGzipKiB": 500,
-      "lazyPatterns": ["markdown"]
+      "lazyPatterns": ["markdown", "design-system-view", "icon-catalog"]
     }
   },
   "firstMeasured": {

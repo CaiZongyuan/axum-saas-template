@@ -13,7 +13,7 @@ Each example registers file ownership (`ownedPaths`) and registration markers (`
   navigation: [{ id: 'main', labelKey: 'nav.group', items: [...] }],
   messages: { zh: { ... }, en: { ... } }, // bilingual texts; a missing locale fails at assembly
   defaultEntry: '/notes',             // optional: the post-login business default entry
-  scenes: [...],                      // optional: showcase scene declarations
+  scenes: [...],                      // optional: demo scene declarations
   provide,                            // optional: wraps this example's pages with its own ports
 }
 ```

@@ -83,7 +83,9 @@ test('a direct /notes deep link renders without any backend call', async () => {
 test('assembly carries the notes messages and scene in both locales', () => {
   expect(assembledApp.messages.zh['notes.nav.notes']).toBe('便签示例');
   expect(assembledApp.messages.en['notes.nav.notes']).toBe('Notes example');
-  expect(assembledApp.scenes.map(({ scene }) => scene.id)).toContain(
-    'notes-demo',
-  );
+  // Assembled scenes carry their example id alongside namespaced message
+  // keys (the notes example contributes the nav scene as notes:notes-demo).
+  expect(
+    assembledApp.scenes.map(({ exampleId, id }) => `${exampleId}:${id}`),
+  ).toContain('notes:notes-demo');
 });

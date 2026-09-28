@@ -131,6 +131,9 @@ export function AppShellLayout({
           <div className="mt-auto flex flex-col gap-1 border-t border-border pt-3">
             {link('/settings', message('shell.nav.settings'))}
             {signedIn ? link('/api-keys', message('shell.nav.apiKeys')) : null}
+            {signedIn
+              ? link('/design-system', message('shell.nav.designSystem'))
+              : null}
             <a
               href={docsHomeUrl(docsUrl, locale)}
               target="_blank"
