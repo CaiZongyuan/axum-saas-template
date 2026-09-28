@@ -44,10 +44,11 @@
     {
       "id": "first-request",
       "source": "docs/tutorials/01-full-stack-request.md",
+      "sourceEn": "docs/tutorials/01-full-stack-request.en.md",
       "route": "tutorials/first-request.md",
       "title": "第一条全栈请求",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "The first full-stack request",
+      "group": "跟做教程"
     },
     {
       "id": "registration",
@@ -181,10 +182,11 @@
     {
       "id": "rate-limits",
       "source": "docs/tutorials/17-rate-limits.md",
+      "sourceEn": "docs/tutorials/17-rate-limits.en.md",
       "route": "tutorials/rate-limits.md",
       "title": "请求限流与保守回退",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Rate limits and degradation",
+      "group": "跟做教程"
     },
     {
       "id": "password-reset",
@@ -216,18 +218,20 @@
     {
       "id": "single-machine-production",
       "source": "docs/tutorials/21-single-machine-production.md",
+      "sourceEn": "docs/tutorials/21-single-machine-production.en.md",
       "route": "tutorials/single-machine-production.md",
       "title": "单机生产部署与降级验证",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Single-machine production deployment",
+      "group": "跟做教程"
     },
     {
       "id": "backup-restore",
       "source": "docs/tutorials/22-backup-restore.md",
+      "sourceEn": "docs/tutorials/22-backup-restore.en.md",
       "route": "tutorials/backup-restore.md",
       "title": "备份与独立环境恢复演练",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Backup and isolated-environment restore",
+      "group": "跟做教程"
     },
     {
       "id": "appearance-language",
@@ -268,50 +272,56 @@
     {
       "id": "perf-gates",
       "source": "docs/tutorials/24-perf-gates.md",
+      "sourceEn": "docs/tutorials/24-perf-gates.en.md",
       "route": "tutorials/perf-gates.md",
       "title": "确定性性能门禁",
-      "group": "性能",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Deterministic performance gates",
+      "group": "性能"
     },
     {
       "id": "load-reports",
       "source": "docs/tutorials/25-load-reports.md",
+      "sourceEn": "docs/tutorials/25-load-reports.en.md",
       "route": "tutorials/load-reports.md",
       "title": "负载、饱和与长测报告",
-      "group": "性能",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Load, saturation and soak reports",
+      "group": "性能"
     },
     {
       "id": "desktop-soak",
       "source": "docs/tutorials/26-desktop-soak.md",
+      "sourceEn": "docs/tutorials/26-desktop-soak.en.md",
       "route": "tutorials/desktop-soak.md",
       "title": "桌面壳资源长测",
-      "group": "性能",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Desktop shell resource soak",
+      "group": "性能"
     },
     {
       "id": "boundaries",
       "source": "docs/architecture/module-boundaries.md",
+      "sourceEn": "docs/architecture/module-boundaries.en.md",
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
-      "group": "理解模板",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Core and example boundaries",
+      "group": "理解模板"
     },
     {
       "id": "v1-coverage",
       "source": "docs/architecture/v1-coverage.md",
+      "sourceEn": "docs/architecture/v1-coverage.en.md",
       "route": "architecture/v1-coverage.md",
       "title": "v1 覆盖与验收",
-      "group": "理解模板",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "v1 capability coverage and acceptance",
+      "group": "理解模板"
     },
     {
       "id": "feedback-loop",
       "source": "docs/testing/t01-feedback-loop.md",
+      "sourceEn": "docs/testing/t01-feedback-loop.en.md",
       "route": "testing/feedback-loop.md",
       "title": "运行测试与检查",
-      "group": "验证",
-      "translation": { "status": "pending", "owner": "UI14" }
+      "titleEn": "Tests and the feedback loop",
+      "group": "验证"
     }
   ],
   "references": [

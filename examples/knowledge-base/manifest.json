@@ -59,10 +59,13 @@
     "tests/desktop/knowledge-shell.spec.ts",
     "apps/api/tests/perf_documents.rs",
     "docs/tutorials/24-perf-gates.md",
+    "docs/tutorials/24-perf-gates.en.md",
     "docs/tutorials/25-load-reports.md",
+    "docs/tutorials/25-load-reports.en.md",
     "tests/desktop/soak.spec.ts",
     "scripts/perf/desktop-soak.mjs",
-    "docs/tutorials/26-desktop-soak.md"
+    "docs/tutorials/26-desktop-soak.md",
+    "docs/tutorials/26-desktop-soak.en.md"
   ],
   "compositionPoints": {
     "api": "apps/api/src/lib.rs",
@@ -91,6 +94,7 @@
     ".env.example": ["export-config"],
     "scripts/e2e.mjs": ["e2e-policy"],
     "docs/architecture/v1-coverage.md": ["coverage"],
+    "docs/architecture/v1-coverage.en.md": ["coverage"],
     "docs/getting-started/quickstart.en.md": ["quickstart"]
   },
   "ownedDependencies": {
