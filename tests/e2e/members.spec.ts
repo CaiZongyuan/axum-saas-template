@@ -1,10 +1,15 @@
 import { expect, test } from '@playwright/test';
 
+// The device language follows the browser in the product, so journeys that
+// assert Chinese pin the locale explicitly instead of relying on the
+// runner default (see password-reset.spec.ts).
+test.use({ locale: 'zh-CN' });
+
 test('an Owner manages a member and disabling invalidates the original browser session', async ({
   browser,
   page,
 }) => {
-  const colleagueContext = await browser.newContext();
+  const colleagueContext = await browser.newContext({ locale: 'zh-CN' });
   try {
     const colleague = await colleagueContext.newPage();
     await colleague.goto('/register');
@@ -15,6 +20,12 @@ test('an Owner manages a member and disabling invalidates the original browser s
       .getByLabel('密码', { exact: true })
       .fill('browser-test-password');
     await colleague.getByRole('button', { name: '创建账号' }).click();
+    // Registration lands on the documents entry; the member badge and
+    // sign-out control this journey asserts on live on the home view.
+    await expect(
+      colleague.getByRole('heading', { name: '我的文档' }),
+    ).toBeVisible();
+    await colleague.getByRole('link', { name: '首页' }).click();
     await expect(
       colleague.getByRole('button', { name: '退出登录' }),
     ).toBeVisible();

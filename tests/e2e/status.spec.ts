@@ -2,7 +2,14 @@ import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
 
 // These public endpoints use fresh contexts and never handle credentials.
-test.use({ trace: 'retain-on-failure', screenshot: 'only-on-failure' });
+// The device language follows the browser in the product, so journeys that
+// assert Chinese pin the locale explicitly instead of relying on the
+// runner default (see password-reset.spec.ts).
+test.use({
+  locale: 'zh-CN',
+  trace: 'retain-on-failure',
+  screenshot: 'only-on-failure',
+});
 
 test('page, generated SDK, API and migrated PostgreSQL form one real request', async ({
   page,

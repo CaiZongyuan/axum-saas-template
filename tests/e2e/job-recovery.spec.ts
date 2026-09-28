@@ -3,6 +3,11 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { waitFor } from '../../scripts/lib/process.mjs';
 
+// The device language follows the browser in the product, so journeys that
+// assert Chinese pin the locale explicitly instead of relying on the
+// runner default (see password-reset.spec.ts).
+test.use({ locale: 'zh-CN' });
+
 test('a crashed Worker recovers its export and an administrator retries a later storage failure', async ({
   page,
   browser,
@@ -63,7 +68,7 @@ test('a crashed Worker recovers its export and an administrator retries a later 
       timeout: 20_000,
     });
     storage(false);
-    const adminContext = await browser.newContext();
+    const adminContext = await browser.newContext({ locale: 'zh-CN' });
     try {
       const admin = await adminContext.newPage();
       await admin.goto(`${process.env.E2E_WEB_URL}/login`);

@@ -68,6 +68,18 @@
 - **删例**：[移除示例](../tutorials/23-example-removal.md)按所有权清单执行，CI 的 example-removal job 每个 PR 完整演练一遍；删后 `just check-core` 全绿。
 - **生成引用**：API 合同从 OpenAPI 生成（`contracts:check` 防漂移），配置参考从 Settings 生成并与 `.env.example` 交叉核对；权限与任务目录以教程叙述承载，暂无生成引用——如实记录，不虚报。
 
+## UI 与多示例系列验收（#57）
+
+UI 系列（UI01–UI15，父票 [#57](https://github.com/CaiZongyuan/axum-saas-template/issues/57)）的全部 61 条用户故事在集成修订 4f971ed 加本票验收修复（对应 PR 的 head 提交）上完成整体验收：
+
+- **门禁与旅程**：`just check`、`just check-full`（12 个 spec、15 条真实浏览器旅程，含数据库暂停恢复、真实限流窗口、双浏览器会话隔离、Worker 崩溃恢复与真实对象存储故障重试）与 `just e2e-docs`（公开站中英 × 明暗 × 窄屏与 base 路径）在该修订全部通过；历史通知与旧业务 URL 的回退合同（未知路径回到通用首页、目标业务移除后通知仍可读并给出不可用反馈）由应用壳与通知合同测试覆盖，删除/撤权后的“不存在”反馈在 e2e 旅程中持续验证。
+- **多示例组合**：CI 的 example-removal job（每 PR）在同一修订演练脏副本拒绝、双示例 → notes-only → core-only、knowledge-only 独立副本与新业务经公共接口接入，各组合门禁（`check-core`、文档构建、typecheck、前端测试、web 构建、边界检查）全部通过；桌面安全壳由 desktop-smoke job（每 PR）验证。
+- **性能预算**：系列内唯一预算基线变更是 UI05 把设计系统展厅与图标目录加进懒加载基线（收紧），`perf-ci` 的 400/500 KiB 首包天花板未放宽；展厅与图标目录不进首包。
+- **公开页面**：Landing、Documentation、Blog、Downloads 的中英文、明暗、窄屏导航、base 路径、元信息与真实 CTA 由 `e2e-docs` 与文档合同测试覆盖；Blog 与 Downloads 明示“即将推出”，未把占位页写成已交付。
+- **教程与迁移清零**：在线章节按发布清单中英成对（`docs:check` 强制登记与一致性），双语教程、示例登记与行为测试随实现票交付，删例后的双语裁剪由 example-removal job 的文档构建验证；旧消息/旧文档迁移项与无调用者旧接线清零。遗留缺口一项：教程 16（Redis 正文缓存与数据库回源）的英文翻译不在对应实现票范围，保持待翻译登记并跟踪于 [#96](https://github.com/CaiZongyuan/axum-saas-template/issues/96)。
+- **验收修复**：验收运行暴露 7 条早期 e2e 旅程仍假设注册/登录停留在旧首页并依赖运行器默认语言（UI04 设备语言探测会渲染英文界面）；已按既有 password-reset 模式显式固定 `zh-CN`，并把登录后断言改为实际落点（文档入口；退出登录控件位于通用首页），未新增抽象、未放宽断言。
+- **故事 61**：本节即“当前 v1 实现和验收全部集成后才开始下一轮”的验收记录；下一轮 UI 与官网改造以本修订为基线。
+
 ## 发布与复现
 
 站点发布在 <https://caizongyuan.github.io/axum-saas-template/>，随 `main` 持续更新；每个页面页脚的“源码版本”就是该页验收时对应的仓库提交，发布任务会校验文档产物与提交一致后才上线，完整复现步骤见[快速开始](../getting-started/quickstart.md)。v1 里程碑验证命令：`just check-full`。

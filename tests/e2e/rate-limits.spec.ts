@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
 
+// The device language follows the browser in the product, so journeys that
+// assert Chinese pin the locale explicitly instead of relying on the
+// runner default (see password-reset.spec.ts).
+test.use({ locale: 'zh-CN' });
+
 test('a browser waits after a real authentication limit and then signs in', async ({
   page,
 }) => {
@@ -44,5 +49,6 @@ test('a browser waits after a real authentication limit and then signs in', asyn
   await expect(submit).toBeEnabled({ timeout: (windowSeconds + 3) * 1000 });
   await expect(page).toHaveURL(/\/login$/);
   await submit.click();
-  await expect(page.getByRole('button', { name: '退出登录' })).toBeVisible();
+  // A successful sign-in lands on the documents entry.
+  await expect(page.getByRole('heading', { name: '我的文档' })).toBeVisible();
 });
