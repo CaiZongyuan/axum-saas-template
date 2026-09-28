@@ -5,7 +5,10 @@
  *
  * The bridge never carries session secrets, tokens or raw file contents:
  * the renderer already talks to the same-origin API through its own cookies,
- * and downloads are stored by the main process, not passed over IPC.
+ * and downloads are stored by the main process, not passed over IPC. The
+ * preference channels are the one exception to "no cross-origin talk": the
+ * local error page loads from a file:// origin and cannot read the app's
+ * localStorage, so only the language and theme enums cross to inform it.
  */
 
 export const DESKTOP_BRIDGE_NAME = 'saasDesktop';
@@ -16,6 +19,8 @@ export const CHANNELS = {
   retryLoad: 'desktop:retry-load',
   openDownloadsFolder: 'desktop:open-downloads-folder',
   downloadState: 'desktop:download-state',
+  getPreferences: 'desktop:get-preferences',
+  setPreferences: 'desktop:set-preferences',
 } as const;
 
 export type DesktopInfo = { version: string; platform: string };
@@ -31,11 +36,27 @@ export type DownloadStateEvent = {
   totalBytes: number | null;
 };
 
+/**
+ * The appearance surface shared by the app and the local error page. These
+ * mirror the app's preference enums; the desktop shell stores them in its
+ * own profile so the error page can render in the chosen look before any
+ * app page can load.
+ */
+export type DesktopLocale = 'zh' | 'en';
+export type DesktopTheme = 'system' | 'light' | 'dark';
+export type DesktopPreferences = {
+  locale: DesktopLocale;
+  theme: DesktopTheme;
+};
+
 /** The only surface preload exposes to the shared views. */
 export type DesktopBridge = {
   getInfo(): Promise<DesktopInfo>;
   retryLoad(): Promise<void>;
   openDownloadsFolder(): Promise<void>;
+  /** Saved preferences, or null when the app has not stored any yet. */
+  getPreferences(): Promise<DesktopPreferences | null>;
+  setPreferences(next: DesktopPreferences): Promise<void>;
   onDownloadState(listener: (event: DownloadStateEvent) => void): () => void;
 };
 
@@ -138,6 +159,29 @@ const PHASES: readonly DownloadPhase[] = [
   'cancelled',
 ];
 const MAX_STATE_ID = 128;
+
+const LOCALES: readonly DesktopLocale[] = ['zh', 'en'];
+const THEMES: readonly DesktopTheme[] = ['system', 'light', 'dark'];
+
+/**
+ * Validate a preference payload before it crosses IPC or reaches the stored
+ * profile: exactly the two keys, each a member of its enum. Anything else —
+ * unknown locales, unknown themes, missing or extra keys, non-objects — is
+ * rejected so callers can fall back to device defaults.
+ */
+export function validateDesktopPreferences(
+  raw: unknown,
+): DesktopPreferences | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const candidate = raw as Record<string, unknown>;
+  const { locale, theme } = candidate;
+  if (typeof locale !== 'string' || !LOCALES.includes(locale as DesktopLocale))
+    return null;
+  if (typeof theme !== 'string' || !THEMES.includes(theme as DesktopTheme))
+    return null;
+  if (Object.keys(candidate).length !== 2) return null;
+  return { locale: locale as DesktopLocale, theme: theme as DesktopTheme };
+}
 
 /**
  * Validate an event before it crosses IPC in either direction; malformed

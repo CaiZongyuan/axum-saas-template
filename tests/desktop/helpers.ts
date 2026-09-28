@@ -26,7 +26,32 @@ export function requireSmokeEnv(name: string): string {
   return value;
 }
 
-export async function launchApp(): Promise<{
+export type ShellPreferences = {
+  locale: 'zh' | 'en';
+  theme: 'system' | 'light' | 'dark';
+} | null;
+
+/** Read the mirrored desktop preferences through the public bridge. */
+export function storedPreferences(window: Page): Promise<ShellPreferences> {
+  return window.evaluate(
+    () =>
+      (
+        window as unknown as {
+          saasDesktop?: {
+            getPreferences(): Promise<ShellPreferences>;
+          };
+        }
+      ).saasDesktop?.getPreferences() ?? null,
+  );
+}
+
+export async function launchApp(
+  options: {
+    userDataDir?: string;
+    pinLocale?: boolean;
+    awaitMirror?: boolean;
+  } = {},
+): Promise<{
   app: ElectronApplication;
   window: Page;
   cleanup: () => Promise<void>;
@@ -40,8 +65,11 @@ export async function launchApp(): Promise<{
     .filter(Boolean);
   // Every launch gets its own user-data directory: tests must not touch the
   // developer's real shell profile, and the single-instance lock stays
-  // scoped to this run.
-  const userDataDir = mkdtempSync(join(tmpdir(), 'saas-desktop-profile-'));
+  // scoped to this run. A caller-owned directory (restart journeys) is kept
+  // on cleanup and removed by the caller.
+  const userDataDir =
+    options.userDataDir ?? mkdtempSync(join(tmpdir(), 'saas-desktop-profile-'));
+  const createdDir = options.userDataDir ? null : userDataDir;
   const app = await _electron.launch({
     executablePath,
     args: [desktopDir, ...extraArgs],
@@ -54,13 +82,24 @@ export async function launchApp(): Promise<{
     },
   });
   const window = await app.firstWindow();
-  // First visit follows the device language, and CI machines report en-US;
-  // this suite's labels are zh, so pin the manual choice through the same
-  // storage the app itself reads, then reload for a clean zh first paint.
-  await window.evaluate(() => {
-    window.localStorage.setItem('saas.locale', 'zh');
-  });
-  await window.reload();
+  if (options.pinLocale !== false) {
+    // First visit follows the device language, and CI machines report en-US;
+    // this suite's labels are zh, so pin the manual choice through the same
+    // storage the app itself reads, then reload for a clean zh first paint.
+    await window.evaluate(() => {
+      window.localStorage.setItem('saas.locale', 'zh');
+    });
+    await window.reload();
+    // Tests that abort the origin afterwards wait until the pinned choice
+    // has been mirrored to the shell, so the error page renders in a known
+    // language instead of racing the device fallback. Opt-in only: other
+    // suites (the desktop soak included) keep their original launch budget.
+    if (options.awaitMirror) {
+      await expect
+        .poll(() => storedPreferences(window), { timeout: 10_000 })
+        .toEqual({ locale: 'zh', theme: 'system' });
+    }
+  }
   const cleanup = async () => {
     // Quit gracefully first; on headless CI a stalled quit must not hang the
     // whole Playwright worker, so bound the wait and force-kill the shell.
@@ -81,7 +120,7 @@ export async function launchApp(): Promise<{
     // Whichever side settles first wins; a rejected close must not become an
     // unhandled error that crashes the worker after the kill.
     await Promise.race([exited, app.close().catch(() => {})]);
-    rmSync(userDataDir, { recursive: true, force: true });
+    if (createdDir) rmSync(createdDir, { recursive: true, force: true });
   };
   return { app, window, cleanup };
 }

@@ -1,4 +1,11 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
@@ -7,6 +14,7 @@ import {
   launchApp,
   requireSmokeEnv,
   signIn,
+  storedPreferences,
 } from './helpers';
 
 /**
@@ -168,7 +176,9 @@ test('shell loads shared views, signs in and out, and constrains navigation', as
 });
 
 test('shell shows a recoverable error state when the app cannot load', async () => {
-  const { window, cleanup } = await launchApp();
+  // The aborted reload renders the pinned language on the error page, so
+  // the launch waits for the mirror to land first.
+  const { window, cleanup } = await launchApp({ awaitMirror: true });
   const appOrigin = new URL(requireSmokeEnv('E2E_WEB_URL')).origin;
 
   try {
@@ -189,5 +199,87 @@ test('shell shows a recoverable error state when the app cannot load', async () 
     });
   } finally {
     await cleanup();
+  }
+});
+
+test('the error page continues the chosen language and theme across restarts', async () => {
+  test.setTimeout(300_000);
+  const appOrigin = new URL(requireSmokeEnv('E2E_WEB_URL')).origin;
+  // One profile is deliberately reused across launches: the journey under
+  // test is persistence, so the caller owns the directory and its removal.
+  const userDataDir = mkdtempSync(
+    join(tmpdir(), 'saas-desktop-error-profile-'),
+  );
+  try {
+    // First run: pick English and dark through the shared settings page.
+    const first = await launchApp({ userDataDir });
+    await signIn(first.window);
+    await first.window.goto(`${appOrigin}/settings`);
+    // The settings page renders its language and theme choices as radio
+    // groups; English stays readable while the page is zh.
+    await first.window.getByRole('radio', { name: 'English' }).click();
+    await first.window.getByRole('radio', { name: 'Dark' }).click();
+    await expect
+      .poll(() => storedPreferences(first.window), { timeout: 10_000 })
+      .toEqual({ locale: 'en', theme: 'dark' });
+    await first.cleanup();
+
+    // Second run on the same profile: with the origin unreachable, the
+    // local error page opens in the mirrored language and theme before any
+    // web page could load.
+    const second = await launchApp({ userDataDir, pinLocale: false });
+    await second.window.route(`${appOrigin}/**`, (route) => route.abort());
+    await second.window.reload().catch(() => {});
+    await expect(
+      second.window.getByRole('heading', {
+        name: 'The app is unreachable right now',
+      }),
+    ).toBeVisible({ timeout: 30_000 });
+    expect(
+      await second.window.evaluate(() => document.documentElement.lang),
+    ).toBe('en');
+    expect(
+      await second.window.evaluate(() =>
+        document.body.classList.contains('dark'),
+      ),
+    ).toBe(true);
+
+    // Reconnect recovers into the app; the session survived in the
+    // partition, so the home surface offers sign-out in English.
+    await second.window.unroute(`${appOrigin}/**`);
+    await second.window.getByRole('button', { name: 'Reconnect' }).click();
+    await expect(
+      second.window.getByRole('button', { name: 'Sign out' }),
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Switching to the system theme is mirrored too; a later failure page
+    // then follows the OS look live, without any reload.
+    await second.window.goto(`${appOrigin}/settings`);
+    await second.window.getByRole('radio', { name: 'System' }).click();
+    await expect
+      .poll(() => storedPreferences(second.window), { timeout: 10_000 })
+      .toEqual({ locale: 'en', theme: 'system' });
+    await second.window.route(`${appOrigin}/**`, (route) => route.abort());
+    await second.window.reload().catch(() => {});
+    await expect(
+      second.window.getByRole('heading', {
+        name: 'The app is unreachable right now',
+      }),
+    ).toBeVisible({ timeout: 30_000 });
+    await second.window.emulateMedia({ colorScheme: 'light' });
+    await expect
+      .poll(() =>
+        second.window.evaluate(() => document.body.classList.contains('dark')),
+      )
+      .toBe(false);
+    await second.window.emulateMedia({ colorScheme: 'dark' });
+    await expect
+      .poll(() =>
+        second.window.evaluate(() => document.body.classList.contains('dark')),
+      )
+      .toBe(true);
+    await second.cleanup();
+  } finally {
+    rmSync(userDataDir, { recursive: true, force: true });
   }
 });

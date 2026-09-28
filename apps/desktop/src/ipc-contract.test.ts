@@ -7,8 +7,10 @@ import {
   normalizeDeepLinkPath,
   parseDeepLink,
   sanitizeDownloadFilename,
+  validateDesktopPreferences,
   validateDownloadState,
   type DesktopBridge,
+  type DesktopPreferences,
   type DownloadStateEvent,
 } from './ipc-contract';
 
@@ -18,8 +20,10 @@ describe('desktop IPC contract', () => {
     expect(Object.values(CHANNELS).sort()).toEqual([
       'desktop:download-state',
       'desktop:get-info',
+      'desktop:get-preferences',
       'desktop:open-downloads-folder',
       'desktop:retry-load',
+      'desktop:set-preferences',
     ]);
   });
 
@@ -28,13 +32,17 @@ describe('desktop IPC contract', () => {
       getInfo: () => Promise.resolve({ version: '0', platform: 'test' }),
       retryLoad: () => Promise.resolve(),
       openDownloadsFolder: () => Promise.resolve(),
+      getPreferences: () => Promise.resolve(null),
+      setPreferences: () => Promise.resolve(),
       onDownloadState: () => () => {},
     };
     expect(Object.keys(bridge).sort()).toEqual([
       'getInfo',
+      'getPreferences',
       'onDownloadState',
       'openDownloadsFolder',
       'retryLoad',
+      'setPreferences',
     ]);
   });
 });
@@ -112,6 +120,38 @@ describe('isBrowserHandoffAllowed', () => {
     expect(isBrowserHandoffAllowed('ftp://x.example/y')).toBe(false);
     expect(isBrowserHandoffAllowed('javascript:void 0')).toBe(false);
     expect(isBrowserHandoffAllowed('not a url')).toBe(false);
+  });
+});
+
+describe('validateDesktopPreferences', () => {
+  it('accepts exactly the language and theme enums', () => {
+    const valid: DesktopPreferences = { locale: 'zh', theme: 'system' };
+    expect(validateDesktopPreferences(valid)).toEqual(valid);
+    expect(validateDesktopPreferences({ locale: 'en', theme: 'dark' })).toEqual(
+      { locale: 'en', theme: 'dark' },
+    );
+    expect(
+      validateDesktopPreferences({ locale: 'en', theme: 'light' }),
+    ).toEqual({ locale: 'en', theme: 'light' });
+    expect(
+      validateDesktopPreferences({ locale: 'zh', theme: 'light' }),
+    ).toEqual({ locale: 'zh', theme: 'light' });
+  });
+
+  it('rejects values outside the enums and malformed payloads', () => {
+    expect(validateDesktopPreferences(null)).toBeNull();
+    expect(validateDesktopPreferences('zh')).toBeNull();
+    expect(
+      validateDesktopPreferences({ locale: 'fr', theme: 'dark' }),
+    ).toBeNull();
+    expect(
+      validateDesktopPreferences({ locale: 'zh', theme: 'blue' }),
+    ).toBeNull();
+    expect(validateDesktopPreferences({ locale: 'zh' })).toBeNull();
+    expect(validateDesktopPreferences({ theme: 'dark' })).toBeNull();
+    expect(
+      validateDesktopPreferences({ locale: 'zh', theme: 'dark', extra: 1 }),
+    ).toBeNull();
   });
 });
 

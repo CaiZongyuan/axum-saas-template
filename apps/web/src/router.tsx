@@ -39,6 +39,7 @@ import {
   type NavigateTarget,
 } from '@saas/views';
 import { assembledApp, exampleEntries } from './app-examples';
+import { DesktopPreferencesMirror } from './desktop-preferences';
 
 // The design-system page and its icon catalog load on demand
 // (docs/ui/design.md §6 Q9): the subpath import keeps the design-system
@@ -61,6 +62,9 @@ const rootRoute = createRootRouteWithContext<AppContext>()({
 function RootLayout() {
   return (
     <PreferencesProvider>
+      {/* Desktop-only adapter: mirrors the appearance enums to the shell
+          for its local error page; absent in plain browsers. */}
+      <DesktopPreferencesMirror />
       <AppMessagesProvider app={assembledApp}>
         <Outlet />
       </AppMessagesProvider>

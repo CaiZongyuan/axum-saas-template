@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import {
   CHANNELS,
   DESKTOP_BRIDGE_NAME,
+  validateDesktopPreferences,
   validateDownloadState,
   type DownloadStateEvent,
 } from './ipc-contract';
@@ -31,6 +32,17 @@ contextBridge.exposeInMainWorld(DESKTOP_BRIDGE_NAME, {
   getInfo: () => ipcRenderer.invoke(CHANNELS.getInfo),
   retryLoad: () => ipcRenderer.invoke(CHANNELS.retryLoad),
   openDownloadsFolder: () => ipcRenderer.invoke(CHANNELS.openDownloadsFolder),
+  // Both directions are validated: pages only ever pass or receive the
+  // two preference enums, never anything else.
+  getPreferences: async () =>
+    validateDesktopPreferences(
+      await ipcRenderer.invoke(CHANNELS.getPreferences),
+    ),
+  setPreferences: async (next: unknown) => {
+    const validated = validateDesktopPreferences(next);
+    if (!validated) throw new Error('Rejected desktop preferences payload');
+    await ipcRenderer.invoke(CHANNELS.setPreferences, validated);
+  },
   onDownloadState: (listener: (event: DownloadStateEvent) => void) =>
     subscribe(CHANNELS.downloadState, validateDownloadState, listener),
 });
