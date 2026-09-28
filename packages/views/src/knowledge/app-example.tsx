@@ -10,6 +10,7 @@ import {
 } from './index';
 import { useDocumentGuard } from './document-guard';
 import { knowledgeMessages } from './messages';
+import { SaveConflictScene } from './save-conflict-scene';
 import type { AppPageProps, ExampleContribution } from '../shell/app-contract';
 import type { NotificationTarget } from '@saas/sdk';
 
@@ -233,5 +234,16 @@ export function createKnowledgeExample({
         });
       };
     },
+    // The save-conflict scene (UI07): the editor's save feedback runs on
+    // the design-system page as a demo, through the same registration
+    // channel as every example scene.
+    scenes: [
+      {
+        id: 'save-conflict',
+        titleKey: 'scene.saveConflict.title',
+        descriptionKey: 'scene.saveConflict.description',
+        render: () => <SaveConflictScene />,
+      },
+    ],
   };
 }

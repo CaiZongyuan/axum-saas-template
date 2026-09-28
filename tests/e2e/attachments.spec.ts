@@ -2,8 +2,12 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
 test('an uploaded RustFS image is previewed through an attachment reference and downloaded byte for byte', async ({
-  page,
+  browser,
 }) => {
+  // The journey asserts the zh interface, so it pins the context locale
+  // instead of relying on device detection (see password-reset.spec.ts).
+  const context = await browser.newContext({ locale: 'zh-CN' });
+  const page = await context.newPage();
   const bytes = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNQ6vj/HwAFIgKpyfy9eQAAAABJRU5ErkJggg==',
     'base64',
@@ -38,7 +42,8 @@ test('an uploaded RustFS image is previewed through an attachment reference and 
   await expect(page.getByLabel('Markdown 正文')).toHaveValue(
     /attachment:[0-9a-f-]+/,
   );
-  await page.getByRole('tab', { name: '预览' }).click();
+  // The two-pane editor live-syncs the preview, so the inserted reference
+  // resolves without an explicit mode switch.
   const image = page.getByRole('img', { name: '图示.png' });
   await expect(image).toBeVisible();
   await expect

@@ -1,24 +1,45 @@
 import { expect, test } from '@playwright/test';
 
+// The journeys assert the zh interface, so they pin the context locale
+// instead of relying on device detection (same contract as
+// password-reset.spec.ts, where a fresh Chromium otherwise reports en).
+async function openZhPage(browser: import('@playwright/test').Browser) {
+  const context = await browser.newContext({ locale: 'zh-CN' });
+  return context.newPage();
+}
+
 test('a newly registered Member writes Markdown and reads it after refresh', async ({
-  page,
+  browser,
 }) => {
+  const page = await openZhPage(browser);
   await page.goto('/register');
   await page
     .getByLabel('邮箱', { exact: true })
     .fill('knowledge-member@example.com');
   await page.getByLabel('密码', { exact: true }).fill('browser-test-password');
   await page.getByRole('button', { name: '创建账号' }).click();
-  await expect(page.getByText('成员', { exact: true })).toBeVisible();
+  // Registration lands on the example's default entry; the home view's role
+  // badge is registration.spec.ts's concern, not this journey's.
+  await expect(page.getByRole('heading', { name: '我的文档' })).toBeVisible();
   await page.getByRole('link', { name: '我的文档', exact: true }).click();
   await expect(page.getByText('暂无可访问的文档')).toBeVisible();
   await page.getByRole('button', { name: '新建文档' }).click();
+  // Desktop width renders the two-pane editor: the preview live-syncs the
+  // source without an explicit switch.
+  await expect(page.locator('[data-editor-layout="wide"]')).toBeVisible();
   await page.getByLabel('标题', { exact: true }).fill('第一篇团队笔记');
   await page
     .getByLabel('Markdown 正文', { exact: true })
     .fill('# 起步\n\n来自真实 PostgreSQL。');
-  await page.getByRole('tab', { name: '预览' }).click();
   await expect(page.getByRole('heading', { name: '起步' })).toBeVisible();
+  // Narrowing the window collapses the same editor to tabs — the draft
+  // survives because the panes are never remounted.
+  await page.setViewportSize({ width: 800, height: 900 });
+  await expect(page.locator('[data-editor-layout="narrow"]')).toBeVisible();
+  await page.getByRole('tab', { name: '预览' }).click();
+  await expect(page.getByRole('tabpanel', { name: '预览' })).toContainText(
+    '起步',
+  );
   await page.getByRole('button', { name: '保存文档' }).click();
   await expect(
     page.getByRole('heading', { name: '第一篇团队笔记' }),
@@ -39,9 +60,9 @@ test('a newly registered Member writes Markdown and reads it after refresh', asy
 });
 
 test('two pages preserve a conflicting draft and reconcile it explicitly', async ({
-  page,
-  context,
+  browser,
 }) => {
+  const page = await openZhPage(browser);
   await page.goto('/register');
   await page
     .getByLabel('邮箱', { exact: true })
@@ -55,7 +76,8 @@ test('two pages preserve a conflicting draft and reconcile it explicitly', async
   await page.getByRole('button', { name: '保存文档' }).click();
   await page.getByRole('button', { name: '编辑文档' }).click();
   await expect(page.getByText('基于版本 1 编辑')).toBeVisible();
-  const other = await context.newPage();
+  // The conflicting tab shares the first page's session context.
+  const other = await page.context().newPage();
   await other.goto(page.url());
   await expect(other.getByText('基于版本 1 编辑')).toBeVisible();
   await other.getByLabel('Markdown 正文').fill('后保存的草稿');

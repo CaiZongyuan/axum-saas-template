@@ -104,8 +104,8 @@
     </a>
     <a class="landing-card" href="tutorials/edit-conflicts">
       <span class="landing-dot dot-amber"></span>
-      <h3>编辑、保存与版本冲突</h3>
-      <p>并发保存触发 409，前端给出可理解的冲突处理。</p>
+      <h3>显式保存与版本冲突</h3>
+      <p>宽屏双栏实时预览，窄屏页签；并发保存触发 409，冲突处理可理解。</p>
     </a>
     <a class="landing-card" href="tutorials/library-grants">
       <span class="landing-dot dot-purple"></span>

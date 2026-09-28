@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import {
   queryOptions,
   useInfiniteQuery,
@@ -18,7 +26,6 @@ import {
   type CreateDocument,
 } from '@saas/sdk';
 import { errorCodeOf } from '@saas/core';
-import { RequestErrorAlert } from './request-error';
 import { Button } from '@saas/ui/components/button';
 import {
   Card,
@@ -41,16 +48,11 @@ import {
 } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
 import { Textarea } from '@saas/ui/components/textarea';
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from '@saas/ui/components/tabs';
 import { sessionKey, sessionQuery } from '../identity';
 import { useAppMessage } from '../shell/messages';
 import { useAppFormat } from '../shell/format';
 import { MarkdownPreview } from './markdown-preview';
+import { ConflictSection, Failure } from './document-feedback';
 import { knowledgeBaseQuery } from './knowledge-base-query';
 import { AttachmentsPanel } from './attachments-panel';
 import { DeleteResource } from './delete-resource';
@@ -60,33 +62,6 @@ import type { FileTransfer } from './file-transfer';
 function permissionDenied(error: unknown): boolean {
   const code = errorCodeOf(error);
   return code === 'knowledge.forbidden' || code === 'knowledge.not_found';
-}
-
-// Server error codes carry no display text (the API's message field is a
-// debug string), so the example maps each code to its own catalog key.
-const ERROR_KEYS: Record<string, string> = {
-  'knowledge.forbidden': 'errors.writeForbidden',
-  'knowledge.not_found': 'errors.docNotFound',
-  'knowledge.invalid_search': 'errors.invalidSearch',
-  'knowledge.invalid_page': 'errors.invalidPage',
-  'knowledge.invalid_title': 'errors.invalidTitle',
-  'knowledge.too_large': 'errors.tooLarge',
-  'knowledge.invalid_text': 'errors.invalidText',
-  'document.version_conflict': 'errors.versionConflict',
-  'idempotency.conflict': 'errors.idempotencyConflict',
-  'auth.unauthorized': 'errors.unauthorized',
-  'auth.csrf': 'errors.csrf',
-};
-
-function Failure({ error }: { error: unknown }) {
-  const message = useAppMessage('knowledge');
-  return (
-    <RequestErrorAlert
-      title={message('errors.actionIncomplete')}
-      text={message(ERROR_KEYS[errorCodeOf(error) ?? ''] ?? 'errors.fallback')}
-      error={error}
-    />
-  );
 }
 
 function IdentityGate({
@@ -365,6 +340,35 @@ function markdownError(markdown: string): string | undefined {
     return 'knowledge.too_large';
 }
 
+const WIDE_EDITOR_QUERY = '(min-width: 1024px)';
+
+// Follows the house matchMedia guard (shell/preferences): the media query
+// decides between the two-pane editor and the tabbed single pane.
+function wideEditorSnapshot(): boolean {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia(WIDE_EDITOR_QUERY).matches
+  );
+}
+
+function subscribeWideEditorQuery(onChange: () => void): () => void {
+  if (typeof window.matchMedia !== 'function') return () => undefined;
+  const query = window.matchMedia(WIDE_EDITOR_QUERY);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+function useWideEditorLayout(): boolean {
+  return useSyncExternalStore(
+    subscribeWideEditorQuery,
+    wideEditorSnapshot,
+    () => false,
+  );
+}
+
+const EDITOR_MODES = ['edit', 'preview'] as const;
+type EditorMode = (typeof EDITOR_MODES)[number];
+
 function DocumentForm({
   apiClient,
   identity,
@@ -392,6 +396,7 @@ function DocumentForm({
 }) {
   const queryClient = useQueryClient();
   const message = useAppMessage('knowledge');
+  const wide = useWideEditorLayout();
   const attachmentContext =
     document && fileTransfer
       ? {
@@ -421,7 +426,11 @@ function DocumentForm({
     onDirtyChange(dirty);
     return () => onDirtyChange(false);
   }, [dirty, onDirtyChange]);
-  const [preview, setPreview] = useState('');
+  const [editorMode, setEditorMode] = useState<EditorMode>('edit');
+  // The preview starts from the stored document so the wide layout shows
+  // both panes before the first keystroke.
+  const [preview, setPreview] = useState(() => document?.markdown ?? '');
+  const deferredPreview = useDeferredValue(preview);
   const [inputError, setInputError] = useState<string>();
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
   const mutation = useMutation({
@@ -498,12 +507,7 @@ function DocumentForm({
   });
   const denied = permissionDenied(mutation.error);
   const cannotEdit = readOnly || document?.can_edit === false || denied;
-  const conflict =
-    !!mutation.error &&
-    typeof mutation.error === 'object' &&
-    'error' in mutation.error &&
-    (mutation.error.error as { code?: string }).code ===
-      'document.version_conflict';
+  const conflict = errorCodeOf(mutation.error) === 'document.version_conflict';
   const latest = latestRead === document?.version ? document : undefined;
   function reconcile(replace: boolean) {
     if (!latest) return;
@@ -525,14 +529,53 @@ function DocumentForm({
     mutation.reset();
     setLatestRead(undefined);
   }
+  // Switching to the preview validates the body first; invalid text keeps
+  // the editor on the source pane and surfaces the error instead.
+  function selectEditorMode(next: EditorMode) {
+    if (next === editorMode) return;
+    if (next === 'preview') {
+      const markdown = markdownInput.current?.value ?? '';
+      const error = markdownError(markdown);
+      setInputError(error);
+      if (error) return;
+      setPreview(markdown);
+    }
+    setEditorMode(next);
+  }
+  function onEditorTabKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    const current = EDITOR_MODES.indexOf(editorMode);
+    const offsets: Record<string, number> = {
+      ArrowRight: 1,
+      ArrowLeft: -1,
+      Home: -current,
+      End: EDITOR_MODES.length - 1 - current,
+    };
+    const offset = offsets[event.key];
+    if (offset === undefined) return;
+    event.preventDefault();
+    const next =
+      EDITOR_MODES[
+        (current + offset + EDITOR_MODES.length) % EDITOR_MODES.length
+      ];
+    event.currentTarget.ownerDocument
+      .getElementById(`document-tab-${next}`)
+      ?.focus();
+    selectEditorMode(next);
+  }
   return (
     <form
-      onChange={() =>
+      onChange={() => {
+        const markdown = markdownInput.current?.value ?? '';
         setDirty(
           titleInput.current?.value !== baseline.title ||
-            markdownInput.current?.value !== baseline.markdown,
-        )
-      }
+            markdown !== baseline.markdown,
+        );
+        // Both layouts live-sync the preview on every keystroke (narrow shows
+        // it through the preview tab); invalid text keeps the last good
+        // preview and surfaces on save or on a preview switch instead of
+        // clobbering other input errors.
+        if (!markdownError(markdown)) setPreview(markdown);
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         if (mutation.isPending || conflict || cannotEdit) return;
@@ -597,106 +640,107 @@ function DocumentForm({
             disabled={mutation.isPending || cannotEdit}
           />
         </Field>
-        <Tabs
-          defaultValue="edit"
-          onValueChange={(value, event) => {
-            if (value === 'preview') {
-              const markdown = markdownInput.current?.value ?? '';
-              const error = markdownError(markdown);
-              setInputError(error);
-              if (error) event.cancel();
-              else setPreview(markdown);
-            }
-          }}
-        >
-          <TabsList aria-label={message('documents.markdownMode')}>
-            <TabsTrigger value="edit">
-              {message('documents.tabEdit')}
-            </TabsTrigger>
-            <TabsTrigger value="preview">
-              {message('documents.tabPreview')}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="edit" keepMounted>
-            <Field
-              data-disabled={mutation.isPending || cannotEdit}
-              data-invalid={
-                inputError === 'knowledge.too_large' ||
-                inputError === 'knowledge.invalid_text'
-              }
+        {/* Both layouts render the same textarea element: crossing the
+            breakpoint re-labels the panes but never remounts them, so the
+            uncontrolled draft survives a resize. Wide shows the panes side
+            by side with a live preview; narrow keeps the tabbed mode. */}
+        <div data-editor-layout={wide ? 'wide' : 'narrow'}>
+          {wide ? (
+            <div className="grid grid-cols-2 gap-4 text-sm font-medium text-muted-foreground">
+              <span>{message('documents.tabEdit')}</span>
+              <span>{message('documents.tabPreview')}</span>
+            </div>
+          ) : (
+            <div
+              role="tablist"
+              aria-label={message('documents.markdownMode')}
+              className="flex w-fit gap-1 rounded-lg bg-muted p-1"
             >
-              <FieldLabel htmlFor="document-markdown">
-                {message('documents.bodyLabel')}
-              </FieldLabel>
-              <Textarea
-                ref={markdownInput}
-                defaultValue={baseline.markdown}
-                id="document-markdown"
-                name="markdown"
-                rows={16}
-                aria-invalid={
+              {EDITOR_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  role="tab"
+                  id={`document-tab-${mode}`}
+                  aria-selected={editorMode === mode}
+                  aria-controls={`document-panel-${mode}`}
+                  tabIndex={editorMode === mode ? 0 : -1}
+                  onClick={() => selectEditorMode(mode)}
+                  onKeyDown={onEditorTabKeyDown}
+                  className="min-h-11 rounded-md px-3 text-sm font-medium aria-selected:bg-background aria-selected:shadow-sm"
+                >
+                  {message(
+                    mode === 'edit'
+                      ? 'documents.tabEdit'
+                      : 'documents.tabPreview',
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className={wide ? 'grid grid-cols-2 gap-4' : undefined}>
+            <div
+              role={wide ? undefined : 'tabpanel'}
+              id={wide ? undefined : 'document-panel-edit'}
+              aria-labelledby={wide ? undefined : 'document-tab-edit'}
+              hidden={!wide && editorMode === 'preview'}
+            >
+              <Field
+                data-disabled={mutation.isPending || cannotEdit}
+                data-invalid={
                   inputError === 'knowledge.too_large' ||
                   inputError === 'knowledge.invalid_text'
                 }
-                disabled={mutation.isPending || cannotEdit}
+              >
+                <FieldLabel htmlFor="document-markdown">
+                  {message('documents.bodyLabel')}
+                </FieldLabel>
+                <Textarea
+                  ref={markdownInput}
+                  defaultValue={baseline.markdown}
+                  id="document-markdown"
+                  name="markdown"
+                  rows={16}
+                  aria-invalid={
+                    inputError === 'knowledge.too_large' ||
+                    inputError === 'knowledge.invalid_text'
+                  }
+                  disabled={mutation.isPending || cannotEdit}
+                />
+                <FieldDescription>
+                  {message('documents.bodyHint')}
+                </FieldDescription>
+              </Field>
+            </div>
+            <div
+              role={wide ? undefined : 'tabpanel'}
+              id={wide ? undefined : 'document-panel-preview'}
+              aria-label={message('documents.tabPreview')}
+              hidden={!wide && editorMode === 'edit'}
+            >
+              <MarkdownPreview
+                markdown={deferredPreview}
+                attachments={attachmentContext}
               />
-              <FieldDescription>
-                {message('documents.bodyHint')}
-              </FieldDescription>
-            </Field>
-          </TabsContent>
-          <TabsContent value="preview">
-            <MarkdownPreview
-              markdown={preview}
-              attachments={attachmentContext}
-            />
-          </TabsContent>
-        </Tabs>
+            </div>
+          </div>
+        </div>
         {inputError ? (
-          <Failure error={{ error: { code: inputError } }} />
+          <Failure code={inputError} />
         ) : mutation.isError ? (
           <Failure error={mutation.error} />
         ) : null}
         {conflict && onReadLatest ? (
-          <section
-            aria-label={message('documents.conflictSection')}
-            className="flex flex-col gap-3"
-          >
-            <Button
-              variant="outline"
-              disabled={latestPending}
-              onClick={() => {
-                void onReadLatest().then(setLatestRead);
-              }}
-            >
-              {latestPending
-                ? message('documents.readingLatest')
-                : message('documents.readLatest')}
-            </Button>
-            {latest ? (
-              <>
-                <h2 className="text-lg font-semibold">
-                  {message('documents.latestVersion', {
-                    version: latest.version,
-                    title: latest.title,
-                  })}
-                </h2>
-                <MarkdownPreview
-                  markdown={latest.markdown}
-                  attachments={attachmentContext}
-                />
-                <p>{message('documents.conflictHint')}</p>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" onClick={() => reconcile(false)}>
-                    {message('documents.keepDraft')}
-                  </Button>
-                  <Button variant="outline" onClick={() => reconcile(true)}>
-                    {message('documents.takeLatest')}
-                  </Button>
-                </div>
-              </>
-            ) : null}
-          </section>
+          <ConflictSection
+            latest={latest}
+            latestPending={latestPending}
+            onReadLatest={() => {
+              void onReadLatest?.().then(setLatestRead);
+            }}
+            onKeep={() => reconcile(false)}
+            onTake={() => reconcile(true)}
+            attachments={attachmentContext}
+          />
         ) : null}
         {baseline.version !== undefined ? (
           <p className="text-sm text-muted-foreground">
