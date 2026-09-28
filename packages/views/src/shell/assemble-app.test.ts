@@ -45,7 +45,41 @@ describe('assembleApp', () => {
     expect(app.defaultEntry).toBe('/');
     expect(app.routes).toEqual([]);
     expect(app.navigation).toEqual([]);
-    expect(app.messages).toEqual({ zh: {}, en: {} });
+    // Core's own catalog is always part of the assembly: the universal
+    // home, login and settings keep their texts with zero examples.
+    expect(Object.keys(app.messages.zh).length).toBeGreaterThan(0);
+    expect(Object.keys(app.messages.en).length).toBeGreaterThan(0);
+    expect(app.messages.zh['app.name']).toBeTruthy();
+  });
+
+  test('an example key colliding with Core message ownership fails at assembly', () => {
+    // Core owns 'home.title'; an example whose namespace produces the same
+    // fully-qualified key is refused instead of shadowing Core texts.
+    const squatter = example({
+      id: 'home',
+      messages: {
+        zh: {
+          title: '被抢占的首页',
+          'group.label': '分组',
+          'nav.notes': '导航项',
+        },
+        en: {
+          title: 'Squatted home',
+          'group.label': 'Group',
+          'nav.notes': 'Nav item',
+        },
+      },
+    });
+    expect(() => assembleApp({ examples: [squatter] })).toThrow(
+      /message home\.title is already owned by core/,
+    );
+  });
+
+  test('an example namespace free of Core keys assembles alongside the Core catalog', () => {
+    const app = assembleApp({ examples: [example()] });
+    // The example's own namespace and Core's catalog coexist.
+    expect(app.messages.zh['notes.group.label']).toBe('便签');
+    expect(app.messages.zh['home.title']).toBeTruthy();
   });
 
   test('empty navigation groups disappear from the assembled navigation', () => {

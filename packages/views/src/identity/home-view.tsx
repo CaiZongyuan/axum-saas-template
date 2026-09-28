@@ -1,5 +1,8 @@
 import { RateLimitHint } from '../system/rate-limit';
-import { BusinessNavigation } from '../shell/app-navigation';
+import { AppShellLayout, type ShellRole } from '../shell/app-shell';
+import { usePageTitle } from '../shell/page-title';
+import { useAppMessage } from '../shell/messages';
+import type { AssembledApp } from '../shell/app-contract';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { logoutUser, type ApiClient } from '@saas/sdk';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
@@ -9,27 +12,24 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@saas/ui/components/card';
 import { replaceSession, sessionQuery } from './session';
-import type { AssembledApp } from '../shell/app-contract';
-import type { ReactNode } from 'react';
 
 export function HomeView({
   apiClient,
   docsUrl,
   navigation,
   onOpenNavigation,
-  adminActions,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
   navigation?: AssembledApp['navigation'];
   onOpenNavigation?: (path: string) => void;
-  adminActions?: ReactNode;
 }) {
+  const message = useAppMessage();
+  usePageTitle('shell.nav.home');
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const logout = useMutation({
@@ -48,121 +48,98 @@ export function HomeView({
       await replaceSession(queryClient, apiClient, null);
     },
   });
-  if (session.isPending)
-    return (
-      <main className="p-8" role="status">
-        正在读取会话…
-      </main>
-    );
-  if (session.isError)
-    return (
-      <main className="mx-auto max-w-lg p-8">
-        <Alert variant="destructive">
-          <AlertTitle>无法读取会话</AlertTitle>
-          <AlertDescription>
-            请检查网络后重试。
-            <RateLimitHint error={session.error} />
-          </AlertDescription>
-        </Alert>
-        <Button
-          className="mt-4"
-          onClick={() => {
-            void session.refetch();
-          }}
-        >
-          重试
-        </Button>
-      </main>
-    );
   const user = session.data?.user;
+  const role: ShellRole | undefined = user?.role;
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center gap-6 px-6 py-12">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h1>
+    <AppShellLayout
+      navigation={user ? navigation : undefined}
+      role={role}
+      docsUrl={docsUrl}
+      onOpen={onOpenNavigation}
+    >
+      <div className="mx-auto flex w-full max-w-3xl flex-col justify-center gap-6 px-6 py-12">
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h1 className="text-xl font-semibold">
+                {user
+                  ? message('home.greeting', {
+                      name: user.display_name || user.email,
+                    })
+                  : message('home.title')}
+              </h1>
+            </CardTitle>
+            <CardDescription>
               {user
-                ? `你好，${user.display_name || user.email}`
-                : '欢迎使用企业空间'}
-            </h1>
-          </CardTitle>
-          <CardDescription>
-            {user
-              ? '你已登录，可以开始使用企业空间。'
-              : '当前没有有效会话，请登录或创建账号。'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {user ? (
-            <>
-              <p>{user.email}</p>
-              {navigation && onOpenNavigation ? (
-                <BusinessNavigation
-                  navigation={navigation}
-                  onOpen={onOpenNavigation}
-                />
-              ) : null}
-              <div className="flex flex-wrap gap-3">
-                <a href="/api-keys" className="text-sm underline">
-                  API Keys
-                </a>
-                <a href="/notifications" className="text-sm underline">
-                  通知
-                </a>
-                <a href="/members" className="text-sm underline">
-                  企业成员
-                </a>
-              </div>
-              {user.role === 'owner' || user.role === 'admin'
-                ? adminActions
-                : null}
-              <Badge variant="secondary">
-                {
-                  { owner: '企业所有者', admin: '管理员', member: '成员' }[
-                    user.role
-                  ]
-                }
-              </Badge>
-              {logout.isError ? (
+                ? message('home.signedInHint')
+                : message('home.signedOutHint')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {session.isPending ? (
+              <p role="status">{message('home.loadingSession')}</p>
+            ) : null}
+            {session.isError ? (
+              <>
                 <Alert variant="destructive">
-                  <AlertTitle>退出失败</AlertTitle>
+                  <AlertTitle>{message('home.sessionError')}</AlertTitle>
                   <AlertDescription>
-                    请检查网络后重试。
-                    <RateLimitHint error={logout.error} />
+                    {message('home.sessionErrorHint')}
+                    <RateLimitHint error={session.error} />
                   </AlertDescription>
                 </Alert>
-              ) : null}
-              <Button
-                variant="outline"
-                disabled={logout.isPending}
-                onClick={() => logout.mutate()}
-              >
-                {logout.isPending ? '正在退出…' : '退出登录'}
-              </Button>
-            </>
-          ) : (
-            <>
-              <a href="/login" className={buttonVariants()}>
-                登录
-              </a>
-              <a
-                href="/register"
-                className={buttonVariants({ variant: 'outline' })}
-              >
-                创建账号
-              </a>
-            </>
-          )}
-        </CardContent>
-        <CardFooter className="flex gap-6">
-          <a className="text-sm underline" href={docsUrl}>
-            使用教程
-          </a>
-          <a className="text-sm underline" href="/system">
-            查看服务状态
-          </a>
-        </CardFooter>
-      </Card>
-    </main>
+                <Button
+                  className="w-fit"
+                  onClick={() => {
+                    void session.refetch();
+                  }}
+                >
+                  {message('common.retry')}
+                </Button>
+              </>
+            ) : null}
+            {user ? (
+              <>
+                <p>{user.email}</p>
+                <Badge variant="secondary">
+                  {message(`home.role.${user.role}`)}
+                </Badge>
+                {logout.isError ? (
+                  <Alert variant="destructive">
+                    <AlertTitle>{message('home.logoutError')}</AlertTitle>
+                    <AlertDescription>
+                      {message('home.sessionErrorHint')}
+                      <RateLimitHint error={logout.error} />
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                <Button
+                  variant="outline"
+                  className="w-fit"
+                  disabled={logout.isPending}
+                  onClick={() => logout.mutate()}
+                >
+                  {logout.isPending
+                    ? message('home.loggingOut')
+                    : message('home.logout')}
+                </Button>
+              </>
+            ) : session.isSuccess ? (
+              <>
+                <a href="/login" className={buttonVariants() + ' w-fit'}>
+                  {message('login.submit')}
+                </a>
+                <a
+                  href="/register"
+                  className={buttonVariants({ variant: 'outline' }) + ' w-fit'}
+                >
+                  {message('home.registerAccount')}
+                </a>
+              </>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
+    </AppShellLayout>
   );
 }

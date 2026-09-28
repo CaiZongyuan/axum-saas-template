@@ -32,7 +32,7 @@ Session 使用操作系统随机数生成的 256 位 secret，Cookie 持有 secr
 
 ## 4. 接到真实页面
 
-运行 `just generate` 后，Rust OpenAPI 生成 `registerUser`、`getCurrentSession` 及相关 DTO。[注册 View](../../packages/views/src/identity/register-view.tsx)使用生成 SDK 和 shadcn 字段控件，展示提交状态、校验与带 request_id 的失败信息。成功时清理旧身份查询缓存，再进入已登录首页。
+运行 `just generate` 后，Rust OpenAPI 生成 `registerUser`、`getCurrentSession` 及相关 DTO。[注册 View](../../packages/views/src/identity/register-view.tsx)使用生成 SDK 和 shadcn 字段控件，展示提交状态、校验与带 request_id 的失败信息。页面文案来自 Core 双语目录，按设备语言或手动选择渲染，页内可直接切换语言与明暗主题（见[外观与语言](28-appearance-language.md)）；服务端错误按稳定码（如 `auth.email_exists`）映射本地文案。成功时清理旧身份查询缓存，再进入已登录首页。
 
 Session secret 不存入 localStorage，也不返回给 JavaScript。API 响应使用 `Cache-Control: no-store`。HTTPS 采用 `__Host-saas_session` Cookie，带 `Secure / HttpOnly / SameSite=Lax / Path=/`，不设置 Domain。开发环境仅允许 loopback HTTP。
 

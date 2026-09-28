@@ -1,9 +1,14 @@
 import type { AssembledApp } from './app-contract';
+
+// One sidebar link shape everywhere (shell and assembled groups alike).
+export const sidebarLinkClass =
+  'flex h-11 items-center rounded-md px-3 text-sm text-foreground hover:bg-muted ';
 import { useAppMessage } from './messages';
 
-// Renders the assembled business navigation grouped by example. The shell
-// never inspects which example a group came from — groups carry their own
-// resolved labels, and the assembler already dropped empty ones.
+// Renders the assembled business navigation groups. The shell never
+// inspects which example a group came from — groups carry their own
+// resolved labels, and the assembler already dropped empty ones. The
+// landmark (`nav`) belongs to the shell layout around this renderer.
 
 export function BusinessNavigation({
   navigation,
@@ -13,31 +18,28 @@ export function BusinessNavigation({
   onOpen: (path: string) => void;
 }) {
   const message = useAppMessage();
-  if (navigation.length === 0) return null;
   return (
-    <nav aria-label="业务导航" className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4">
       {navigation.map((group) => (
-        <div key={group.id} className="flex flex-col gap-2">
-          <h3 className="text-sm font-semibold text-muted-foreground">
+        <div key={group.id} className="flex flex-col gap-1">
+          <h3 className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {message(group.labelKey)}
           </h3>
-          <div className="flex flex-wrap gap-3">
-            {group.items.map((item) => (
-              <a
-                key={item.id}
-                href={item.path}
-                className="text-sm underline"
-                onClick={(event) => {
-                  event.preventDefault();
-                  onOpen(item.path);
-                }}
-              >
-                {message(item.labelKey)}
-              </a>
-            ))}
-          </div>
+          {group.items.map((item) => (
+            <a
+              key={item.id}
+              href={item.path}
+              className={sidebarLinkClass.trim()}
+              onClick={(event) => {
+                event.preventDefault();
+                onOpen(item.path);
+              }}
+            >
+              {message(item.labelKey)}
+            </a>
+          ))}
         </div>
       ))}
-    </nav>
+    </div>
   );
 }

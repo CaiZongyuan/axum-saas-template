@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { registerUser, type ApiClient, type Registration } from '@saas/sdk';
-import { requestIdFromError, retryAfterSeconds } from '@saas/core';
+import { errorCodeOf, requestIdFromError, retryAfterSeconds } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Button } from '@saas/ui/components/button';
 import {
@@ -18,20 +18,25 @@ import {
   FieldLabel,
 } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
+import { AuthPreferencesRow } from '../shell/appearance-controls';
+import { useAppMessage } from '../shell/messages';
+import { usePageTitle } from '../shell/page-title';
 import { replaceSession } from './session';
 import { useRetryDelay } from '../system/rate-limit';
 
-function registrationError(error: unknown) {
-  const code =
-    error && typeof error === 'object' && 'error' in error
-      ? (error.error as { code?: string })?.code
-      : undefined;
-  if (code === 'auth.email_exists')
-    return '这个邮箱已注册，请使用已有账号登录。';
-  if (code === 'auth.session_unavailable')
-    return '账号已创建，但暂时无法登录。请稍后登录，无需重新注册。';
-  if (code === 'auth.invalid_input') return '请检查邮箱、密码和显示名后重试。';
-  return '暂时无法完成注册，请稍后重试。';
+// Registration errors map from stable backend codes; an unknown code gets
+// the localized generic hint (docs/ui/design.md §6 Q1).
+function registrationErrorCode(error: unknown) {
+  switch (errorCodeOf(error)) {
+    case 'auth.email_exists':
+      return 'register.error.emailExists';
+    case 'auth.session_unavailable':
+      return 'register.error.sessionUnavailable';
+    case 'auth.invalid_input':
+      return 'register.error.invalidInput';
+    default:
+      return 'register.error.generic';
+  }
 }
 
 export function RegisterView({
@@ -41,6 +46,8 @@ export function RegisterView({
   apiClient: ApiClient;
   onRegistered: () => void;
 }) {
+  const message = useAppMessage();
+  usePageTitle('register.docTitle');
   const queryClient = useQueryClient();
   const cooldown = useRetryDelay();
   const mutation = useMutation({
@@ -56,13 +63,16 @@ export function RegisterView({
   });
   const requestId = requestIdFromError(mutation.error);
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-12">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-6 py-12">
+      <AuthPreferencesRow />
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>
-            <h1>创建你的账号</h1>
+            <h1 className="text-xl font-semibold">
+              {message('register.title')}
+            </h1>
           </CardTitle>
-          <CardDescription>使用邮箱与密码，进入企业空间。</CardDescription>
+          <CardDescription>{message('register.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -82,7 +92,9 @@ export function RegisterView({
           >
             <FieldGroup>
               <Field data-disabled={mutation.isPending}>
-                <FieldLabel htmlFor="email">邮箱</FieldLabel>
+                <FieldLabel htmlFor="email">
+                  {message('login.email')}
+                </FieldLabel>
                 <Input
                   id="email"
                   name="email"
@@ -94,7 +106,9 @@ export function RegisterView({
                 />
               </Field>
               <Field data-disabled={mutation.isPending}>
-                <FieldLabel htmlFor="password">密码</FieldLabel>
+                <FieldLabel htmlFor="password">
+                  {message('login.password')}
+                </FieldLabel>
                 <Input
                   id="password"
                   name="password"
@@ -107,11 +121,13 @@ export function RegisterView({
                   disabled={mutation.isPending}
                 />
                 <FieldDescription id="password-help">
-                  使用 12–128 个字符，可以包含空格。
+                  {message('register.passwordHint')}
                 </FieldDescription>
               </Field>
               <Field data-disabled={mutation.isPending}>
-                <FieldLabel htmlFor="display-name">显示名（可选）</FieldLabel>
+                <FieldLabel htmlFor="display-name">
+                  {message('register.displayName')}
+                </FieldLabel>
                 <Input
                   id="display-name"
                   name="display_name"
@@ -122,14 +138,16 @@ export function RegisterView({
               </Field>
               {mutation.isError ? (
                 <Alert variant="destructive">
-                  <AlertTitle>注册未完成</AlertTitle>
+                  <AlertTitle>{message('register.error.title')}</AlertTitle>
                   <AlertDescription>
                     {retryAfterSeconds(mutation.error)
                       ? cooldown.remaining > 0
-                        ? '请求过于频繁，请等待后重试。'
-                        : '请求过于频繁，现在可以重新尝试。'
-                      : registrationError(mutation.error)}
-                    {requestId ? <p>请求编号：{requestId}</p> : null}
+                        ? message('login.error.rateLimitedWait')
+                        : message('login.error.rateLimitedReady')
+                      : message(registrationErrorCode(mutation.error))}
+                    {requestId ? (
+                      <p>{message('common.requestId', { id: requestId })}</p>
+                    ) : null}
                   </AlertDescription>
                 </Alert>
               ) : null}
@@ -138,20 +156,22 @@ export function RegisterView({
                 disabled={mutation.isPending || cooldown.remaining > 0}
               >
                 {mutation.isPending
-                  ? '正在创建账号…'
+                  ? message('register.pending')
                   : cooldown.remaining > 0
-                    ? `请等待 ${cooldown.remaining} 秒`
-                    : '创建账号'}
+                    ? message('login.cooldown', {
+                        seconds: cooldown.remaining,
+                      })
+                    : message('home.registerAccount')}
               </Button>
             </FieldGroup>
           </form>
         </CardContent>
         <CardFooter className="flex gap-6">
           <a className="text-sm underline" href="/login">
-            已有账号？登录
+            {message('register.haveAccount')}
           </a>
           <a className="text-sm text-muted-foreground underline" href="/">
-            返回首页
+            {message('common.backHome')}
           </a>
         </CardFooter>
       </Card>

@@ -8,6 +8,15 @@ export function requestIdFromError(value: unknown): string | undefined {
   return typeof body.request_id === 'string' ? body.request_id : undefined;
 }
 
+/** The API's stable error code (the translation key input), or nothing for non-API values. */
+export function errorCodeOf(value: unknown): string | undefined {
+  if (typeof value !== 'object' || value === null || !('error' in value))
+    return;
+  const body = value.error;
+  if (typeof body !== 'object' || body === null || !('code' in body)) return;
+  return typeof body.code === 'string' ? body.code : undefined;
+}
+
 /** Only the public limiter code can supply a bounded wait hint; never show arbitrary errors. */
 export function retryAfterSeconds(value: unknown): number | undefined {
   if (!value || typeof value !== 'object' || !('error' in value)) return;

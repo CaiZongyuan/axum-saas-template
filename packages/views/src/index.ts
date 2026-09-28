@@ -27,7 +27,23 @@ export {
   type NavigatePort,
   type NavigateTarget,
 } from './shell/app-contract';
-export { AppMessagesProvider } from './shell/messages';
+export { AppMessagesProvider, useAppMessage } from './shell/messages';
+export {
+  PreferencesProvider,
+  usePreferences,
+  type AppLocale,
+  type ThemeChoice,
+} from './shell/preferences';
+export { useAppFormat } from './shell/format';
+export { usePageTitle } from './shell/page-title';
+export { docsChapterUrl, docsHomeUrl } from './shell/docs-links';
+export { AppShellLayout } from './shell/app-shell';
+export { SettingsView } from './shell/settings-view';
+export {
+  LanguageToggle,
+  ThemeToggle,
+  AuthPreferencesRow,
+} from './shell/appearance-controls';
 export { BusinessNavigation } from './shell/app-navigation';
 // example:knowledge:views:start
 export {

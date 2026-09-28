@@ -1,6 +1,7 @@
 import type { NotificationTarget } from '@saas/sdk';
 import type { ApiClient } from '@saas/sdk';
 import type { ReactNode } from 'react';
+import { coreMessages } from './core-messages';
 
 // The composition contract between the universal shell and the removable
 // example applications (docs/ui/design.md §4.1, ADR 0003):
@@ -232,11 +233,31 @@ export function assembleApp({
   );
 
   const navigation = assembled.flatMap((entry) => entry.navigation);
+
+  // Message ownership: Core's catalog registers first, each example's
+  // namespaced keys join after. A fully-namespaced key may be registered
+  // exactly once — an example taking over a Core or earlier-example key
+  // fails the assembly instead of silently winning (docs/ui/design.md §6).
   const messages = { zh: {}, en: {} } as AssembledApp['messages'];
-  for (const entry of assembled) {
-    Object.assign(messages.zh, entry.messages.zh);
-    Object.assign(messages.en, entry.messages.en);
-  }
+  const messageOwners = new Map<string, string>();
+  for (const locale of ['zh', 'en'] as const)
+    for (const [key, text] of Object.entries(coreMessages[locale])) {
+      messages[locale][key] = text;
+      messageOwners.set(key, 'core');
+    }
+  for (const entry of assembled)
+    for (const locale of ['zh', 'en'] as const)
+      for (const [key, text] of Object.entries(entry.messages[locale])) {
+        // An example re-registers its own key for the second locale of the
+        // bilingual pair; a different owner is a takeover and fails.
+        const owner = messageOwners.get(key);
+        if (owner && owner !== entry.example.id)
+          throw new Error(
+            `message ${key} is already owned by ${owner}; example ${entry.example.id} must pick another key`,
+          );
+        messages[locale][key] = text;
+        messageOwners.set(key, entry.example.id);
+      }
 
   // The assembly point may pin the default entry explicitly; otherwise the
   // first assembled example that declares one wins, and an app whose

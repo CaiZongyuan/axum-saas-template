@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { retryAfterSeconds } from '@saas/core';
+import { useAppMessage } from '../shell/messages';
 
 export function RateLimitHint({
   error,
@@ -8,9 +9,12 @@ export function RateLimitHint({
   error: unknown;
   inline?: boolean;
 }) {
+  const message = useAppMessage();
   const seconds = retryAfterSeconds(error);
   const Tag = inline ? 'span' : 'p';
-  return seconds ? <Tag>请求过于频繁，请 {seconds} 秒后重试。</Tag> : null;
+  return seconds ? (
+    <Tag>{message('common.rateLimitHint', { seconds })}</Tag>
+  ) : null;
 }
 
 /** Start only from a completed request; neither this timer nor Query retries submit again. */
