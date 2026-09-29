@@ -66,13 +66,11 @@ function Failure({ error }: { error: unknown }) {
 }
 export function AuditView({
   apiClient,
-  docsUrl,
   onOpen,
   filters,
   onApplyFilters,
 }: {
   apiClient: ApiClient;
-  docsUrl: string;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
   /** Applied filter conditions, owned by the router's search params. */
@@ -82,7 +80,6 @@ export function AuditView({
   return (
     <AdminFrame
       apiClient={apiClient}
-      docsUrl={docsUrl}
       onOpen={onOpen}
       titleKey="audit.title"
       adminOnlyKey="audit.adminOnly"

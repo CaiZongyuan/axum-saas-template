@@ -116,14 +116,7 @@ test('the sidebar holds the Core entries; a member sees no administration group'
   // describe the signed-in sidebar, not the pre-session first paint.
   expect(await screen.findByText('你好，壳用户')).toBeVisible();
   const navigation = screen.getByRole('navigation', { name: '主菜单' });
-  for (const label of [
-    '首页',
-    '通知',
-    '外观与语言',
-    '设计系统',
-    '使用教程',
-    '系统状态',
-  ])
+  for (const label of ['首页', '通知', '设置', '设计系统', '系统状态'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
   expect(
     within(navigation).queryByRole('link', { name: '企业成员' }),
@@ -141,7 +134,7 @@ test('a signed-out visitor sees the public Core entries only', async () => {
   // absence assertions describe the final sidebar.
   await screen.findByRole('link', { name: '登录' });
   const navigation = screen.getByRole('navigation', { name: '主菜单' });
-  for (const label of ['首页', '外观与语言', '使用教程', '系统状态'])
+  for (const label of ['首页', '设置', '系统状态'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
   // Notification, API-key and design-system surfaces are authenticated
   // capabilities; the sidebar does not advertise them before sign-in.
@@ -168,10 +161,8 @@ test('the administration group appears for owners', async () => {
     expect(
       within(navigation as HTMLElement).getByRole('link', { name: label }),
     ).toBeVisible();
-  await user.click(screen.getByRole('link', { name: '外观与语言' }));
-  expect(
-    await screen.findByRole('heading', { name: '外观与语言' }),
-  ).toBeVisible();
+  await user.click(screen.getByRole('link', { name: '设置' }));
+  expect(await screen.findByRole('heading', { name: '设置' })).toBeVisible();
 });
 
 test('the narrow-screen drawer toggles with announced state and Escape dismisses it', async () => {
@@ -191,15 +182,8 @@ test('the narrow-screen drawer toggles with announced state and Escape dismisses
   expect(document.getElementById('app-sidebar')).toHaveClass('hidden');
 });
 
-test('the sidebar Documentation link points at the zh docs home, not the landing', async () => {
-  open('/');
-  const navigation = await screen.findByRole('navigation', {
-    name: '主菜单',
-  });
-  const docsLink = within(navigation).getByRole('link', { name: '使用教程' });
-  expect(docsLink).toHaveAttribute('href', 'https://docs.test/docs/');
-  expect(docsLink).toHaveAttribute('target', '_blank');
-});
+// The Documentation link moved into the settings page's help section
+// (UI-R3); its URL shape is asserted in settings.test.tsx.
 
 test('the business default entry is directly reachable as a deep link', async () => {
   if (assembledApp.defaultEntry === '/') return; // Core-only combo: home test covers '/'

@@ -209,7 +209,7 @@ test('the audit filter survives a language switch and speaks English afterwards'
   await user.click(
     within(screen.getByRole('navigation', { name: '主菜单' })).getByRole(
       'link',
-      { name: '外观与语言' },
+      { name: '设置' },
     ),
   );
   await user.click(await screen.findByRole('radio', { name: 'English' }));

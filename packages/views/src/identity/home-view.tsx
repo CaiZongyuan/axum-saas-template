@@ -19,13 +19,11 @@ import { replaceSession, sessionQuery } from './session';
 
 export function HomeView({
   apiClient,
-  docsUrl,
   navigation,
   moduleIcons,
   onOpenNavigation,
 }: {
   apiClient: ApiClient;
-  docsUrl: string;
   navigation?: AssembledApp['navigation'];
   moduleIcons?: AssembledApp['moduleIcons'];
   onOpenNavigation?: (path: string) => void;
@@ -57,7 +55,6 @@ export function HomeView({
       navigation={user ? navigation : undefined}
       moduleIcons={user ? moduleIcons : undefined}
       role={role}
-      docsUrl={docsUrl}
       onOpen={onOpenNavigation}
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col justify-center gap-6 px-6 py-12">

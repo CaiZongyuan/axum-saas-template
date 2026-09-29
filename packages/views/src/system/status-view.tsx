@@ -56,11 +56,7 @@ export function StatusView({
       : message('status.ready');
 
   return (
-    <AppShellLayout
-      docsUrl={docsUrl}
-      onOpen={onOpen}
-      role={session.data?.user.role}
-    >
+    <AppShellLayout onOpen={onOpen} role={session.data?.user.role}>
       <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 md:py-16">
         <section className="flex flex-col items-start gap-4">
           <Badge variant="outline">{message('status.badge')}</Badge>

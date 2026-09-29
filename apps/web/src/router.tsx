@@ -198,12 +198,11 @@ const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
   component: function HomePage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    const { apiClient } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     return (
       <HomeView
         apiClient={apiClient}
-        docsUrl={docsUrl}
         navigation={assembledApp.navigation}
         moduleIcons={assembledApp.moduleIcons}
         onOpenNavigation={shellPathPort(navigate)}
@@ -212,17 +211,38 @@ const homeRoute = createRoute({
   },
 });
 
+// The settings page's `section` query names an anchored section for deep
+// links (docs/ui/design.md §5). Any value is accepted — an unknown or
+// signed-out anchor simply scrolls nowhere — and the shell's navigation
+// retention keeps it alive across language/theme switches.
+type SettingsSearch = { section?: string };
+function validateSettingsSearch(
+  search: Record<string, unknown>,
+): SettingsSearch {
+  return typeof search.section === 'string' && search.section
+    ? { section: search.section }
+    : {};
+}
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/settings',
+  validateSearch: validateSettingsSearch,
   component: function SettingsPage() {
     const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const navigate = useNavigate();
+    const { section } = settingsRoute.useSearch();
     return (
       <SettingsView
         docsUrl={docsUrl}
         apiClient={apiClient}
         onOpen={shellPathPort(navigate)}
+        section={section}
+        showroom={{
+          navigation: assembledApp.navigation,
+          moduleIcons: assembledApp.moduleIcons,
+          scenes: assembledApp.scenes,
+          copyText: (text) => navigator.clipboard.writeText(text),
+        }}
       />
     );
   },
@@ -263,12 +283,11 @@ const membersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/members',
   component: function MembersPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    const { apiClient } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     return (
       <MembersView
         apiClient={apiClient}
-        docsUrl={docsUrl}
         onOpen={shellPathPort(navigate)}
         onLogin={() => {
           void navigate({ to: '/login' });
@@ -301,13 +320,12 @@ const jobsRoute = createRoute({
   path: '/jobs',
   validateSearch: validateJobsSearch,
   component: function JobsPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    const { apiClient } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     const { status } = jobsRoute.useSearch();
     return (
       <JobsView
         apiClient={apiClient}
-        docsUrl={docsUrl}
         onOpen={shellPathPort(navigate)}
         onOpenJob={(jobId) => {
           void navigate({ to: '/jobs/$jobId', params: { jobId } });
@@ -328,13 +346,12 @@ const jobRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/jobs/$jobId',
   component: function JobPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    const { apiClient } = rootRoute.useRouteContext();
     const { jobId } = jobRoute.useParams();
     const navigate = useNavigate();
     return (
       <JobView
         apiClient={apiClient}
-        docsUrl={docsUrl}
         jobId={jobId}
         onOpen={shellPathPort(navigate)}
       />
@@ -434,12 +451,11 @@ const apiKeysRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/api-keys',
   component: function ApiKeysPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    const { apiClient } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     return (
       <ApiKeysView
         apiClient={apiClient}
-        docsUrl={docsUrl}
         onOpen={shellPathPort(navigate)}
         copySecret={(secret) => navigator.clipboard.writeText(secret)}
       />
@@ -474,13 +490,12 @@ const auditRoute = createRoute({
   path: '/audit',
   validateSearch: validateAuditSearch,
   component: function AuditPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
+    const { apiClient } = rootRoute.useRouteContext();
     const navigate = useNavigate();
     const search = auditRoute.useSearch();
     return (
       <AuditView
         apiClient={apiClient}
-        docsUrl={docsUrl}
         onOpen={shellPathPort(navigate)}
         filters={search}
         onApplyFilters={(filters) => {
@@ -534,7 +549,7 @@ function adapterRoute(route: AssembledApp['routes'][number]) {
     component: function ExamplePage() {
       const params = useParams({ strict: false }) as Record<string, string>;
       const navigate = useNavigate();
-      const { apiClient, docsUrl } = rootRoute.useRouteContext();
+      const { apiClient } = rootRoute.useRouteContext();
       const queryClient = useQueryClient();
       const session = useQuery(sessionQuery(apiClient, queryClient));
       const page = route.component({
@@ -544,7 +559,6 @@ function adapterRoute(route: AssembledApp['routes'][number]) {
       });
       return (
         <AppShellLayout
-          docsUrl={docsUrl}
           navigation={assembledApp.navigation}
           moduleIcons={assembledApp.moduleIcons}
           role={session.data?.user.role}
