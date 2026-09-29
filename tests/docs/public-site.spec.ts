@@ -15,7 +15,7 @@ test('the landing offers the four public entries and the start actions', async (
   page,
 }) => {
   await go(page);
-  await expect(page).toHaveTitle(/Axum SaaS Template/);
+  await expect(page).toHaveTitle(/Dougong/);
   const nav = page.locator('.VPNavBarMenuLink');
   await expect(nav).toHaveCount(4);
   // Scope to the navbar: cards and CTA buttons also contain 文档/博客 text.

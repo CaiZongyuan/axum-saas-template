@@ -13,7 +13,7 @@ test('the landing, its entries and the switcher survive a custom base', async ({
   page,
 }) => {
   await go(page);
-  await expect(page).toHaveTitle(/Axum SaaS Template/);
+  await expect(page).toHaveTitle(/Dougong/);
   await expect(
     page.getByRole('heading', { level: 1, name: /Rust \+ React/ }),
   ).toBeVisible();
