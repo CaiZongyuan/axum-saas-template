@@ -1,6 +1,6 @@
 # Add a reference example
 
-The universal app shell knows nothing about concrete businesses. An example joins through a declarative contribution object (pages, navigation groups, bilingual messages, an optional default entry) at an explicit assembly point, and the shell validates and assembles it. This chapter walks through the full wiring using the repository's notes example, then shows how the zero-, single- and dual-example source combinations run and get verified.
+The universal app shell knows nothing about concrete businesses. An example joins through a declarative contribution object (pages, navigation groups, bilingual messages, an optional default entry) at an explicit assembly point, and the shell validates and assembles it. The default source registers only the knowledge base; the repository also ships the notes example (unregistered by default, source kept). This chapter walks the full wiring with it — introducing the mechanical helper `scripts/example-add.mjs` (the inverse of the removal tool, under the same marker contract) as well as every hand-written step — and shows how the single-, dual- and zero-example source combinations run and get verified.
 
 ## 1. What an example owns
 
@@ -26,7 +26,7 @@ The types and the `assembleApp` validation live in `packages/views/src/shell/app
 
 ## 3. Joining at the assembly point
 
-`apps/web/src/app-examples.tsx` is the only file a new example edits. Shell and Core code never import a concrete example, and examples never import each other — the assembly point imports everything and hands the result to the shell:
+`apps/web/src/app-examples.tsx` is the only file a new example edits. Shell and Core code never import a concrete example, and examples never import each other — the assembly point imports everything and hands the result to the shell. Joining means inserting the example's two marker blocks (after the existing example's blocks, when there is one):
 
 ```tsx
 // example:notes:assembly:start
@@ -34,30 +34,29 @@ import { createNotesExample } from '@saas/views';
 // example:notes:assembly:end
 
 export const exampleEntries: ExampleContribution[] = [
+  // example:knowledge:entries:start
+  // …the existing example's contribution…
+  // example:knowledge:entries:end
   // example:notes:entries:start
   createNotesExample(),
   // example:notes:entries:end
 ];
-
-export const assembledApp = assembleApp({
-  examples: exampleEntries,
-  defaultEntry: exampleEntries.find((entry) => entry.defaultEntry !== undefined)
-    ?.defaultEntry,
-});
 ```
+
+One mechanical command does the same: `node scripts/example-add.mjs --example notes`. The tool reads the blocks and anchors declared in `examples/notes/registration.mjs` and inserts them transactionally — it verifies every anchor before writing anything, and refuses duplicates, dirty copies and ambiguous anchors. It is the inverse of the removal tool under the same marker contract; when you want to understand the contract or wire a brand-new example, hand-editing and the tool meet in the same place.
 
 Each example owns two marker blocks: `assembly` (its imports) and `entries` (its list entry), and every marker name appears at most once per file so the removal tool can rewrite them mechanically. The Router exists only in the app adapter `apps/web/src/router.tsx`: it turns the assembled result into real routes, while pages receive routing through ports (`params`, `navigate`, `apiClient`) and never import a concrete Router.
 
-## 4. The four source combinations
+## 4. The source combinations
 
-| Combination           | How to get it                                                    | Where login lands                                        |
-| --------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- |
-| Dual (default source) | run `just dev`                                                   | the knowledge example's My documents entry               |
-| Notes-only            | `node scripts/example-remove.mjs` (removes knowledge by default) | the universal home `/` (notes declares no default entry) |
-| Knowledge-only        | `node scripts/example-remove.mjs --example notes`                | the knowledge example's My documents entry               |
-| Core-only             | remove knowledge, then notes, in one copy                        | the universal home `/`                                   |
+| Combination              | How to get it                                                                      | Where login lands                                        |
+| ------------------------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Knowledge-only (default) | run `just dev`                                                                     | the knowledge example's My documents entry               |
+| Dual                     | `node scripts/example-add.mjs --example notes`                                     | the knowledge example's My documents entry               |
+| Notes-only               | in the dual copy, `node scripts/example-remove.mjs` (removes knowledge by default) | the universal home `/` (notes declares no default entry) |
+| Core-only                | in the same copy, `node scripts/example-remove.mjs --example notes`                | the universal home `/`                                   |
 
-Commit the copy between the two removals — the removal tool only edits clean copies, and the same care protects your customizations.
+Removing knowledge from the default source yields the zero-example app (see [compose-and-remove](23-example-removal.md)). The reverse needs one extra step: notes ships unregistered, so the removal tool refuses its missing registration markers — the same care that protects your customizations from being stripped. To delete the notes source entirely, register it with the add tool first and then remove it; the CI scenario runs exactly that flow. Commit the copy between two tool operations — the tools only edit clean copies, and the same care protects your customizations.
 
 The default-entry strategy is decided at assembly: the first example that declares a default entry wins, and the assembly point may pin one explicitly; after login or registration the app opens the selected business default entry, and when the example owning it is removed the app falls back to the universal home. A direct visit to `/` always stays on the universal home and is never forced to a business entry; valid business deep links take precedence over the default entry. Missing targets fall back home without a redirect loop.
 

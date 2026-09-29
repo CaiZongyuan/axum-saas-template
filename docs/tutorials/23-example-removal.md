@@ -1,6 +1,6 @@
 # 组合与移除参考业务
 
-模板自带两个参考业务：知识库（完整业务）与便签（只为验证组合接口的最小示例）。本章回答"这个模板怎么变成我的产品"：先看清示例拥有什么，再预览移除、删除**任意一个**、或一路移除到零示例——源码、路由、迁移登记、任务、教程导航一起消失，而 Core（注册/登录、成员、文件服务、任务、通知、API Key、审计、邮件、限流、遥测）原样保留并继续可验证。前端接入与四种应用组合的运行方式见[接入一个参考业务](27-add-example.md)；本章专注移除侧的工具、保护与边界。
+模板默认注册知识库（完整业务）；便签（只为验证组合接口的最小示例）源码随仓库附带但默认不注册——用[接入章节](27-add-example.md)的装回工具 `scripts/example-add.mjs` 可随时注册它。本章回答"这个模板怎么变成我的产品"：先看清示例拥有什么，再预览移除、删除**任意一个**、或一路移除到零示例——源码、路由、迁移登记、任务、教程导航一起消失，而 Core（注册/登录、成员、文件服务、任务、通知、API Key、审计、邮件、限流、遥测）原样保留并继续可验证。前端接入与四种应用组合的运行方式见[接入一个参考业务](27-add-example.md)；本章专注移除侧的工具、保护与边界。
 
 ## 1. 所有权清单：示例到底拥有什么
 
@@ -20,7 +20,8 @@
 
 ```bash
 just example-remove --dry-run                    # 默认移除知识库
-node scripts/example-remove.mjs --example notes --dry-run   # 或者移除便签
+node scripts/example-add.mjs --example notes     # 便签默认未注册；先装回
+node scripts/example-remove.mjs --example notes --dry-run   # 再预览移除便签
 ```
 
 [移除工具](../../scripts/example-remove.mjs)列出将要删除的每一条路径、将移除的每个标记区块、导航里将消失的教程页、将剥离的依赖，以及之后要重跑的再生命令——**不写任何文件**。示例 id 用 `--example <id>` 显式选择；id 不存在时工具直接报错并列出当前注册的全部 id，不会默默作用于"最像的那个"。
@@ -30,8 +31,10 @@ node scripts/example-remove.mjs --example notes --dry-run   # 或者移除便签
 ## 3. 移除任意一个，或一路移除到零
 
 ```bash
-just example-remove                              # 移除知识库 → 仅剩便签
-node scripts/example-remove.mjs --example notes  # 移除便签 → 仅剩知识库
+just example-remove                              # 移除知识库（默认源码已只注册知识库 → 零示例）
+node scripts/example-add.mjs --example notes     # 装回便签 → 双示例
+node scripts/example-remove.mjs                  # 移除知识库 → 仅剩便签
+node scripts/example-remove.mjs --example notes  # 移除便签 → 仅剩 Core
 ```
 
 工具按清单精确执行：删除示例拥有的路径，移除组装点里的标记区块（`apps/api/src/lib.rs` 的路由与 OpenAPI 注册、`apps/worker/src/main.rs` 的任务注册、Web 路由与视图导出、教程导航），从 `docs/site.json` 摘掉示例教程页，剥离示例独占依赖，把清单置为 `status: removed`（清单本身保留——desktop-smoke 等脚本按它自适应），最后原地重新生成派生产物：`pnpm install`、`cargo update --workspace`、`pnpm generate`（OpenAPI/contracts/SDK）、项目文档引用。
@@ -57,7 +60,7 @@ pnpm typecheck && pnpm test:frontend && pnpm --filter @saas/web build && pnpm bo
 
 性能预算按同一条线分层：注册预算（`perf_registration.rs`）属于 Core，删例后继续被后端测试钉住；文档列表、创建与导出的预算（`perf_documents.rs`）和查询计划脚本里的示例列表 SQL 以示例为载体退场——`just perf` 里的测试选择要换成你自己业务的性能测试，`just perf-ci` 里的查询计划脚本会诚实说明并退出。
 
-CI 在每个 PR 上做真实演练：把模板克隆到临时副本，制造脏文件验证保护拒绝；在第一个副本实际执行 `--trim-migrations` 移除知识库，得到仅便签组合并过整组门禁，随后在同一副本再移除便签得到仅 Core 组合并复跑前端门禁；在第二个副本移除便签得到仅知识库组合，同样过整组门禁。加上未经移除的主源码（双示例，由 `verify` job 完整验证），四种组合各自完成构建与测试——最后执行下一节的接入练习。
+CI 在每个 PR 上做真实演练：把模板克隆到临时副本，制造脏文件验证保护拒绝；在第一个副本先跑默认（仅知识库）装配的前端门禁，用装回工具注册便签并提交，得到双示例组合过整组门禁，随后实际执行 `--trim-migrations` 移除知识库得到仅便签组合并复跑整组门禁，再移除便签得到仅 Core 组合并复跑前端门禁；在第二个副本移除便签得到仅知识库组合，同样过整组门禁。四种组合各自完成构建与测试——最后执行下一节的接入练习。
 
 ## 5. 接入你自己的业务
 

@@ -90,7 +90,10 @@ function firstBrokenMarker(source, prefix, markers) {
 }
 
 // Drift guard: the manifest must describe the copy exactly as registered.
-// After a removal the emptied manifest verifies trivially.
+// After a removal the emptied manifest verifies trivially. An example that
+// ships unregistered (UI-R5) lists those markers in `unregisteredMarkers`:
+// there a wholly absent pair is the shipped state — scripts/example-add.mjs
+// installs it — while a half-present or reordered pair is still drift.
 export function verifyExampleManifest(root, exampleId = 'knowledge-base') {
   const example = loadExampleManifest(root, exampleId);
   for (const path of [
@@ -104,12 +107,28 @@ export function verifyExampleManifest(root, exampleId = 'knowledge-base') {
   for (const [file, markers] of Object.entries(
     example.registrationMarkers ?? {},
   )) {
-    const source = readFileSync(join(root, file), 'utf8');
-    const broken = firstBrokenMarker(source, example.markerPrefix, markers);
-    if (broken)
+    const tolerable = new Set(example.unregisteredMarkers?.[file] ?? []);
+    const path = join(root, file);
+    if (!existsSync(path)) {
+      if (markers.every((marker) => tolerable.has(marker))) continue;
       throw new Error(
-        `Example registration marker ${broken} is not a start/end pair in ${file}`,
+        `Example manifest lists a missing registration file: ${file}`,
       );
+    }
+    const source = readFileSync(path, 'utf8');
+    for (const marker of markers) {
+      const { start, end } = markerIndexes(
+        source.split('\n'),
+        example.markerPrefix,
+        marker,
+      );
+      const absent = start < 0 && end < 0;
+      if (absent && tolerable.has(marker)) continue;
+      if (start < 0 || end < 0 || end < start)
+        throw new Error(
+          `Example registration marker ${marker} is not a start/end pair in ${file}`,
+        );
+    }
   }
   return example;
 }
