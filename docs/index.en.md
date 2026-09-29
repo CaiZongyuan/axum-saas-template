@@ -1,18 +1,30 @@
 <div class="landing">
 
 <section class="landing-hero">
-  <p class="landing-eyebrow">Open-source template · MIT license</p>
-  <h1>A Rust + React foundation for your next SaaS</h1>
-  <p class="landing-lede">
-    A working application to learn from and to build on. Registration,
-    sessions, members, rate limits, jobs, deployment and backup are not
-    roadmap promises — they are capabilities you can start, verify and
-    replace today.
-  </p>
-  <p class="landing-actions">
-    <a class="landing-button landing-button-primary" href="docs/">Documentation</a>
-    <a class="landing-button" href="https://github.com/CaiZongyuan/axum-saas-template">GitHub repository</a>
-  </p>
+  <div class="landing-hero-copy">
+    <p class="landing-eyebrow">A single-machine, self-hosted SaaS template</p>
+    <h1>A Rust + React foundation for your next SaaS</h1>
+    <p class="landing-lede">
+      A working application to learn from and to build on. Registration,
+      sessions, members, rate limits, jobs, deployment and backup are not
+      roadmap promises — they are capabilities you can start, verify and
+      replace today.
+    </p>
+    <p class="landing-actions">
+      <a class="landing-button landing-button-primary" href="docs/">Documentation</a>
+      <a class="landing-button" href="https://github.com/CaiZongyuan/axum-saas-template">GitHub repository</a>
+    </p>
+  </div>
+  <LandingHeroArt />
+</section>
+
+<section class="landing-facts">
+  <ul>
+    <li>Open source · MIT license</li>
+    <li>Rust · Axum · React · PostgreSQL · Redis</li>
+    <li>Tutorials you can follow along</li>
+    <li>Test entries everywhere</li>
+  </ul>
 </section>
 
 <section class="landing-section">
@@ -53,36 +65,43 @@
       <span class="landing-dot"></span>
       <h3>Registration, sign-in and sessions</h3>
       <p>Transactional registration and sign-in, session invalidation and multi-device management, verified against API tests and real browser journeys.</p>
+      <span class="landing-card-cta">Learn more →</span>
     </a>
     <a class="landing-card" href="tutorials/members">
       <span class="landing-dot dot-green"></span>
       <h3>Members and the last owner</h3>
       <p>Role changes and deactivation revoke sessions immediately, and last-owner protection keeps the organization reachable.</p>
+      <span class="landing-card-cta">Learn more →</span>
     </a>
     <a class="landing-card" href="tutorials/password-reset">
       <span class="landing-dot dot-amber"></span>
       <h3>Password reset and reliable email</h3>
       <p>Registration and reset mail lands in Mailpit in the development stack; production switches to a real SMTP server.</p>
+      <span class="landing-card-cta">Learn more →</span>
     </a>
     <a class="landing-card" href="tutorials/rate-limits">
       <span class="landing-dot dot-red"></span>
       <h3>Rate limits and degradation</h3>
       <p>Redis-backed rate limits degrade conservatively: when the cache is down the service keeps answering, and the system page shows real status.</p>
+      <span class="landing-card-cta">Learn more →</span>
     </a>
     <a class="landing-card" href="tutorials/electron-shell">
       <span class="landing-dot dot-cyan"></span>
       <h3>Electron desktop shell</h3>
       <p>The same web pages enter a secure desktop shell; IPC contract tests and the desktop smoke run in CI.</p>
+      <span class="landing-card-cta">Learn more →</span>
     </a>
     <a class="landing-card" href="tutorials/single-machine-production">
       <span class="landing-dot dot-blue"></span>
       <h3>Single-machine production</h3>
       <p>A compose production stack with degradation verification; the public tutorial covers the whole path from certificates to fallback.</p>
+      <span class="landing-card-cta">Learn more →</span>
     </a>
     <a class="landing-card" href="tutorials/backup-restore">
       <span class="landing-dot dot-green"></span>
       <h3>Backup and restore drills</h3>
       <p>Backup archives carry no secrets; a restore into an isolated environment verifies documents, attachments and jobs.</p>
+      <span class="landing-card-cta">Learn more →</span>
     </a>
   </div>
 </section>

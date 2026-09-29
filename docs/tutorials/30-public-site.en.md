@@ -13,16 +13,17 @@ just docs         # Local dev server for editing while you look
 
 The Chinese entries live at the root: `/` (Landing), `/docs/` (the documentation), `/blog/` and `/downloads/`; English mirrors each of them under `/en/`. Language is decided by the path: `/en/blog/` serves the English page, and the site performs no device-language redirects. The language pill at the right end of the top navigation shows only the other locale's name (the Chinese pages show "English", the English pages show "中文"); it follows the counterpart page recorded in the frontmatter, so it always lands on a page that exists. Old chapter deep links (such as `/en/getting-started/quickstart`) are unaffected by the redesign.
 
-## 2. The information structure: Expo's four beats
+## 2. The information structure: Expo's layout
 
-The Landing follows the information structure of Expo's home while claiming only delivered capabilities:
+The Landing follows the information structure of Expo's home (the display-level visual direction the user confirmed on 2026-09-29) while claiming only delivered capabilities:
 
-1. **Value proposition + primary action**: one sentence for the template (the README's own wording), with the primary button entering the Documentation in the current language and a GitHub repository entry beside it.
-2. **The usage flow**: start the stack → follow the tutorials → compose/remove the example → deploy and back up, each step linking to a real chapter.
-3. **Real capabilities**: every capability card links an existing tutorial chapter or the v1 coverage page; there is no "planned / coming soon" capability card.
-4. **The closing call to action**: back to the documentation.
+1. **Two-column hero**: a mono eyebrow + one sentence for the template (the README's own wording) + pill CTAs (the primary button enters the Documentation in the current language, with a GitHub repository entry beside it — names and targets unchanged); the right column carries the line-art illustration (`LandingHeroArt`, no text, hidden below 960px).
+2. **The mono facts strip**: `Open source · MIT license`, `Rust · Axum · React · PostgreSQL · Redis`, `Tutorials you can follow along`, `Test entries everywhere` — every item is verifiable by opening it, and deliberately carries no numbers.
+3. **The usage flow**: start the stack → follow the tutorials → compose/remove the example → deploy and back up, each step linking to a real chapter.
+4. **Real capabilities**: bento cards, each linking an existing tutorial chapter or the v1 coverage page with a small brand-colored "Learn more →" link; there is no "planned / coming soon" capability card.
+5. **The closing call to action**: a large-radius container with a radial glow, back to the documentation.
 
-The discipline for a new card: confirm the capability has a row in [v1 capability coverage and acceptance](../architecture/v1-coverage.en.md) before deciding on the card and its link; keep the wording consistent with the chapter it points at, and never invent numbers (performance, scale, user counts).
+The discipline for a new card or fact: confirm the capability has a row in [v1 capability coverage and acceptance](../architecture/v1-coverage.en.md) before deciding on the card and its link; keep the wording consistent with the chapter it points at, and **never put a marketing number in the facts strip or the capability cards** (performance, scale, user counts, chapter counts, stars; the example showcase keeps its marker-delimited content verbatim and is outside this rule) — every phrase must be verifiable against the repository itself.
 
 ## 3. How pages are declared: site.json and the renderer
 
@@ -56,7 +57,7 @@ The theme preference is saved locally in the browser (`localStorage` key `vitepr
 ```bash
 pnpm docs:check     # The bilingual contract, paired meta, links and snippets
 pnpm docs:build     # Rendering + post-build navigation check (base resolution included)
-just e2e-docs       # Public-site journeys: four entries, CTA, placeholders and their container, switching, three-state theme, gutters, narrow screens, custom base
+just e2e-docs       # Public-site journeys: four entries, CTA, facts strip and hero art, placeholders and their container, switching, three-state theme, gutters, narrow screens, light/dark evidence, custom base
 just check          # The main gate
 ```
 

@@ -146,6 +146,28 @@ test('the landing CTA and switcher also work from the English home', async ({
   await expect(page).toHaveURL(/\/en\/docs\/$/);
 });
 
+test('the landing presents the confirmed Expo-style structure', async ({
+  page,
+}) => {
+  // The mono facts strip is visible in both languages and carries no
+  // digits at all — the tutorial's non-numeric rule, asserted by machine.
+  for (const [path, cta] of [
+    ['/', '了解更多 →'],
+    ['/en/', 'Learn more →'],
+  ]) {
+    await go(page, path);
+    await expect(page.locator('.landing-facts')).toBeVisible();
+    await expect(page.locator('.landing-facts')).not.toContainText(/\d/);
+    await expect(page.locator('.landing-hero-art')).toBeVisible();
+    await expect(page.locator('.landing-card-cta').first()).toHaveText(cta);
+    await expect(page.locator('.landing-closing')).toBeVisible();
+  }
+  // Below 960px the hero is a single column and the art steps aside.
+  await page.setViewportSize({ width: 375, height: 720 });
+  await go(page, '/');
+  await expect(page.locator('.landing-hero-art')).not.toBeVisible();
+});
+
 test('the three-state appearance control covers system, light and dark', async ({
   page,
 }) => {
@@ -267,6 +289,18 @@ test('the landing ships representative visual evidence for both widths', async (
   ).toBeVisible();
   await page.screenshot({
     path: 'test-results/docs/landing-narrow.png',
+    fullPage: true,
+  });
+});
+
+test('the landing ships dark visual evidence as well', async ({ page }) => {
+  await go(page, '/');
+  // A fresh context stores no preference, so the appearance control's
+  // default ('auto') drives the page from the emulated OS scheme.
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  await page.screenshot({
+    path: 'test-results/docs/landing-desktop-dark.png',
     fullPage: true,
   });
 });
