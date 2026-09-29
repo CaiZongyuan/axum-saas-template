@@ -10,10 +10,12 @@ import {
 } from './lib/docs-palette.mjs';
 
 // Regenerates the public-site palette from the application token tables.
-// Runs before the docs dev/build so the site always renders the current
-// palette; `--check` (wired into docs:check via the library) refuses a
-// stale generated file instead. The generated file is derived content and
-// stays untracked, like the rest of apps/docs/.generated.
+// Runs before the docs dev/build, so the site always renders the current
+// palette and there is no committed file to drift; `--check` stays
+// available for local verification only (assertPaletteCurrent is the
+// compare primitive the tooling tests exercise). The generated file is
+// derived content and stays untracked, like the rest of
+// apps/docs/.generated.
 
 const target = palettePath(root);
 

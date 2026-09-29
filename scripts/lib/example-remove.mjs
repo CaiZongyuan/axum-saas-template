@@ -62,7 +62,9 @@ export function retainedHistoryPaths(manifest) {
   return new Set(manifest.retainedMigrations ?? []);
 }
 
-function markerTokens(prefix, marker) {
+// The start/end comment tokens a marker is tracked by — shared with the
+// add tool, which splices the same contract back in.
+export function markerTokens(prefix, marker) {
   return [
     `example:${prefix}:${marker}:start`,
     `example:${prefix}:${marker}:end`,

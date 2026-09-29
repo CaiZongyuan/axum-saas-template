@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { markerTokens } from './lib/example-remove.mjs';
 
 const scriptRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const { values } = parseArgs({
@@ -65,9 +66,24 @@ for (const [file, blocks] of Object.entries(template)) {
   }
   const lines = readFileSync(path, 'utf8').split('\n');
   let touched = false;
+  // The template's blocks must describe markers the manifest actually
+  // declares (registered or unregistered): a template drifting ahead of
+  // the manifest would splice blocks the removal tool would never find.
+  const declared = new Set([
+    ...(manifest.registrationMarkers?.[file] ?? []),
+    ...(manifest.unregisteredMarkers?.[file] ?? []),
+  ]);
   for (const block of blocks) {
-    const startToken = `example:${manifest.markerPrefix}:${block.marker}:start`;
-    const endToken = `example:${manifest.markerPrefix}:${block.marker}:end`;
+    const [startToken, endToken] = markerTokens(
+      manifest.markerPrefix,
+      block.marker,
+    );
+    if (!declared.has(block.marker)) {
+      problems.push(
+        `${file}: ${block.marker} is not declared in ${manifestPath}; declare it before registering`,
+      );
+      continue;
+    }
     // Idempotence guard: a registered example must not be added twice.
     if (
       lines.some((line) => line.includes(startToken) || line.includes(endToken))
@@ -93,8 +109,13 @@ if (problems.length > 0) {
   );
   process.exit(1);
 }
-for (const { path, content } of edits)
-  writeFileSync(path, `${content.join('\n')}\n`);
+for (const { path, content } of edits) {
+  // Keep each file's own EOF convention: a source that ended with a
+  // newline round-trips through split/join as a trailing empty element,
+  // so appending another would plant a stray blank line at EOF.
+  const text = content.join('\n');
+  writeFileSync(path, text.endsWith('\n') ? text : `${text}\n`);
+}
 console.log(`added ${values.example} to ${edits.length} composition point(s)`);
 
 // Insert the block before/after the anchor line. Anchors must match

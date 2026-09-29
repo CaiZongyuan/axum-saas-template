@@ -9,7 +9,10 @@ import { root } from './process.mjs';
 // palette. The generator copies both tables verbatim and appends the
 // --vp-* mapping as var()/color-mix() references, so dark mode keeps
 // following the same `.dark` class and a token change re-reaches the site
-// through one regeneration — drift is refused by `pnpm docs:check`.
+// through one regeneration. The generated file is untracked derived
+// content, so drift cannot reach a user: docs:dev/docs:build regenerate it
+// first. `assertPaletteCurrent` is the compare primitive behind the
+// generator's `--check` and the tooling tests, not a gate.
 
 export const sourcePath = (rootDir) =>
   join(rootDir, 'packages/ui/src/styles.css');
