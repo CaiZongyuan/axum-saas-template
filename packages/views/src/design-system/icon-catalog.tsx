@@ -187,7 +187,7 @@ export default function IconCatalog({
                 <button
                   type="button"
                   aria-label={message('design.icons.copy', { name })}
-                  className={`flex size-20 flex-col items-center justify-center gap-1 rounded-md border border-border hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 ${category.colorClass}`}
+                  className={`flex size-20 flex-col items-center justify-center gap-1 rounded-md border border-border hover:bg-muted focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring ${category.colorClass}`}
                   onClick={() => void copy(name)}
                 >
                   <Icon aria-hidden="true" className="size-5" />

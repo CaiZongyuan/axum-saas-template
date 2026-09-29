@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button } from '@saas/ui/components/button';
 import { AttachmentFailure, UploadProgress } from './attachment-feedback';
 import { FileDocumentIcon, FileImageIcon } from './file-icons';
+import { choiceRowClass } from '../shell/rows';
 import { useAppMessage } from '../shell/messages';
 
 // The design-system scene for UI08: the attachment list's file icons and
@@ -50,10 +51,7 @@ export function AttachmentScene() {
 
       <fieldset aria-label={message('scene.attachments.title')}>
         {SCENARIOS.map(({ id, labelKey }) => (
-          <label
-            key={id}
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-sm hover:bg-muted"
-          >
+          <label key={id} className={choiceRowClass}>
             <input
               type="radio"
               name="knowledge-attachment-scene"

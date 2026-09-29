@@ -50,7 +50,7 @@ const TYPE_SCALE = [
   'text-xl',
 ] as const;
 const SPACING_SCALE = ['p-2', 'p-4', 'p-6'] as const;
-const RADIUS_SCALE = ['rounded-md', 'rounded-lg', 'rounded-xl'] as const;
+const RADIUS_SCALE = ['rounded-sm', 'rounded-md', 'rounded-lg'] as const;
 
 function readToken(name: string): string {
   return getComputedStyle(document.documentElement)
