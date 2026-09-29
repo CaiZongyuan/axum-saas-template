@@ -1,12 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession } from '@saas/sdk';
-import {
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
