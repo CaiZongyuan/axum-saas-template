@@ -14,19 +14,86 @@
   --vp-font-family-mono:
     ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono',
     monospace;
+  /* A flat bar: the navbar paints the page background instead of the
+     default translucent glass. */
+  --vp-nav-bg-color: var(--vp-c-bg);
 }
 
-/* The frontmatter-driven switcher replaces the default locale dropdown,
-   which would link untranslated chapters at missing English pages. */
-.VPNavBarTranslations {
+/* The frontmatter-driven switcher replaces the default locale dropdown —
+   including its nav-screen copy, which links locale roots instead of
+   counterpart pages. The default light/dark toggle is replaced by the
+   three-state control in DocsAppearanceSwitch — hiding beats fighting
+   its active styles. */
+.VPNavBarTranslations,
+.VPNavScreenTranslations,
+.VPNavBarAppearance,
+.VPNavScreenAppearance {
   display: none !important;
+}
+
+/* Right-cluster composition from 960px: pure flex order — the DOM, and
+   with it the Tab order and the sibling hairline dividers, stay exactly
+   as VitePress renders them. Below 960px the pill slots hide (the nav
+   screen carries both) and the hamburger stays rightmost. */
+.VPNavBar .content-body > .search {
+  order: 1;
+}
+.VPNavBar .content-body > .menu {
+  order: 2;
+}
+.VPNavBar .content-body > .social-links {
+  order: 3;
+}
+.VPNavBar .content-body > .docs-appearance-nav {
+  order: 4;
+}
+.VPNavBar .content-body > .docs-locale-nav {
+  order: 5;
+  margin-left: 10px;
+}
+.VPNavBar .content-body > .hamburger {
+  order: 6;
+}
+
+/* Menu entries as pills on the flat bar; the .VPNavBarMenuLink class is
+   part of the e2e contract and stays. */
+.VPNavBar .content-body .VPNavBarMenuLink {
+  padding: 6px 14px;
+  line-height: 1.4;
+  border-radius: 999px;
+  transition:
+    color 0.25s,
+    background-color 0.25s;
+}
+.VPNavBar .content-body .VPNavBarMenuLink:hover {
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-soft);
+}
+.VPNavBar .content-body .VPNavBarMenuLink.active {
+  color: var(--vp-c-brand-1);
+  background: var(--vp-c-bg-soft);
+}
+
+/* The GitHub entry as an outlined circular capsule. */
+.VPNavBar .content-body .VPNavBarSocialLink {
+  border: 1px solid var(--vp-c-border);
+  border-radius: 999px;
+}
+.VPNavBar .content-body .VPNavBarSocialLink:hover {
+  background: var(--vp-c-bg-soft);
 }
 
 /* The public Landing rides the `page` layout (navbar + footer, no
    sidebar) and follows its settled structure — value proposition with the
    primary actions, the usage flow, the real capabilities, the reference
    example, a closing call to action. It reuses the docs tokens: neutral
-   surfaces, hairlines, small radii and a few small colored accents. */
+   surfaces, hairlines, small radii and a few small colored accents. The
+   `page` layout ships zero styles of its own, so the wrapper — not the
+   layout — provides the horizontal breathing room at every width. */
+.landing,
+.placeholder {
+  padding-inline: clamp(1.25rem, 5vw, 2.5rem);
+}
 
 .landing-hero {
   max-width: 46rem;
@@ -40,7 +107,8 @@
   font-size: 0.85rem;
   letter-spacing: 0.04em;
 }
-.landing-hero h1 {
+.landing-hero h1,
+.placeholder h1 {
   margin: 0 0 1rem;
   padding: 0;
   border: none;
@@ -63,10 +131,14 @@
   margin: 1.75rem 0 0;
 }
 .landing-button {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  /* The placeholder actions are the primary touch targets on narrow
+     screens; the floor keeps them at 44px regardless of font metrics. */
+  min-height: 44px;
   padding: 0.55rem 1.4rem;
   border: 1px solid var(--vp-c-border);
-  border-radius: 8px;
+  border-radius: 999px;
   background: var(--vp-c-bg);
   color: var(--vp-c-text-1);
   font-weight: 500;
@@ -74,6 +146,7 @@
 }
 .landing-button:hover {
   border-color: var(--vp-c-text-3);
+  background: var(--vp-c-bg-soft);
 }
 .landing-button-primary {
   border-color: transparent;
@@ -195,4 +268,44 @@
 }
 .landing-closing .landing-section-lede {
   margin-inline: auto;
+}
+
+/* Blog and Downloads share the `page` layout with the Landing, so they
+   get the same explicit treatment: a container, a mono badge, honest
+   copy and the pill actions. The prose stays plain markdown — these
+   selectors style what the markdown pipeline emits; no element here
+   relies on `.vp-doc` typography, which the `page` layout never adds.
+   The e2e honesty counts (no article/table/[download]/time) hold. */
+.placeholder {
+  max-width: 46rem;
+  margin-inline: auto;
+  padding-top: 4rem;
+  padding-bottom: 4.5rem;
+}
+.placeholder .placeholder-badge {
+  display: inline-block;
+  margin: 0 0 1.25rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 999px;
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.placeholder h1 {
+  line-height: 1.2;
+}
+.placeholder p {
+  margin: 0 0 1rem;
+  color: var(--vp-c-text-2);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+/* The action row reuses the Landing's pill buttons, left-aligned to the
+   placeholder's own reading column. */
+.placeholder .landing-actions {
+  justify-content: flex-start;
+  margin-top: 1.75rem;
 }

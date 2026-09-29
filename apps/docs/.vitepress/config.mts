@@ -123,6 +123,10 @@ function themeConfigFor(locale: 'zh' | 'en') {
       message: en
         ? 'One source · runnable tutorials · explicit test entries'
         : '同一份源码 · 可运行教程 · 明确的测试入口',
+      // One bilingual line for both locales: license and repository only —
+      // no year, no badge, no status claims to keep current.
+      copyright:
+        '以 MIT 许可证发布 · Released under the MIT license · <a href="https://github.com/CaiZongyuan/axum-saas-template" target="_blank" rel="noreferrer">GitHub</a>',
     },
   };
 }

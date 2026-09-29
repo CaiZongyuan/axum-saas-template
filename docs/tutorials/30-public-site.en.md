@@ -11,7 +11,7 @@ pnpm docs:build   # Renders the bilingual site and verifies its navigation
 just docs         # Local dev server for editing while you look
 ```
 
-The Chinese entries live at the root: `/` (Landing), `/docs/` (the documentation), `/blog/` and `/downloads/`; English mirrors each of them under `/en/`. Language is decided by the path: `/en/blog/` serves the English page, and the site performs no device-language redirects. The top navigation's "English / 中文" switch follows the counterpart page recorded in the frontmatter, so it always lands on a page that exists. Old chapter deep links (such as `/en/getting-started/quickstart`) are unaffected by the redesign.
+The Chinese entries live at the root: `/` (Landing), `/docs/` (the documentation), `/blog/` and `/downloads/`; English mirrors each of them under `/en/`. Language is decided by the path: `/en/blog/` serves the English page, and the site performs no device-language redirects. The language pill at the right end of the top navigation shows only the other locale's name (the Chinese pages show "English", the English pages show "中文"); it follows the counterpart page recorded in the frontmatter, so it always lands on a page that exists. Old chapter deep links (such as `/en/getting-started/quickstart`) are unaffected by the redesign.
 
 ## 2. The information structure: Expo's four beats
 
@@ -34,6 +34,8 @@ A layout page stays out of the sidebar (the renderer also writes `sidebar: false
 
 Blog and Downloads are placeholders in this round: no article list or publishing management, no download catalog, version/platform picker, installer service, subscription form or progress promises. The placeholder's obligation is honesty — say what a visitor can do now (return home, read the documentation, watch the repository) and never fabricate articles, dates or release assets; the page title and meta state the status truthfully. When the blog or the download service arrives, replace the placeholder content; the entry paths and the navigation stay stable.
 
+The placeholder pages share the `page` layout with the Landing, and that layout ships no default styles at all: the content sits inside a `.placeholder` container whose entire presentation comes from [custom.css](../../apps/docs/.vitepress/theme/custom.css) — a mono badge ("Coming soon") → the original level-one heading → the honest copy → a row of pill actions (reusing the Landing's `.landing-actions`/`.landing-button`: home, documentation/quick start, the GitHub repository). The container carries horizontal gutters at every width; placeholder pages introduce no `article`, `table`, download buttons or date elements, and the e2e counts them at zero on every page.
+
 ## 5. The ownership of the example showcase
 
 The Landing's "reference example" section sits entirely between the `example:knowledge:landing:start/end` markers — it is the knowledge-base example's showcase. Landing text outside the markers may only link Core chapters; the post-removal [docs:build](../../scripts/check-docs-build.mjs) checks every link's existence, and the example's cards disappear with the markers as one block, leaving no dead entries behind. Run the drill yourself:
@@ -47,14 +49,14 @@ CI's example-removal job does the same on every pull request; the Core-only site
 
 ## 6. Language, theme and deployment
 
-The theme preference is saved locally in the browser by VitePress's appearance toggle (`localStorage`); it never syncs across devices. Language follows the path only — the site promises no automatic cross-site following. Deployment rides the existing static pipeline: GitHub Pages publishes from `main` (see [publishing the documentation site](../getting-started/publish-docs.en.md)), repository sub-paths are carried by the base, and a custom base is built with `DOCS_BASE=/your-base/ pnpm docs:build` and verified by the built-in check — the public-site browser journeys (`just e2e-docs`) include one custom-base smoke pass.
+The theme preference is saved locally in the browser (`localStorage` key `vitepress-theme-appearance`); it never syncs across devices. The three-state control in the top bar (system / light / dark) writes VitePress's native `auto | light | dark` values: `auto` follows the system preference on every load (VitePress's pre-paint inline script resolves it before first paint), and the choice survives a reload; VitePress's default two-state sun/moon toggle is hidden (`.VPNavBarAppearance`/`.VPNavScreenAppearance`). From 960px the language pill and the three-state control join the navbar's right cluster (pure CSS `order` — the DOM and the keyboard order are untouched); below that the NavScreen copies inside the hamburger take over, keeping their DOM position before the menu, with a 44px touch-target floor. The navbar restyle itself is pure CSS too, and a VitePress upgrade should re-check it: the bar's background is flattened to the page surface via `--vp-nav-bg-color`, the menu entries are pill-shaped via `.VPNavBarMenuLink` (soft gray on hover/active), the GitHub entry is an outlined `.VPNavBarSocialLink` capsule, and the right cluster is composed purely through the `order` rules in [custom.css](../../apps/docs/.vitepress/theme/custom.css) — if upstream renames these classes or reshapes `content-body`, adjust in step. The footer carries one bilingual license line (the MIT license and the repository link — no year, no badge). Language follows the path only — the site promises no automatic cross-site following. Deployment rides the existing static pipeline: GitHub Pages publishes from `main` (see [publishing the documentation site](../getting-started/publish-docs.en.md)), repository sub-paths are carried by the base, and a custom base is built with `DOCS_BASE=/your-base/ pnpm docs:build` and verified by the built-in check — the public-site browser journeys (`just e2e-docs`) include one custom-base smoke pass.
 
 ## 7. Run this chapter's checks
 
 ```bash
 pnpm docs:check     # The bilingual contract, paired meta, links and snippets
 pnpm docs:build     # Rendering + post-build navigation check (base resolution included)
-just e2e-docs       # Public-site journeys: four entries, CTA, placeholders, switching, theme, narrow screens, custom base
+just e2e-docs       # Public-site journeys: four entries, CTA, placeholders and their container, switching, three-state theme, gutters, narrow screens, custom base
 just check          # The main gate
 ```
 

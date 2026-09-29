@@ -73,6 +73,10 @@ test('blog and downloads are direct Coming soon pages without fabricated content
     await expect(
       page.getByRole('heading', { level: 1, name: heading }),
     ).toBeVisible();
+    // The styled container exists and carries the mono badge; the page
+    // content itself is untouched honest prose.
+    await expect(page.locator('.placeholder')).toBeVisible();
+    await expect(page.locator('.placeholder-badge')).toHaveText('即将推出');
     await expect(page.locator('html')).toHaveAttribute('lang', 'zh-CN');
     // Honest placeholder: no article list, no asset table, no download
     // buttons, no dates posed as release dates.
@@ -92,18 +96,24 @@ test('blog and downloads are direct Coming soon pages without fabricated content
 test('the English coming soon pages carry honest English meta', async ({
   page,
 }) => {
-  await go(page, '/en/blog/');
-  await expect(page).toHaveTitle(/Blog · Coming soon/);
-  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(
-    page.getByRole('heading', { level: 1, name: 'Blog · Coming soon' }),
-  ).toBeVisible();
-  await expect(page.locator('meta[name="description"]')).toHaveAttribute(
-    'content',
-    /not implemented yet/,
-  );
-  await go(page, '/en/downloads/');
-  await expect(page).toHaveTitle(/Downloads · Coming soon/);
+  for (const [path, title, heading] of [
+    ['/en/blog/', /Blog · Coming soon/, 'Blog · Coming soon'],
+    ['/en/downloads/', /Downloads · Coming soon/, 'Downloads · Coming soon'],
+  ] as const) {
+    await go(page, path);
+    await expect(page).toHaveTitle(title);
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+    await expect(
+      page.getByRole('heading', { level: 1, name: heading }),
+    ).toBeVisible();
+    // The styled container mirrors the Chinese pages.
+    await expect(page.locator('.placeholder')).toBeVisible();
+    await expect(page.locator('.placeholder-badge')).toHaveText('Coming soon');
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute(
+      'content',
+      /not implemented yet/,
+    );
+  }
 });
 
 test('the language switcher lands on the same page in the other locale', async ({
@@ -136,16 +146,76 @@ test('the landing CTA and switcher also work from the English home', async ({
   await expect(page).toHaveURL(/\/en\/docs\/$/);
 });
 
-test('the appearance choice persists locally on the public site', async ({
+test('the three-state appearance control covers system, light and dark', async ({
   page,
 }) => {
   await go(page, '/');
-  // VitePress renders the switch in the navbar and again in the (hidden)
-  // mobile nav screen; the first is the visible one at desktop width.
-  await page.locator('button.VPSwitchAppearance').first().click();
+  // The navbar hosts the control from 960px; the nav-screen copy only
+  // mounts with the hamburger, so the match stays unambiguous.
+  const dark = page.getByRole('button', { name: '深色', exact: true });
+  await dark.click();
   await expect(page.locator('html')).toHaveClass(/dark/);
   await page.reload();
+  await expect(page.locator('html')).toHaveClass(/dark/); // survives a reload
+  const light = page.getByRole('button', { name: '浅色', exact: true });
+  await light.click();
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+  await page.reload();
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+  const system = page.getByRole('button', { name: '跟随系统', exact: true });
+  await system.click();
+  // Playwright defaults to a light color scheme, so 'auto' stays light…
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+  // …and follows the OS live, without a reload.
+  await page.emulateMedia({ colorScheme: 'dark' });
   await expect(page.locator('html')).toHaveClass(/dark/);
+});
+
+test('the shared chrome keeps gutters, the language pill and the license line', async ({
+  page,
+}) => {
+  await go(page, '/');
+  // The pill and the appearance control join the navbar right cluster
+  // from 960px — including the 960–1279 range where VitePress shows
+  // neither its hamburger nor its own appearance toggle.
+  await expect(page.locator('.docs-locale-nav')).toBeVisible();
+  await expect(page.locator('.docs-appearance-nav')).toBeVisible();
+  const copyright = page.locator('.VPFooter .copyright');
+  await expect(copyright).toContainText('MIT');
+  await expect(copyright.getByRole('link', { name: 'GitHub' })).toHaveAttribute(
+    'href',
+    /github\.com/,
+  );
+  // Every width keeps horizontal gutters: the `page` layout has no styles
+  // of its own, so the wrappers provide them.
+  await page.setViewportSize({ width: 390, height: 720 });
+  await go(page, '/');
+  const heroHeading = await page.locator('.landing-hero h1').boundingBox();
+  expect(heroHeading?.x).toBeGreaterThan(0);
+  await go(page, '/blog/');
+  const placeholderHeading = await page
+    .locator('.placeholder h1')
+    .boundingBox();
+  expect(placeholderHeading?.x).toBeGreaterThan(0);
+  // Below 960px the navbar pills hide and the nav screen carries both.
+  await expect(page.locator('.docs-locale-nav')).not.toBeVisible();
+  await expect(page.locator('.docs-appearance-nav')).not.toBeVisible();
+  await page.getByRole('button', { name: 'mobile navigation' }).click();
+  // The screen copies are the only language and theme controls below
+  // 960px: reachable by role and sized for the 44px touch floor of
+  // design.md §5.
+  await expect(
+    page.locator('.docs-locale-screen').getByRole('link', { name: 'English' }),
+  ).toBeVisible();
+  await expect(
+    page.locator('.docs-appearance-screen').getByRole('button'),
+  ).toHaveCount(3);
+  const option = page
+    .locator('.docs-appearance-screen .docs-appearance-option')
+    .first();
+  expect((await option.boundingBox())?.height).toBeGreaterThanOrEqual(44);
+  const locale = page.locator('.docs-locale-screen .docs-locale-link');
+  expect((await locale.boundingBox())?.height).toBeGreaterThanOrEqual(44);
 });
 
 test('narrow-screen navigation reaches the four entries with the keyboard', async ({
