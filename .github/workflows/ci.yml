@@ -222,9 +222,14 @@ jobs:
       - name: Copy for the knowledge-only combination
         run: git clone --quiet . /tmp/knowledge-only-copy
       - name: Register, then remove, the notes example in the second copy
+        working-directory: /tmp/knowledge-only-copy
         run: |
-          node scripts/example-add.mjs --root /tmp/knowledge-only-copy --example notes
-          node scripts/example-remove.mjs --root /tmp/knowledge-only-copy --example notes
+          node scripts/example-add.mjs --example notes
+          git config user.email combo@example.test
+          git config user.name combo
+          git add -A
+          git commit -q -m "Add the notes example back"
+          node scripts/example-remove.mjs --example notes
       - name: Knowledge-only copy passes its gate
         working-directory: /tmp/knowledge-only-copy
         run: |
