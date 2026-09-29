@@ -45,7 +45,6 @@ import {
   NativeSelectOption,
 } from '@saas/ui/components/native-select';
 import { sessionKey, sessionQuery } from '../identity';
-import { AppShellLayout } from '../shell/app-shell';
 import { useAppFormat } from '../shell/format';
 import { useAppMessage } from '../shell/messages';
 import { usePageTitle } from '../shell/page-title';
@@ -81,12 +80,9 @@ function Failure({
 }
 export function ApiKeysView({
   apiClient,
-  onOpen,
   copySecret,
 }: {
   apiClient: ApiClient;
-  /** Router port for opening paths without a full page load. */
-  onOpen?: (path: string) => void;
   copySecret: (secret: string) => Promise<void>;
 }) {
   const message = useAppMessage();
@@ -94,25 +90,23 @@ export function ApiKeysView({
   const client = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, client));
   return (
-    <AppShellLayout onOpen={onOpen} role={session.data?.user.role}>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
-        <h1 className="text-2xl font-semibold">{message('apiKeys.title')}</h1>
-        {session.isPending ? (
-          <p role="status">{message('common.loadingSession')}</p>
-        ) : session.isError ? (
-          <Failure error={session.error} />
-        ) : !session.data ? (
-          <p>{message('apiKeys.signedOut')}</p>
-        ) : (
-          <Settings
-            key={session.data.user.id}
-            apiClient={apiClient}
-            identity={session.data}
-            copySecret={copySecret}
-          />
-        )}
-      </div>
-    </AppShellLayout>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
+      <h1 className="text-2xl font-semibold">{message('apiKeys.title')}</h1>
+      {session.isPending ? (
+        <p role="status">{message('common.loadingSession')}</p>
+      ) : session.isError ? (
+        <Failure error={session.error} />
+      ) : !session.data ? (
+        <p>{message('apiKeys.signedOut')}</p>
+      ) : (
+        <Settings
+          key={session.data.user.id}
+          apiClient={apiClient}
+          identity={session.data}
+          copySecret={copySecret}
+        />
+      )}
+    </div>
   );
 }
 function Settings({

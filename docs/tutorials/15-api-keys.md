@@ -32,7 +32,7 @@ unset SAAS_API_KEY
 
 这个 POST 不使用通用幂等重放表，SDK 和页面不自动重试。重复提交是新的创建操作，会得到独立 Key 和 secret。如果响应丢失，请刷新列表，依据名称和时间撤销那条记录，再明确创建一个新的 Key。服务端不能恢复已丢失的 secret。
 
-前端 [ApiKeysView](../../packages/views/src/api-keys/api-keys-view.tsx)渲染在通用应用壳的设置分区内，把创建响应中的 secret 仅保存在当前页面状态，不放入 TanStack Query/Mutation 缓存、localStorage 或持久状态；离开时取消仍在等待的创建响应。切换语言或主题后返回页面时，界面从列表 metadata 重建，secret 不会再次出现。复制通过应用壳提供的剪贴板回调完成。撤销正在显示的新 Key 后，同样清除其 secret。
+前端 [ApiKeysView](../../packages/views/src/api-keys/api-keys-view.tsx)渲染在通用应用壳内，可从侧栏底部与设置页的「API Keys」分区进入（UI-R3 起设置页收敛后的独立路由），把创建响应中的 secret 仅保存在当前页面状态，不放入 TanStack Query/Mutation 缓存、localStorage 或持久状态；离开时取消仍在等待的创建响应。切换语言或主题后返回页面时，界面从列表 metadata 重建，secret 不会再次出现。复制通过应用壳提供的剪贴板回调完成。撤销正在显示的新 Key 后，同样清除其 secret。
 
 ## 3. 权限是两个条件的交集
 

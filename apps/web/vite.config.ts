@@ -16,7 +16,14 @@ export default defineConfig(({ mode }) => {
       host: '127.0.0.1',
       port: Number(process.env.WEB_PORT ?? 5173),
       strictPort: true,
-      proxy: { '/api': { target }, '/health': { target } },
+      // Proxy the backend namespaces only, not the `/api` prefix: the SPA
+      // owns sibling routes like /api-keys, and a prefix proxy turns a
+      // refresh or deep link to them into the API's 404.
+      proxy: {
+        '/api/v1': { target },
+        '/api/openapi.json': { target },
+        '/health': { target },
+      },
     },
   };
 });

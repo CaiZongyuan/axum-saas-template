@@ -1,7 +1,7 @@
 import { RateLimitHint } from './rate-limit';
 import { requestIdFromError } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { getSystemStatus, type ApiClient } from '@saas/sdk';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
@@ -14,8 +14,6 @@ import {
   CardTitle,
 } from '@saas/ui/components/card';
 import { Skeleton } from '@saas/ui/components/skeleton';
-import { sessionQuery } from '../identity';
-import { AppShellLayout } from '../shell/app-shell';
 import { useAppMessage } from '../shell/messages';
 import { usePageTitle } from '../shell/page-title';
 
@@ -28,17 +26,12 @@ import { usePageTitle } from '../shell/page-title';
 export function StatusView({
   apiClient,
   docsUrl,
-  onOpen,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
-  /** Router port for opening paths without a full page load. */
-  onOpen?: (path: string) => void;
 }) {
   const message = useAppMessage();
   usePageTitle('status.title');
-  const queryClient = useQueryClient();
-  const session = useQuery(sessionQuery(apiClient, queryClient));
   const query = useQuery({
     queryKey: ['system-status', apiClient.getConfig().baseUrl],
     queryFn: async ({ signal }) =>
@@ -56,155 +49,151 @@ export function StatusView({
       : message('status.ready');
 
   return (
-    <AppShellLayout onOpen={onOpen} role={session.data?.user.role}>
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 md:py-16">
-        <section className="flex flex-col items-start gap-4">
-          <Badge variant="outline">{message('status.badge')}</Badge>
-          <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-            {heading}
-          </h1>
-          <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-            {message('status.intro')}
-          </p>
-          <div className="flex flex-wrap gap-3 pt-2">
-            <Button
-              onClick={() => void query.refetch()}
-              disabled={query.isFetching}
-            >
-              {message('status.recheck')}
-            </Button>
-            <Button
-              variant="outline"
-              role="link"
-              nativeButton={false}
-              render={<a href={docsUrl} />}
-            >
-              {message('status.tutorial')}
-            </Button>
-          </div>
-        </section>
+    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 md:py-16">
+      <section className="flex flex-col items-start gap-4">
+        <Badge variant="outline">{message('status.badge')}</Badge>
+        <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
+          {heading}
+        </h1>
+        <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+          {message('status.intro')}
+        </p>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Button
+            onClick={() => void query.refetch()}
+            disabled={query.isFetching}
+          >
+            {message('status.recheck')}
+          </Button>
+          <Button
+            variant="outline"
+            role="link"
+            nativeButton={false}
+            render={<a href={docsUrl} />}
+          >
+            {message('status.tutorial')}
+          </Button>
+        </div>
+      </section>
 
-        {query.isPending ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>{message('status.check.title')}</CardTitle>
-              <CardDescription>{message('status.check.desc')}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <p role="status">{message('status.check.checking')}</p>
-              <Skeleton className="h-5 w-56" />
-              <Skeleton className="h-5 w-40" />
-            </CardContent>
-            <CardFooter>{message('status.check.footer')}</CardFooter>
-          </Card>
-        ) : null}
-
-        {query.isError ? (
-          <Alert variant="destructive">
-            <AlertTitle>{message('status.error.title')}</AlertTitle>
-            <AlertDescription>
-              <p>{message('status.error.hint')}</p>
-              <RateLimitHint error={query.error} />
-              {requestId ? (
-                <p>{message('common.requestId', { id: requestId })}</p>
-              ) : null}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {data && !query.isError ? (
-          <div className="grid gap-5 md:grid-cols-3">
-            <Card>
-              <CardHeader>
-                <CardTitle>API</CardTitle>
-                <CardDescription>
-                  {message('status.card.apiDesc')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-start gap-3">
-                <Badge>{message('status.card.connected')}</Badge>
-                <p className="font-mono">{data.service}</p>
-              </CardContent>
-              <CardFooter>
-                {message('status.card.version', { version: data.version })}
-              </CardFooter>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>{message('status.card.dbTitle')}</CardTitle>
-                <CardDescription>
-                  {message('status.card.dbDesc')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-start gap-3">
-                <Badge>{message('status.card.connected')}</Badge>
-                <p>{message('status.card.dbConnected')}</p>
-              </CardContent>
-              <CardFooter>
-                {message('status.card.schema', {
-                  version: data.schema_version,
-                })}
-              </CardFooter>
-            </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>{message('status.card.contractTitle')}</CardTitle>
-                <CardDescription>
-                  {message('status.card.contractDesc')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col items-start gap-3">
-                <Badge variant="secondary">
-                  {message('status.card.typesSynced')}
-                </Badge>
-                <p>{message('status.card.generatedClient')}</p>
-              </CardContent>
-              <CardFooter>
-                <a
-                  href="/api/openapi.json"
-                  className="underline underline-offset-4"
-                >
-                  {message('status.card.openapi')}
-                </a>
-              </CardFooter>
-            </Card>
-          </div>
-        ) : null}
-
+      {query.isPending ? (
         <Card>
           <CardHeader>
-            <CardTitle>{message('status.next.title')}</CardTitle>
-            <CardDescription>{message('status.next.desc')}</CardDescription>
+            <CardTitle>{message('status.check.title')}</CardTitle>
+            <CardDescription>{message('status.check.desc')}</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ol className="grid gap-6 md:grid-cols-3">
-              <li className="flex flex-col gap-2">
-                <span className="font-mono text-sm text-muted-foreground">
-                  {message('status.step1.label')}
-                </span>
-                <p>{message('status.step1.text')}</p>
-              </li>
-              <li className="flex flex-col gap-2">
-                <span className="font-mono text-sm text-muted-foreground">
-                  {message('status.step2.label')}
-                </span>
-                <p>{message('status.step2.text')}</p>
-              </li>
-              <li className="flex flex-col gap-2">
-                <span className="font-mono text-sm text-muted-foreground">
-                  {message('status.step3.label')}
-                </span>
-                <p>{message('status.step3.text')}</p>
-              </li>
-            </ol>
+          <CardContent className="flex flex-col gap-3">
+            <p role="status">{message('status.check.checking')}</p>
+            <Skeleton className="h-5 w-56" />
+            <Skeleton className="h-5 w-40" />
           </CardContent>
-          <CardFooter>{message('status.next.footer')}</CardFooter>
+          <CardFooter>{message('status.check.footer')}</CardFooter>
         </Card>
+      ) : null}
 
-        <footer className="border-t border-border pt-6 text-sm text-muted-foreground">
-          {message('status.footer')}
-        </footer>
-      </div>
-    </AppShellLayout>
+      {query.isError ? (
+        <Alert variant="destructive">
+          <AlertTitle>{message('status.error.title')}</AlertTitle>
+          <AlertDescription>
+            <p>{message('status.error.hint')}</p>
+            <RateLimitHint error={query.error} />
+            {requestId ? (
+              <p>{message('common.requestId', { id: requestId })}</p>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {data && !query.isError ? (
+        <div className="grid gap-5 md:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <CardTitle>API</CardTitle>
+              <CardDescription>
+                {message('status.card.apiDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-start gap-3">
+              <Badge>{message('status.card.connected')}</Badge>
+              <p className="font-mono">{data.service}</p>
+            </CardContent>
+            <CardFooter>
+              {message('status.card.version', { version: data.version })}
+            </CardFooter>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{message('status.card.dbTitle')}</CardTitle>
+              <CardDescription>{message('status.card.dbDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-start gap-3">
+              <Badge>{message('status.card.connected')}</Badge>
+              <p>{message('status.card.dbConnected')}</p>
+            </CardContent>
+            <CardFooter>
+              {message('status.card.schema', {
+                version: data.schema_version,
+              })}
+            </CardFooter>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>{message('status.card.contractTitle')}</CardTitle>
+              <CardDescription>
+                {message('status.card.contractDesc')}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-start gap-3">
+              <Badge variant="secondary">
+                {message('status.card.typesSynced')}
+              </Badge>
+              <p>{message('status.card.generatedClient')}</p>
+            </CardContent>
+            <CardFooter>
+              <a
+                href="/api/openapi.json"
+                className="underline underline-offset-4"
+              >
+                {message('status.card.openapi')}
+              </a>
+            </CardFooter>
+          </Card>
+        </div>
+      ) : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{message('status.next.title')}</CardTitle>
+          <CardDescription>{message('status.next.desc')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ol className="grid gap-6 md:grid-cols-3">
+            <li className="flex flex-col gap-2">
+              <span className="font-mono text-sm text-muted-foreground">
+                {message('status.step1.label')}
+              </span>
+              <p>{message('status.step1.text')}</p>
+            </li>
+            <li className="flex flex-col gap-2">
+              <span className="font-mono text-sm text-muted-foreground">
+                {message('status.step2.label')}
+              </span>
+              <p>{message('status.step2.text')}</p>
+            </li>
+            <li className="flex flex-col gap-2">
+              <span className="font-mono text-sm text-muted-foreground">
+                {message('status.step3.label')}
+              </span>
+              <p>{message('status.step3.text')}</p>
+            </li>
+          </ol>
+        </CardContent>
+        <CardFooter>{message('status.next.footer')}</CardFooter>
+      </Card>
+
+      <footer className="border-t border-border pt-6 text-sm text-muted-foreground">
+        {message('status.footer')}
+      </footer>
+    </div>
   );
 }

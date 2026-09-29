@@ -1,7 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiClient } from '@saas/sdk';
-import { AppShellLayout, type ShellRole } from './app-shell';
 import {
   SETTINGS_ANCHOR_ATTR,
   SettingsCard,
@@ -91,8 +90,6 @@ export function SettingsView({
   section?: string;
   /** Ports for the embedded showroom; missing scenes or copy hide it. */
   showroom?: {
-    navigation?: AssembledApp['navigation'];
-    moduleIcons?: AssembledApp['moduleIcons'];
     scenes?: AssembledApp['scenes'];
     copyText?: (text: string) => Promise<void>;
   };
@@ -103,8 +100,7 @@ export function SettingsView({
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const user = session.data?.user;
-  const role: ShellRole | undefined = user?.role;
-  const signedIn = role !== undefined;
+  const signedIn = user !== undefined;
   const languageOptions: { value: AppLocale; label: string }[] = [
     { value: 'zh', label: message('settings.language.zh') },
     { value: 'en', label: message('settings.language.en') },
@@ -135,150 +131,144 @@ export function SettingsView({
     };
 
   return (
-    <AppShellLayout onOpen={onOpen} role={role}>
-      <div className="mx-auto w-full max-w-3xl px-6 py-12">
-        <SettingsTab
-          title={message('settings.title')}
-          description={message('settings.description')}
+    <div className="mx-auto w-full max-w-3xl px-6 py-12">
+      <SettingsTab
+        title={message('settings.title')}
+        description={message('settings.description')}
+      >
+        <SettingsSection
+          title={message('settings.appearance')}
+          scope="device"
+          scopeLabel={message('settings.scope.device')}
+          description={message('settings.appearanceHint')}
+          anchor="appearance"
         >
+          <SettingsCard>
+            <div className="py-4">
+              <ChoiceGroup
+                name="language"
+                legend={message('settings.language')}
+                hint={message('settings.languageHint')}
+                options={languageOptions}
+                value={locale}
+                onChange={setLocale}
+              />
+            </div>
+            <div className="py-4">
+              <ChoiceGroup
+                name="theme"
+                legend={message('settings.theme')}
+                hint={message('settings.themeHint')}
+                options={themeOptions}
+                value={theme}
+                onChange={setTheme}
+              />
+            </div>
+          </SettingsCard>
+          <a
+            href={docsChapterUrl(
+              docsUrl,
+              locale,
+              'tutorials/appearance-language.md',
+            )}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-block text-sm text-link hover:underline"
+          >
+            {message('settings.tutorial')}
+          </a>
+        </SettingsSection>
+
+        {signedIn && user ? (
           <SettingsSection
-            title={message('settings.appearance')}
-            scope="device"
-            scopeLabel={message('settings.scope.device')}
-            description={message('settings.appearanceHint')}
-            anchor="appearance"
+            title={message('settings.account')}
+            scope="account"
+            scopeLabel={message('settings.scope.account')}
+            description={message('settings.accountHint')}
+            anchor="account"
           >
             <SettingsCard>
-              <div className="py-4">
-                <ChoiceGroup
-                  name="language"
-                  legend={message('settings.language')}
-                  hint={message('settings.languageHint')}
-                  options={languageOptions}
-                  value={locale}
-                  onChange={setLocale}
-                />
-              </div>
-              <div className="py-4">
-                <ChoiceGroup
-                  name="theme"
-                  legend={message('settings.theme')}
-                  hint={message('settings.themeHint')}
-                  options={themeOptions}
-                  value={theme}
-                  onChange={setTheme}
-                />
-              </div>
+              <SettingsRow label={message('settings.accountEmail')}>
+                <span className="text-sm">{user.email}</span>
+              </SettingsRow>
+              <SettingsRow label={message('settings.accountDisplayName')}>
+                <span className="text-sm">{user.display_name || '—'}</span>
+              </SettingsRow>
+              <SettingsRow label={message('settings.accountRole')}>
+                <span className="text-sm">
+                  {message(roleMessageKeys[user.role])}
+                </span>
+              </SettingsRow>
             </SettingsCard>
-            <a
-              href={docsChapterUrl(
-                docsUrl,
-                locale,
-                'tutorials/appearance-language.md',
-              )}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-block text-sm text-link hover:underline"
-            >
-              {message('settings.tutorial')}
-            </a>
           </SettingsSection>
+        ) : null}
 
-          {signedIn && user ? (
-            <SettingsSection
-              title={message('settings.account')}
-              scope="account"
-              scopeLabel={message('settings.scope.account')}
-              description={message('settings.accountHint')}
-              anchor="account"
-            >
-              <SettingsCard>
-                <SettingsRow label={message('settings.accountEmail')}>
-                  <span className="text-sm">{user.email}</span>
-                </SettingsRow>
-                <SettingsRow label={message('settings.accountDisplayName')}>
-                  <span className="text-sm">{user.display_name || '—'}</span>
-                </SettingsRow>
-                <SettingsRow label={message('settings.accountRole')}>
-                  <span className="text-sm">
-                    {message(roleMessageKeys[user.role])}
-                  </span>
-                </SettingsRow>
-              </SettingsCard>
-            </SettingsSection>
-          ) : null}
-
-          {signedIn ? (
-            <SettingsSection
-              title={message('settings.apiKeys')}
-              scope="account"
-              scopeLabel={message('settings.scope.account')}
-              description={message('settings.apiKeysHint')}
-              anchor="api-keys"
-              action={
-                <a
-                  href="/api-keys"
-                  className="text-sm text-link hover:underline"
-                  onClick={openPath('/api-keys')}
-                >
-                  {message('settings.apiKeysOpen')}
-                </a>
-              }
-            />
-          ) : null}
-
-          {signedIn && showroom?.scenes && showroom.copyText ? (
-            <SettingsSection
-              title={message('settings.designSystem')}
-              description={message('settings.designSystemHint')}
-              anchor="design-system"
-            >
-              <Suspense
-                fallback={
-                  <p role="status" className="text-sm text-muted-foreground">
-                    {message('design.pageLoading')}
-                  </p>
-                }
+        {signedIn ? (
+          <SettingsSection
+            title={message('settings.apiKeys')}
+            scope="account"
+            scopeLabel={message('settings.scope.account')}
+            description={message('settings.apiKeysHint')}
+            anchor="api-keys"
+            action={
+              <a
+                href="/api-keys"
+                className="text-sm text-link hover:underline"
+                onClick={openPath('/api-keys')}
               >
-                <DesignSystemView
-                  embedded
-                  docsUrl={docsUrl}
-                  scenes={showroom.scenes}
-                  copyText={showroom.copyText}
-                  onOpen={onOpen}
-                  navigation={showroom.navigation}
-                  moduleIcons={showroom.moduleIcons}
-                  role={role}
-                />
-              </Suspense>
-            </SettingsSection>
-          ) : null}
+                {message('settings.apiKeysOpen')}
+              </a>
+            }
+          />
+        ) : null}
 
-          <SettingsSection title={message('settings.help')} anchor="help">
-            <SettingsCard>
-              <SettingsRow label={message('settings.helpDocsLabel')}>
-                <a
-                  href={docsHomeUrl(docsUrl, locale)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-link hover:underline"
-                >
-                  {message('shell.nav.tutorials')}
-                </a>
-              </SettingsRow>
-              <SettingsRow label={message('settings.helpStatusLabel')}>
-                <a
-                  href="/system"
-                  className="text-sm text-link hover:underline"
-                  onClick={openPath('/system')}
-                >
-                  {message('shell.nav.status')}
-                </a>
-              </SettingsRow>
-            </SettingsCard>
+        {signedIn && showroom?.scenes && showroom.copyText ? (
+          <SettingsSection
+            title={message('settings.designSystem')}
+            description={message('settings.designSystemHint')}
+            anchor="design-system"
+          >
+            <Suspense
+              fallback={
+                <p role="status" className="text-sm text-muted-foreground">
+                  {message('design.pageLoading')}
+                </p>
+              }
+            >
+              <DesignSystemView
+                embedded
+                docsUrl={docsUrl}
+                scenes={showroom.scenes}
+                copyText={showroom.copyText}
+              />
+            </Suspense>
           </SettingsSection>
-        </SettingsTab>
-      </div>
-    </AppShellLayout>
+        ) : null}
+
+        <SettingsSection title={message('settings.help')} anchor="help">
+          <SettingsCard>
+            <SettingsRow label={message('settings.helpDocsLabel')}>
+              <a
+                href={docsHomeUrl(docsUrl, locale)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-link hover:underline"
+              >
+                {message('shell.nav.tutorials')}
+              </a>
+            </SettingsRow>
+            <SettingsRow label={message('settings.helpStatusLabel')}>
+              <a
+                href="/system"
+                className="text-sm text-link hover:underline"
+                onClick={openPath('/system')}
+              >
+                {message('shell.nav.status')}
+              </a>
+            </SettingsRow>
+          </SettingsCard>
+        </SettingsSection>
+      </SettingsTab>
+    </div>
   );
 }

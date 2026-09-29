@@ -85,14 +85,11 @@ function Failure({ error }: { error: unknown }) {
 }
 export function JobsView({
   apiClient,
-  onOpen,
   onOpenJob,
   status,
   onStatusChange,
 }: {
   apiClient: ApiClient;
-  /** Router port for opening paths without a full page load. */
-  onOpen?: (path: string) => void;
   onOpenJob: (id: string) => void;
   /** Active status filter, owned by the router's search params. */
   status: JobsListStatus;
@@ -101,7 +98,6 @@ export function JobsView({
   return (
     <AdminFrame
       apiClient={apiClient}
-      onOpen={onOpen}
       titleKey="jobs.title"
       adminOnlyKey="jobs.adminOnly"
     >
@@ -275,7 +271,6 @@ export function JobView({
   return (
     <AdminFrame
       apiClient={apiClient}
-      onOpen={onOpen}
       titleKey="jobs.detail.title"
       adminOnlyKey="jobs.adminOnly"
     >

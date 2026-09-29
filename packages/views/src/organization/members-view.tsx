@@ -32,7 +32,6 @@ import {
 } from '@saas/ui/components/native-select';
 import { Switch } from '@saas/ui/components/switch';
 import { sessionQuery } from '../identity';
-import { AppShellLayout } from '../shell/app-shell';
 import { roleMessageKeys, useAppMessage } from '../shell/messages';
 import { usePageTitle } from '../shell/page-title';
 
@@ -67,12 +66,9 @@ function Failure({ error }: { error: unknown }) {
 
 export function MembersView({
   apiClient,
-  onOpen,
   onLogin,
 }: {
   apiClient: ApiClient;
-  /** Router port for opening paths without a full page load. */
-  onOpen?: (path: string) => void;
   onLogin: () => void;
 }) {
   const message = useAppMessage();
@@ -80,29 +76,27 @@ export function MembersView({
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
   return (
-    <AppShellLayout onOpen={onOpen} role={session.data?.user.role}>
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-10">
-        <h1 className="text-2xl font-semibold">{message('members.title')}</h1>
-        {session.isPending ? (
-          <p role="status">{message('common.loadingSession')}</p>
-        ) : session.isError ? (
-          <Failure error={session.error} />
-        ) : session.data ? (
-          <MembersList
-            key={session.data.user.id}
-            apiClient={apiClient}
-            identity={session.data}
-          />
-        ) : (
-          <p>
-            {message('members.sessionExpired')}{' '}
-            <Button variant="link" onClick={onLogin}>
-              {message('members.loginLink')}
-            </Button>
-          </p>
-        )}
-      </div>
-    </AppShellLayout>
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-10">
+      <h1 className="text-2xl font-semibold">{message('members.title')}</h1>
+      {session.isPending ? (
+        <p role="status">{message('common.loadingSession')}</p>
+      ) : session.isError ? (
+        <Failure error={session.error} />
+      ) : session.data ? (
+        <MembersList
+          key={session.data.user.id}
+          apiClient={apiClient}
+          identity={session.data}
+        />
+      ) : (
+        <p>
+          {message('members.sessionExpired')}{' '}
+          <Button variant="link" onClick={onLogin}>
+            {message('members.loginLink')}
+          </Button>
+        </p>
+      )}
+    </div>
   );
 }
 

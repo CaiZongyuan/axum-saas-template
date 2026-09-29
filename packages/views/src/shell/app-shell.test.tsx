@@ -85,3 +85,35 @@ test('business links take their icon from the assembled module registry', () => 
       ?.getAttribute('data-variant'),
   ).toBe('teal');
 });
+
+test('topbar actions sit beside the app name in the topbar and the drawer header', () => {
+  pinLocale('en');
+  render(
+    <Shell role="member" topbarActions={<button type="button">New</button>} />,
+  );
+  // The brand row renders twice (narrow topbar + sidebar header); the
+  // actions follow it in both places.
+  expect(screen.getAllByRole('button', { name: 'New' })).toHaveLength(2);
+});
+
+test('extra renders inside the main landmark after the page content', () => {
+  pinLocale('en');
+  render(<Shell role="member" extra={<div data-testid="overlay" />} />);
+  const main = screen.getByRole('main');
+  expect(main.querySelector('[data-testid="overlay"]')).not.toBeNull();
+  // After the content, so absolutely positioned overlays win stacking.
+  expect(main.lastElementChild?.getAttribute('data-testid')).toBe('overlay');
+});
+
+test('loadingIndicator renders above the page content in the main landmark', () => {
+  pinLocale('en');
+  render(
+    <Shell
+      role="member"
+      loadingIndicator={<div data-testid="progress" aria-hidden="true" />}
+    />,
+  );
+  expect(
+    screen.getByRole('main').firstElementChild?.getAttribute('data-testid'),
+  ).toBe('progress');
+});

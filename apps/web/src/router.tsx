@@ -144,19 +144,49 @@ export function navigateExample(
   return router.navigate(navigateOptions(target));
 }
 
-const statusRoute = createRoute({
+// The shell mounts exactly once, on this pathless layout route
+// (docs/ui/design.md §4.2): every shell-bearing path renders under it and
+// page components render content only. It resolves the session for the
+// permission-gated navigation — assembled business groups appear for
+// signed-in users on every shell route, never signed out — and shows the
+// loading indicator while that session resolves. The actual Router types
+// stay in this adapter; the shared shell consumes ports.
+const shellRoute = createRoute({
   getParentRoute: () => rootRoute,
+  id: '_shell',
+  component: function ShellLayout() {
+    const { apiClient } = rootRoute.useRouteContext();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const session = useQuery(sessionQuery(apiClient, queryClient));
+    const signedIn = session.data?.user !== undefined;
+    return (
+      <AppShellLayout
+        navigation={signedIn ? assembledApp.navigation : undefined}
+        moduleIcons={signedIn ? assembledApp.moduleIcons : undefined}
+        role={session.data?.user.role}
+        onOpen={shellPathPort(navigate)}
+        loadingIndicator={
+          session.isPending ? (
+            <div
+              aria-hidden="true"
+              className="h-0.5 w-full animate-pulse bg-primary"
+            />
+          ) : undefined
+        }
+      >
+        <Outlet />
+      </AppShellLayout>
+    );
+  },
+});
+
+const statusRoute = createRoute({
+  getParentRoute: () => shellRoute,
   path: '/system',
   component: function StatusPage() {
     const { apiClient, docsUrl } = rootRoute.useRouteContext();
-    const navigate = useNavigate();
-    return (
-      <StatusView
-        apiClient={apiClient}
-        docsUrl={docsUrl}
-        onOpen={shellPathPort(navigate)}
-      />
-    );
+    return <StatusView apiClient={apiClient} docsUrl={docsUrl} />;
   },
 });
 
@@ -195,19 +225,11 @@ const registrationRoute = createRoute({
 });
 
 const homeRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/',
   component: function HomePage() {
     const { apiClient } = rootRoute.useRouteContext();
-    const navigate = useNavigate();
-    return (
-      <HomeView
-        apiClient={apiClient}
-        navigation={assembledApp.navigation}
-        moduleIcons={assembledApp.moduleIcons}
-        onOpenNavigation={shellPathPort(navigate)}
-      />
-    );
+    return <HomeView apiClient={apiClient} />;
   },
 });
 
@@ -224,7 +246,7 @@ function validateSettingsSearch(
     : {};
 }
 const settingsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/settings',
   validateSearch: validateSettingsSearch,
   component: function SettingsPage() {
@@ -238,8 +260,6 @@ const settingsRoute = createRoute({
         onOpen={shellPathPort(navigate)}
         section={section}
         showroom={{
-          navigation: assembledApp.navigation,
-          moduleIcons: assembledApp.moduleIcons,
           scenes: assembledApp.scenes,
           copyText: (text) => navigator.clipboard.writeText(text),
         }}
@@ -249,13 +269,10 @@ const settingsRoute = createRoute({
 });
 
 const designSystemRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/design-system',
   component: function DesignSystemPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
-    const navigate = useNavigate();
-    const queryClient = useQueryClient();
-    const session = useQuery(sessionQuery(apiClient, queryClient));
+    const { docsUrl } = rootRoute.useRouteContext();
     const message = useAppMessage();
     return (
       <Suspense
@@ -269,10 +286,6 @@ const designSystemRoute = createRoute({
           docsUrl={docsUrl}
           scenes={assembledApp.scenes}
           copyText={(text) => navigator.clipboard.writeText(text)}
-          onOpen={shellPathPort(navigate)}
-          navigation={assembledApp.navigation}
-          moduleIcons={assembledApp.moduleIcons}
-          role={session.data?.user.role}
         />
       </Suspense>
     );
@@ -280,7 +293,7 @@ const designSystemRoute = createRoute({
 });
 
 const membersRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/members',
   component: function MembersPage() {
     const { apiClient } = rootRoute.useRouteContext();
@@ -288,7 +301,6 @@ const membersRoute = createRoute({
     return (
       <MembersView
         apiClient={apiClient}
-        onOpen={shellPathPort(navigate)}
         onLogin={() => {
           void navigate({ to: '/login' });
         }}
@@ -316,7 +328,7 @@ function validateJobsSearch(search: Record<string, unknown>): JobsSearch {
   return {};
 }
 const jobsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/jobs',
   validateSearch: validateJobsSearch,
   component: function JobsPage() {
@@ -326,7 +338,6 @@ const jobsRoute = createRoute({
     return (
       <JobsView
         apiClient={apiClient}
-        onOpen={shellPathPort(navigate)}
         onOpenJob={(jobId) => {
           void navigate({ to: '/jobs/$jobId', params: { jobId } });
         }}
@@ -343,7 +354,7 @@ const jobsRoute = createRoute({
 });
 
 const jobRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/jobs/$jobId',
   component: function JobPage() {
     const { apiClient } = rootRoute.useRouteContext();
@@ -448,15 +459,13 @@ const resetPasswordRoute = createRoute({
 });
 
 const apiKeysRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/api-keys',
   component: function ApiKeysPage() {
     const { apiClient } = rootRoute.useRouteContext();
-    const navigate = useNavigate();
     return (
       <ApiKeysView
         apiClient={apiClient}
-        onOpen={shellPathPort(navigate)}
         copySecret={(secret) => navigator.clipboard.writeText(secret)}
       />
     );
@@ -486,7 +495,7 @@ function validateAuditSearch(search: Record<string, unknown>): AuditSearch {
   return next;
 }
 const auditRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/audit',
   validateSearch: validateAuditSearch,
   component: function AuditPage() {
@@ -496,7 +505,6 @@ const auditRoute = createRoute({
     return (
       <AuditView
         apiClient={apiClient}
-        onOpen={shellPathPort(navigate)}
         filters={search}
         onApplyFilters={(filters) => {
           void navigate({ to: '/audit', search: filters });
@@ -507,7 +515,7 @@ const auditRoute = createRoute({
 });
 
 const notificationsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => shellRoute,
   path: '/notifications',
   component: function NotificationsPage() {
     const { apiClient } = rootRoute.useRouteContext();
@@ -538,55 +546,46 @@ const provideByExample = new Map(
   exampleEntries.map((entry) => [entry.id, entry.provide]),
 );
 
-// Every example page renders inside the universal shell (docs/ui/design.md
-// §4.1): the adapter — not the example — resolves the session for the
-// role-aware navigation and owns the router ports. Example views render
-// page content only; the shell provides the landmarks.
+// Example pages render under the same shell layout route (docs/ui/design.md
+// §4.1): the adapter — not the example — owns the router ports, and the
+// example's `provide` wrapper wraps page content only. Example views never
+// mount the shell themselves.
 function adapterRoute(route: AssembledApp['routes'][number]) {
   return createRoute({
-    getParentRoute: () => rootRoute,
+    getParentRoute: () => shellRoute,
     path: route.path,
     component: function ExamplePage() {
       const params = useParams({ strict: false }) as Record<string, string>;
       const navigate = useNavigate();
       const { apiClient } = rootRoute.useRouteContext();
-      const queryClient = useQueryClient();
-      const session = useQuery(sessionQuery(apiClient, queryClient));
       const page = route.component({
         params,
         apiClient,
         navigate: navigatePort(navigate),
       });
-      return (
-        <AppShellLayout
-          navigation={assembledApp.navigation}
-          moduleIcons={assembledApp.moduleIcons}
-          role={session.data?.user.role}
-          onOpen={shellPathPort(navigate)}
-        >
-          {provideByExample.get(route.exampleId)?.(page) ?? page}
-        </AppShellLayout>
-      );
+      return provideByExample.get(route.exampleId)?.(page) ?? page;
     },
   });
 }
 
 const routeTree = rootRoute.addChildren([
-  ...assembledApp.routes.map(adapterRoute),
+  shellRoute.addChildren([
+    ...assembledApp.routes.map(adapterRoute),
+    apiKeysRoute,
+    auditRoute,
+    notificationsRoute,
+    membersRoute,
+    jobsRoute,
+    jobRoute,
+    settingsRoute,
+    designSystemRoute,
+    homeRoute,
+    statusRoute,
+  ]),
   forgotPasswordRoute,
   resetPasswordRoute,
-  apiKeysRoute,
-  auditRoute,
-  notificationsRoute,
   loginRoute,
-  membersRoute,
-  jobsRoute,
-  jobRoute,
-  settingsRoute,
-  designSystemRoute,
-  homeRoute,
   registrationRoute,
-  statusRoute,
 ]);
 
 export function createAppRouter(context: AppContext, history?: RouterHistory) {

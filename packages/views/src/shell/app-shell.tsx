@@ -21,6 +21,9 @@ export function AppShellLayout({
   moduleIcons,
   role,
   onOpen,
+  topbarActions,
+  loadingIndicator,
+  extra,
   children,
 }: {
   navigation?: AssembledApp['navigation'];
@@ -29,6 +32,14 @@ export function AppShellLayout({
   role?: ShellRole;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
+  /** Actions beside the app name, wherever the brand row renders
+      (narrow topbar and sidebar header). */
+  topbarActions?: ReactNode;
+  /** Progress shown above the content while the host resolves data. */
+  loadingIndicator?: ReactNode;
+  /** Overlays and mounted-once singletons, rendered after the content
+      inside the main landmark (docs/ui/design.md §4.2). */
+  extra?: ReactNode;
   children: ReactNode;
 }) {
   const message = useAppMessage();
@@ -104,8 +115,15 @@ export function AppShellLayout({
           ' lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-60 lg:shrink-0 lg:flex-col lg:border-r lg:border-border lg:bg-sidebar'
         }
       >
-        <div className="flex items-center justify-between px-4 py-4">
-          <span className="text-sm font-semibold">{message('app.name')}</span>
+        <div className="flex items-center gap-2 px-4 py-4">
+          <span className="flex-1 text-sm font-semibold">
+            {message('app.name')}
+          </span>
+          {topbarActions ? (
+            <div className="flex shrink-0 items-center gap-1">
+              {topbarActions}
+            </div>
+          ) : null}
           <button
             type="button"
             aria-label={message('shell.nav.closeMenu')}
@@ -172,9 +190,16 @@ export function AppShellLayout({
             <Menu aria-hidden="true" className="size-5" />
           </button>
           <span className="text-sm font-semibold">{message('app.name')}</span>
+          {topbarActions ? (
+            <div className="ml-auto flex shrink-0 items-center gap-1">
+              {topbarActions}
+            </div>
+          ) : null}
         </header>
         <main id="main-content" className="min-w-0 flex-1">
+          {loadingIndicator}
           {children}
+          {extra}
         </main>
       </div>
     </div>
