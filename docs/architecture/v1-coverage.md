@@ -80,6 +80,10 @@ UI 系列（UI01–UI15，父票 [#57](https://github.com/CaiZongyuan/axum-saas-
 - **验收修复**：验收运行暴露 7 条早期 e2e 旅程仍假设注册/登录停留在旧首页并依赖运行器默认语言（UI04 设备语言探测会渲染英文界面）；已按既有 password-reset 模式显式固定 `zh-CN`，并把登录后断言改为实际落点（文档入口；退出登录控件位于通用首页），未新增抽象、未放宽断言。
 - **故事 61**：本节即“当前 v1 实现和验收全部集成后才开始下一轮”的验收记录；下一轮 UI 与官网改造以本修订为基线。
 
+### 风格对齐轮验收（UI-R1–R5，#99–#103）
+
+第一轮合入后，按用户核对结论（交付物与参考项目在观感与结构上相距甚远）执行第二轮整改并逐票验收：token 与组件几何（#104）、图标体系进应用（#105）、设置分组布局（#106）、壳插槽与单实例布局路由（#107）、装配默认收敛与文档/验证卫生（#103）。门禁与 CI 同第一轮标准（`just check`、`just e2e-docs`、verify/desktop-smoke/example-removal 三 job）；R5 把 example-removal 场景扩为含「显式装回便签」的五组合演练，并新增应用内主题真浏览器 e2e（`tests/e2e/theme.spec.ts`）。缺口依据、逐票交付与像素级前后对比记录见 [UI 系列交接报告](../handoffs/2026-09-29-ui-series-alignment.md)；设计侧记录见 [docs/ui/design.md §5 风格对齐轮](../ui/design.md)。
+
 ## 发布与复现
 
 站点发布在 <https://caizongyuan.github.io/axum-saas-template/>，随 `main` 持续更新；每个页面页脚的“源码版本”就是该页验收时对应的仓库提交，发布任务会校验文档产物与提交一致后才上线，完整复现步骤见[快速开始](../getting-started/quickstart.md)。v1 里程碑验证命令：`just check-full`。

@@ -221,6 +221,33 @@ test('verifies the manifest against the working copy and names the drift', () =>
   }
 });
 
+test('an unregistered marker may be wholly absent, never half-present', () => {
+  const root = buildFixture();
+  try {
+    // Declare the quickstart marker as shipping unregistered: scripts that
+    // register the example install it, so its absence is the shipped state.
+    const manifestPath = join(root, 'examples/knowledge-base/manifest.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    manifest.unregisteredMarkers = {
+      'docs/getting-started/quickstart.md': ['quickstart'],
+    };
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    rmSync(join(root, 'docs/getting-started/quickstart.md'));
+    verifyExampleManifest(root);
+    // Half-present drift (start without end) is still refused.
+    writeFileSync(
+      join(root, 'docs/getting-started/quickstart.md'),
+      'unregistered\n// example:knowledge:quickstart:start\n',
+    );
+    assert.throws(
+      () => verifyExampleManifest(root),
+      /quickstart is not a start\/end pair/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('plans the removal without writing anything', () => {
   const root = buildFixture();
   try {

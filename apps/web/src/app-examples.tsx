@@ -4,16 +4,16 @@ import { createKnowledgeExample } from '@saas/views';
 import { browserFileTransfer } from './knowledge-files';
 import { DocumentGuardProvider } from './knowledge-navigation';
 // example:knowledge:assembly:end
-// example:notes:assembly:start
-import { createNotesExample } from '@saas/views';
-// example:notes:assembly:end
 
 // The explicit assembly point (docs/ui/design.md §4.1): adding or removing
 // an example means editing this file only — shared pages, navigation,
 // settings, notifications and translations consume the assembled result.
 // Each example owns two marker blocks: `assembly` for its imports and
 // `entries` for its list entry; every marker name appears at most once per
-// file so the removal tool can strip it mechanically.
+// file so the removal tool can strip it mechanically. The notes example
+// ships unregistered: it stays active in examples/notes/manifest.json and
+// registers through scripts/example-add.mjs, the runnable demonstration
+// of onboarding an example (docs/tutorials/27-add-example.md).
 
 export const exampleEntries: ExampleContribution[] = [
   // example:knowledge:entries:start
@@ -22,9 +22,6 @@ export const exampleEntries: ExampleContribution[] = [
     provide: (page) => <DocumentGuardProvider>{page}</DocumentGuardProvider>,
   }),
   // example:knowledge:entries:end
-  // example:notes:entries:start
-  createNotesExample(),
-  // example:notes:entries:end
 ];
 
 // Default-entry strategy: the first assembled example that declares a

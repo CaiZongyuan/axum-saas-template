@@ -5,7 +5,11 @@ import { sitePath } from './lib/docs-locales.mjs';
 // rendered page in both locales, it validates the bilingual contract that
 // later chapters inherit — locale route pairing and counterpart
 // frontmatter for the language switcher, including the public Landing at
-// the site root.
+// the site root. The generated site palette is intentionally not checked
+// here: it is untracked derived content regenerated before every dev and
+// build, so there is no committed file to drift, and its derivation
+// contract (every mapped token exists in both tables) is enforced by
+// tests/tooling/docs-palette.test.mjs.
 
 const pages = renderDocs();
 const site = siteModel();

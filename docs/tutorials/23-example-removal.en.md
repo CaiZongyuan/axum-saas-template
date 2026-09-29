@@ -1,6 +1,6 @@
 # Compose and remove reference examples
 
-The template ships two reference examples: the knowledge base (a full business) and notes (a minimal example that exists only to prove the composition interface). This chapter answers "how does this template become my product": first see what an example owns, then preview a removal, delete **any one** example, or remove all the way down to zero — source, routes, migration registration, jobs and tutorial navigation disappear together, while Core (registration/login, members, file service, jobs, notifications, API keys, audit, mail, rate limiting, telemetry) stays intact and keeps being verified. For the frontend wiring and how the four app combinations run, see [Add a reference example](27-add-example.en.md); this chapter focuses on the removal side: tooling, protections and boundaries.
+The template registers only the knowledge base (a full business) by default; notes (a minimal example that exists only to prove the composition interface) ships with the repository but unregistered — the add tool `scripts/example-add.mjs` from [the wiring chapter](27-add-example.en.md) registers it at any time. This chapter answers "how does this template become my product": first see what an example owns, then preview a removal, delete **any one** example, or remove all the way down to zero — source, routes, migration registration, jobs and tutorial navigation disappear together, while Core (registration/login, members, file service, jobs, notifications, API keys, audit, mail, rate limiting, telemetry) stays intact and keeps being verified. For the frontend wiring and how the four app combinations run, see [Add a reference example](27-add-example.en.md); this chapter focuses on the removal side: tooling, protections and boundaries.
 
 ## 1. The ownership manifest: what an example actually owns
 
@@ -20,7 +20,8 @@ Exclusivity is a hard constraint: two examples claiming the same `ownedPaths` en
 
 ```bash
 just example-remove --dry-run                                  # removes the knowledge example by default
-node scripts/example-remove.mjs --example notes --dry-run     # or remove notes
+node scripts/example-add.mjs --example notes                  # notes ships unregistered; add it back first
+node scripts/example-remove.mjs --example notes --dry-run     # then preview removing notes
 ```
 
 The [removal tool](../../scripts/example-remove.mjs) lists every path it would delete, every marker block it would strip, the tutorial pages that would leave the navigation, the dependencies it would prune and the regeneration commands to rerun afterwards — **without writing anything**. Pick the example explicitly with `--example <id>`; an unknown id fails immediately with the list of registered ids, never silently acting on "the closest match".
@@ -30,8 +31,10 @@ The protections are hard, and a refusal hands you a list instead of an overwrite
 ## 3. Remove any one example, or all the way to zero
 
 ```bash
-just example-remove                                       # remove knowledge → notes only
-node scripts/example-remove.mjs --example notes          # remove notes → knowledge only
+just example-remove                                       # remove knowledge (the default source registers knowledge only → zero examples)
+node scripts/example-add.mjs --example notes             # add notes back → dual
+node scripts/example-remove.mjs                          # remove knowledge → notes only
+node scripts/example-remove.mjs --example notes          # remove notes → Core only
 ```
 
 The tool executes exactly what the manifest describes: it deletes the owned paths, strips the marker blocks from the assembly points (routes and OpenAPI registration in `apps/api/src/lib.rs`, job registration in `apps/worker/src/main.rs`, web routes and view exports, tutorial navigation), removes the tutorial page from `docs/site.json`, prunes the example-exclusive dependencies, sets the manifest to `status: removed` (the manifest itself stays — scripts like desktop-smoke adapt by it), and finally regenerates the derived artifacts in place: `pnpm install`, `cargo update --workspace`, `pnpm generate` (OpenAPI/contracts/SDK) and the project docs references.
@@ -57,7 +60,7 @@ History does not vanish with the source: notifications pointing at a removed bus
 
 Performance budgets layer along the same line: the registration budget (`perf_registration.rs`) belongs to Core and stays pinned by backend tests after a removal; the document list/create/export budgets (`perf_documents.rs`) and the example list SQL in the query-plan scripts leave with the example — swap in your own business's performance tests for `just perf`, and the query-plan scripts in `just perf-ci` say so honestly and exit.
 
-CI rehearses all of this on every PR: it clones the template into a temporary copy and dirties a file to verify the protection refuses; in the first copy it actually runs the removal with `--trim-migrations`, producing the notes-only combination against the full gate set, then removes notes in that same copy for the Core-only combination and reruns the frontend gates; in a second copy it removes notes for the knowledge-only combination, also against the full gate set. Together with the untouched main source (the dual combination, fully verified by the `verify` job), all four combinations are built and tested — before the job finishes with the next section's wiring exercise.
+CI rehearses all of this on every PR: it clones the template into a temporary copy and dirties a file to verify the protection refuses; in the first copy it runs the frontend gates on the default (knowledge-only) assembly, registers notes with the add tool and commits, runs the full gate set on the dual combination, then actually removes knowledge with `--trim-migrations` for the notes-only combination against the full gate set, and removes notes again for the Core-only combination with the frontend gates rerun; in a second copy it removes notes for the knowledge-only combination, also against the full gate set. All four combinations are built and tested — before the job finishes with the next section's wiring exercise.
 
 ## 5. Wire in your own business
 

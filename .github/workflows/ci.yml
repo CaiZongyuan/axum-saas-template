@@ -153,6 +153,38 @@ jobs:
           fi
           grep -q 'uncommitted' /tmp/refusal.log
           git checkout -- README.md
+      # Default (knowledge-only) assembly: the shipped product must pass
+      # its gate before the scenario re-adds the second example (UI-R5:
+      # notes ships unregistered; adding it back is the runnable
+      # demonstration of onboarding an example). The clone is content-
+      # identical to the tree the verify job gates, so the Rust core and
+      # docs builds are not repeated here — the frontend composition gates
+      # are, matching the knowledge-only gate below.
+      - name: Default assembly passes its gate
+        working-directory: /tmp/template-copy
+        run: |
+          pnpm typecheck
+          pnpm test:frontend
+          pnpm --filter @saas/web build
+          pnpm boundaries:check
+      - name: Add the notes example back
+        run: node scripts/example-add.mjs --root /tmp/template-copy --example notes
+      - name: Commit the re-add (the removal tool only edits clean copies)
+        working-directory: /tmp/template-copy
+        run: |
+          git config user.email combo@example.test
+          git config user.name combo
+          git add -A
+          git commit -q -m "Add the notes example back"
+      - name: Dual-example copy passes its gate
+        working-directory: /tmp/template-copy
+        run: |
+          just check-core
+          just docs-build
+          pnpm typecheck
+          pnpm test:frontend
+          pnpm --filter @saas/web build
+          pnpm boundaries:check
       # Dual → notes-only: the knowledge example leaves, the second
       # example keeps serving through the same shell.
       - name: Remove the knowledge example (fresh-database path)
@@ -185,10 +217,19 @@ jobs:
           pnpm --filter @saas/web build
           pnpm boundaries:check
       # Knowledge-only: the notes example leaves while knowledge stays.
+      # The fresh clone carries notes unregistered (UI-R5), so the removal
+      # is preceded by the add — the documented register-then-remove flow.
       - name: Copy for the knowledge-only combination
         run: git clone --quiet . /tmp/knowledge-only-copy
-      - name: Remove the notes example from the second copy
-        run: node scripts/example-remove.mjs --root /tmp/knowledge-only-copy --example notes
+      - name: Register, then remove, the notes example in the second copy
+        working-directory: /tmp/knowledge-only-copy
+        run: |
+          node scripts/example-add.mjs --example notes
+          git config user.email combo@example.test
+          git config user.name combo
+          git add -A
+          git commit -q -m "Add the notes example back"
+          node scripts/example-remove.mjs --example notes
       - name: Knowledge-only copy passes its gate
         working-directory: /tmp/knowledge-only-copy
         run: |
