@@ -83,7 +83,9 @@ export function NotificationsView({
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const message = useAppMessage();
   return (
-    <main className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
+    // Content-only (docs/ui/design.md §4.2): the shell's main landmark
+    // wraps this page on the router's layout route, so a plain div here.
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 px-6 py-10">
       <header className="flex items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">
           {message('notifications.title')}
@@ -107,7 +109,7 @@ export function NotificationsView({
           describeNotification={describeNotification}
         />
       )}
-    </main>
+    </div>
   );
 }
 function Inbox({

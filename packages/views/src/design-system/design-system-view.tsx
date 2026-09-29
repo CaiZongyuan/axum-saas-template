@@ -5,7 +5,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@saas/ui/components/tabs';
-import { AppShellLayout, type ShellRole } from '../shell/app-shell';
 import type { AssembledApp } from '../shell/app-contract';
 import { docsChapterUrl } from '../shell/docs-links';
 import { useAppMessage } from '../shell/messages';
@@ -15,12 +14,13 @@ import { ComponentsSection } from './components-section';
 import { FoundationSection } from './foundation-section';
 import { ScenesSection } from './scenes-section';
 
-// The design-system showroom (docs/ui/design.md §6 Q3, Q9): a Core page at
-// /design-system, open to every signed-in user. It reads production tokens
-// and components directly — no second color table or design-system copy of the
-// library — and renders scenes registered by examples from the assembled
-// result. The whole view ships as its own async chunk, and the icon
-// catalog lazy-loads inside it, so neither reaches the initial bundle.
+// The design-system showroom (docs/ui/design.md §6 Q3, Q9). It reads
+// production tokens and components directly — no second color table or
+// design-system copy of the library — and renders scenes registered by
+// examples from the assembled result. The view is content-only: the
+// shell mounts once on the router's layout route around it (§4.2). It
+// ships as its own async chunk, and the icon catalog lazy-loads inside
+// it, so neither reaches the initial bundle.
 
 const IconCatalog = lazy(() => import('./icon-catalog'));
 
@@ -28,10 +28,6 @@ export default function DesignSystemView({
   docsUrl,
   scenes,
   copyText,
-  onOpen,
-  navigation,
-  moduleIcons,
-  role,
   embedded = false,
 }: {
   docsUrl: string;
@@ -39,16 +35,8 @@ export default function DesignSystemView({
   scenes: AssembledApp['scenes'];
   /** Port for copying token values and icon names. */
   copyText: (text: string) => Promise<void>;
-  /** Router port for opening paths without a full page load. */
-  onOpen?: (path: string) => void;
-  /** Assembled business groups, for a sidebar identical to the home page. */
-  navigation?: AssembledApp['navigation'];
-  /** Assembled module colors for the business links above. */
-  moduleIcons?: AssembledApp['moduleIcons'];
-  /** Resolved session role; signed-out chrome hides account links. */
-  role?: ShellRole;
   /** Inside settings: render the tabs only — the host page owns the
-      shell chrome, page title and section heading (§3 codexloom pattern). */
+      section heading (§3 codexloom pattern). */
   embedded?: boolean;
 }) {
   const message = useAppMessage();
@@ -92,27 +80,20 @@ export default function DesignSystemView({
   if (embedded) return showroom;
 
   return (
-    <AppShellLayout
-      onOpen={onOpen}
-      navigation={navigation}
-      moduleIcons={moduleIcons}
-      role={role}
-    >
-      <div className="mx-auto w-full max-w-3xl px-6 py-12">
-        <h1 className="text-xl font-semibold">{message('design.title')}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {message('design.description')}
-        </p>
-        <div className="mt-6">{showroom}</div>
-        <a
-          href={docsChapterUrl(docsUrl, locale, 'tutorials/design-system.md')}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-6 inline-block text-sm text-link hover:underline"
-        >
-          {message('design.tutorial')}
-        </a>
-      </div>
-    </AppShellLayout>
+    <div className="mx-auto w-full max-w-3xl px-6 py-12">
+      <h1 className="text-xl font-semibold">{message('design.title')}</h1>
+      <p className="mt-2 text-sm text-muted-foreground">
+        {message('design.description')}
+      </p>
+      <div className="mt-6">{showroom}</div>
+      <a
+        href={docsChapterUrl(docsUrl, locale, 'tutorials/design-system.md')}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-6 inline-block text-sm text-link hover:underline"
+      >
+        {message('design.tutorial')}
+      </a>
+    </div>
   );
 }
