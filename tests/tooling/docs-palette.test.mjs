@@ -52,7 +52,7 @@ test('renderPalette emits token references, never a second hex', () => {
   // Both token tables ride along so the mapping below resolves live, and
   // the dark mode follows the same .dark class the application uses.
   assert.match(rendered, /--background: #ffffff;/);
-  assert.match(rendered, /\.dark \{\n  --background: #191a1c;/);
+  assert.match(rendered, /\.dark \{\n {2}--background: #191a1c;/);
   // The mapping section references tokens; every value there is a var()
   // or color-mix, so a palette change cannot bypass the source.
   const mapping = rendered.slice(
