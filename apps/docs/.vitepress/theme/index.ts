@@ -1,5 +1,6 @@
 import DefaultTheme from 'vitepress/theme';
 import DocsLayout from './DocsLayout.vue';
+import LandingHeroArt from './LandingHeroArt.vue';
 import './custom.css';
 
 // The documentation site shares the application's neutral visual: a
@@ -11,4 +12,9 @@ import './custom.css';
 export default {
   extends: DefaultTheme,
   Layout: DocsLayout,
+  enhanceApp({ app }) {
+    // The Landing embeds the hero illustration straight from Markdown;
+    // global registration keeps the page sources free of script blocks.
+    app.component('LandingHeroArt', LandingHeroArt);
+  },
 };

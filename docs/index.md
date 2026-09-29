@@ -1,15 +1,27 @@
 <div class="landing">
 
 <section class="landing-hero">
-  <p class="landing-eyebrow">开源模板 · MIT 许可证</p>
-  <h1>以 Rust + React 为基础构建你的下一个 SaaS</h1>
-  <p class="landing-lede">
-    通过真实可运行的应用学习与扩展。注册、会话、成员、限流、任务、部署与备份不是路线图上的承诺，而是你现在就能启动、验证并替换的能力。
-  </p>
-  <p class="landing-actions">
-    <a class="landing-button landing-button-primary" href="docs/">查看文档</a>
-    <a class="landing-button" href="https://github.com/CaiZongyuan/axum-saas-template">GitHub 仓库</a>
-  </p>
+  <div class="landing-hero-copy">
+    <p class="landing-eyebrow">单机自托管的 SaaS 模板</p>
+    <h1>以 Rust + React 为基础构建你的下一个 SaaS</h1>
+    <p class="landing-lede">
+      通过真实可运行的应用学习与扩展。注册、会话、成员、限流、任务、部署与备份不是路线图上的承诺，而是你现在就能启动、验证并替换的能力。
+    </p>
+    <p class="landing-actions">
+      <a class="landing-button landing-button-primary" href="docs/">查看文档</a>
+      <a class="landing-button" href="https://github.com/CaiZongyuan/axum-saas-template">GitHub 仓库</a>
+    </p>
+  </div>
+  <LandingHeroArt />
+</section>
+
+<section class="landing-facts">
+  <ul>
+    <li>开源 · MIT 许可证</li>
+    <li>Rust · Axum · React · PostgreSQL · Redis</li>
+    <li>教程可跟做</li>
+    <li>测试入口齐备</li>
+  </ul>
 </section>
 
 <section class="landing-section">
@@ -49,36 +61,43 @@
       <span class="landing-dot"></span>
       <h3>注册、登录与会话</h3>
       <p>事务化的注册与登录、会话失效与多端管理，对照 API 测试与真实浏览器旅程验证。</p>
+      <span class="landing-card-cta">了解更多 →</span>
     </a>
     <a class="landing-card" href="tutorials/members">
       <span class="landing-dot dot-green"></span>
       <h3>成员管理与最后 Owner</h3>
       <p>成员角色变更与去激活即时失效会话，最后 Owner 保护防止锁死组织。</p>
+      <span class="landing-card-cta">了解更多 →</span>
     </a>
     <a class="landing-card" href="tutorials/password-reset">
       <span class="landing-dot dot-amber"></span>
       <h3>密码重置与可靠邮件</h3>
       <p>注册与重置邮件在开发栈由 Mailpit 接收，生产切换真实 SMTP。</p>
+      <span class="landing-card-cta">了解更多 →</span>
     </a>
     <a class="landing-card" href="tutorials/rate-limits">
       <span class="landing-dot dot-red"></span>
       <h3>请求限流与保守回退</h3>
       <p>Redis 限流与保守回退：缓存不可用时服务照常响应，系统页展示真实状态。</p>
+      <span class="landing-card-cta">了解更多 →</span>
     </a>
     <a class="landing-card" href="tutorials/electron-shell">
       <span class="landing-dot dot-cyan"></span>
       <h3>Electron 桌面壳</h3>
       <p>同一套 Web 页面进入安全桌面壳，IPC 契约测试与桌面冒烟在 CI 运行。</p>
+      <span class="landing-card-cta">了解更多 →</span>
     </a>
     <a class="landing-card" href="tutorials/single-machine-production">
       <span class="landing-dot dot-blue"></span>
       <h3>单机生产部署</h3>
       <p>compose 生产栈与降级验证，公开教程覆盖从证书到回退的完整过程。</p>
+      <span class="landing-card-cta">了解更多 →</span>
     </a>
     <a class="landing-card" href="tutorials/backup-restore">
       <span class="landing-dot dot-green"></span>
       <h3>备份与恢复演练</h3>
       <p>备份归档不含秘密，在独立环境恢复后验证文档、附件与任务。</p>
+      <span class="landing-card-cta">了解更多 →</span>
     </a>
   </div>
 </section>

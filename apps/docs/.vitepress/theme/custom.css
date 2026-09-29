@@ -84,28 +84,49 @@
 }
 
 /* The public Landing rides the `page` layout (navbar + footer, no
-   sidebar) and follows its settled structure — value proposition with the
-   primary actions, the usage flow, the real capabilities, the reference
-   example, a closing call to action. It reuses the docs tokens: neutral
-   surfaces, hairlines, small radii and a few small colored accents. The
-   `page` layout ships zero styles of its own, so the wrapper — not the
-   layout — provides the horizontal breathing room at every width. */
+   sidebar). The visual direction is the Expo-style layout the user
+   confirmed on 2026-09-29: a display-level left-aligned hero with a
+   line-art illustration, a mono facts strip, bento cards and a closing
+   container — honesty rules unchanged, colors still only through the
+   generated tokens. The `page` layout ships zero styles of its own, so
+   the wrapper — not the layout — provides the horizontal breathing room
+   at every width. */
 .landing,
 .placeholder {
   padding-inline: clamp(1.25rem, 5vw, 2.5rem);
 }
 
 .landing-hero {
-  max-width: 46rem;
+  max-width: 72rem;
   margin-inline: auto;
-  padding: 4rem 0 3.5rem;
-  text-align: center;
+  padding: 4.5rem 0 3.5rem;
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 3rem 4rem;
+}
+@media (min-width: 960px) {
+  .landing-hero {
+    grid-template-columns: 7fr 5fr;
+  }
+}
+/* The hero column reads left-aligned at every width; the action row
+   follows the text (the closing section keeps its centered row). */
+.landing-hero-copy .landing-actions {
+  justify-content: flex-start;
+}
+/* The mono label recipe shared by the hero eyebrow and the facts strip. */
+.landing-eyebrow,
+.landing-facts li {
+  margin: 0;
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 .landing-eyebrow {
-  margin: 0 0 0.75rem;
-  color: var(--vp-c-text-2);
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
+  margin-bottom: 1rem;
 }
 .landing-hero h1,
 .placeholder h1 {
@@ -116,11 +137,41 @@
   line-height: 1.3;
   letter-spacing: -0.01em;
 }
+/* The hero carries the display scale of the confirmed direction; the
+   placeholder keeps the quieter reading scale above. */
+.landing-hero h1 {
+  font-size: clamp(2.4rem, 5.2vw, 3.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  font-weight: 600;
+}
 .landing-lede {
   margin: 0;
   color: var(--vp-c-text-2);
   font-size: 1.05rem;
   line-height: 1.75;
+}
+.landing-hero .landing-lede {
+  max-width: 36rem;
+  font-size: 1.1rem;
+}
+
+/* Mono facts strip: verifiable, deliberately non-numeric facts. The top
+   hairline is its own; the following section's border-top supplies the
+   lower edge — stacking a second one here would read as a 2px rule. */
+.landing-facts {
+  max-width: 72rem;
+  margin-inline: auto;
+  padding: 1.1rem 0;
+  border-top: 1px solid var(--vp-c-divider);
+}
+.landing-facts ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .landing-actions {
@@ -160,7 +211,7 @@
 }
 
 .landing-section {
-  max-width: 64rem;
+  max-width: 72rem;
   margin-inline: auto;
   padding: 2.75rem 0;
   border-top: 1px solid var(--vp-c-divider);
@@ -169,8 +220,8 @@
   margin: 0 0 1rem;
   padding: 0;
   border: none;
-  font-size: 1.35rem;
-  line-height: 1.4;
+  font-size: clamp(1.5rem, 2.6vw, 2rem);
+  line-height: 1.2;
 }
 .landing-section-lede {
   max-width: 44rem;
@@ -188,7 +239,7 @@
 .landing-steps,
 .landing-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 .landing-steps {
   grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
@@ -196,19 +247,30 @@
 .landing-grid {
   grid-template-columns: repeat(auto-fill, minmax(15.5rem, 1fr));
 }
+/* Bento skin: soft-gray surfaces with quiet corners; the hairline and a
+   small lift appear on hover, and the keyboard gets the same visibility. */
 .landing-card,
 .landing-step {
   display: block;
-  padding: 1rem 1.1rem;
-  border: 1px solid var(--vp-c-border);
-  border-radius: 10px;
-  background: var(--vp-c-bg);
+  padding: 1.25rem 1.35rem;
+  border: 1px solid transparent;
+  border-radius: 1.25rem;
+  background: var(--vp-c-bg-soft);
   color: inherit;
   text-decoration: none;
+  transition:
+    border-color 0.25s,
+    transform 0.25s;
 }
 .landing-card:hover,
 .landing-step:hover {
-  border-color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-border);
+  transform: translateY(-2px);
+}
+.landing-card:focus-visible,
+.landing-step:focus-visible {
+  outline: 2px solid var(--vp-c-brand-1);
+  outline-offset: 2px;
 }
 .landing-card h3,
 .landing-step h3 {
@@ -225,16 +287,25 @@
   font-size: 0.9rem;
   line-height: 1.65;
 }
+/* The per-card "learn more" affordance, in the link accent. */
+.landing-card-cta {
+  display: inline-block;
+  margin: 0.9rem 0 0;
+  color: var(--vp-c-brand-1);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
 .landing-step-num {
   display: inline-block;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 6px;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
   background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
+  font-family: var(--vp-font-family-mono);
   font-size: 0.8rem;
   font-weight: 600;
-  line-height: 1.4rem;
+  line-height: 1.6rem;
   text-align: center;
 }
 .landing-dot {
@@ -262,11 +333,25 @@
   background: var(--module-cyan-foreground);
 }
 
+/* The closing call to action sits in a rounded container whose quiet
+   glow is assembled from tokens only — no new color values, no
+   animation. The glow stops at half the container's height so the
+   body copy renders on plain bg-soft: text-2 over the brightest band
+   measures 4.27:1, under the §5 4.5:1 floor; past the half-way blend
+   it stays ≥ 4.6:1 in both themes. */
 .landing-closing {
   text-align: center;
-  padding-bottom: 4rem;
+  border-top: none;
+  border-radius: 1.75rem;
+  padding: 3.5rem 2rem;
+  margin-bottom: 4rem;
+  background: radial-gradient(
+    120% 50% at 50% 0%,
+    var(--vp-c-brand-soft),
+    var(--vp-c-bg-soft)
+  );
 }
-.landing-closing .landing-section-lede {
+.landing-closing .landing-lede {
   margin-inline: auto;
 }
 
