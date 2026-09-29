@@ -81,9 +81,7 @@ test('a signed-out visitor reads the ready status inside the shell', async () =>
     within(navigation).getByRole('link', { name: '系统状态' }),
   ).toBeVisible();
   expect(within(navigation).getByRole('link', { name: '首页' })).toBeVisible();
-  expect(
-    within(navigation).getByRole('link', { name: '使用教程' }),
-  ).toBeVisible();
+  expect(within(navigation).getByRole('link', { name: '设置' })).toBeVisible();
   expect(
     within(navigation).queryByRole('link', { name: '通知' }),
   ).not.toBeInTheDocument();

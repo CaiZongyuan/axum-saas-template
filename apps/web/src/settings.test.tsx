@@ -1,17 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession } from '@saas/sdk';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter } from './router';
 
-// The appearance-and-language page (UI04): an explicit choice applies
-// instantly, updates the document, persists on the device, and never
-// reloads the app — typed input survives a language switch. Signed in
-// (UI05), the page also offers the design-system showroom entry (§6 Q3).
+// The settings page (UI04, regrouped in UI-R3): preferences apply
+// instantly through native radios, and the page groups appearance,
+// account, API keys, the embedded design-system showroom and help into
+// anchored sections. Signed-in state reveals the account sections; the
+// `?section=` query deep-links to an anchor and survives navigation.
 
 const signedIn = {
   user: {
@@ -51,12 +52,10 @@ function open(path = '/', session: 'anonymous' | CurrentSession = 'anonymous') {
 
 test('the settings page is reachable signed out and renames the document', async () => {
   open('/settings');
-  expect(
-    await screen.findByRole('heading', { name: '外观与语言' }),
-  ).toBeVisible();
-  expect(document.title).toBe('外观与语言 · SaaS 模板');
-  // The tutorial link deep-links into this chapter's zh docs page — never
-  // the site-root landing.
+  expect(await screen.findByRole('heading', { name: '设置' })).toBeVisible();
+  expect(document.title).toBe('设置 · SaaS 模板');
+  // The appearance section keeps its tutorial deep link into the zh docs
+  // chapter — never the site-root landing.
   expect(
     screen.getByRole('link', { name: '查看「外观与语言」教程' }),
   ).toHaveAttribute('href', 'https://docs.test/tutorials/appearance-language');
@@ -64,7 +63,7 @@ test('the settings page is reachable signed out and renames the document', async
 
 test('an explicit language applies instantly, persists, and survives a remount', async () => {
   const { user } = open('/settings');
-  await screen.findByRole('heading', { name: '外观与语言' });
+  await screen.findByRole('heading', { name: '设置' });
   expect(document.documentElement.lang).toBe('zh-CN');
 
   await user.click(screen.getByRole('radio', { name: 'English' }));
@@ -89,7 +88,7 @@ test('an explicit language applies instantly, persists, and survives a remount',
 
 test('an explicit theme toggles the dark document immediately and persists', async () => {
   const { user } = open('/settings');
-  await screen.findByRole('heading', { name: '外观与语言' });
+  await screen.findByRole('heading', { name: '设置' });
 
   await user.click(screen.getByRole('radio', { name: '暗色' }));
   expect(document.documentElement.classList.contains('dark')).toBe(true);
@@ -113,15 +112,79 @@ test('switching language keeps typed input: no reload, nothing lost', async () =
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
 });
 
-test('signed in, the page offers the design-system entry and it opens the showroom', async () => {
-  const { user } = open('/settings', signedIn);
-  await screen.findByRole('heading', { name: '外观与语言' });
-  // The entry (§6 Q3: 设置 → 设计系统) reads as navigation into the
-  // demo-data showroom; the sidebar reflects the same real session (both
-  // appear once the session query resolves).
-  expect(await screen.findByRole('link', { name: 'API Keys' })).toBeVisible();
-  await user.click(screen.getByRole('button', { name: /设计系统/ }));
+test('signed in, the account sections appear with the embedded showroom', async () => {
+  open('/settings', signedIn);
+  await screen.findByRole('heading', { name: '设置' });
+  // The account section names the signed-in identity…
+  expect(await screen.findByText('settings@example.com')).toBeVisible();
+  // …the API-keys section anchors for deep links…
   expect(
-    await screen.findByRole('heading', { name: '设计系统' }),
+    document.querySelector('[data-settings-anchor="api-keys"]'),
+  ).not.toBeNull();
+  // …and the design-system section embeds the showroom itself (§6 Q3):
+  // the production tabs render in place, no navigation needed.
+  expect(
+    await screen.findByRole('tab', { name: '基础', hidden: false }),
   ).toBeVisible();
+  expect(
+    document.querySelector('[data-settings-anchor="design-system"]'),
+  ).not.toBeNull();
+});
+
+test('signed out, the account sections stay hidden', async () => {
+  open('/settings');
+  await screen.findByRole('heading', { name: '设置' });
+  // Account, API keys and the showroom are authenticated capabilities;
+  // only appearance and help render before sign-in.
+  expect(screen.queryByRole('heading', { name: '设计系统' })).toBeNull();
+  expect(
+    document.querySelector('[data-settings-anchor="api-keys"]'),
+  ).toBeNull();
+  expect(screen.getByRole('heading', { name: '外观与语言' })).toBeVisible();
+});
+
+test('the section query survives on the settings route for deep links', async () => {
+  const { router } = open('/settings?section=api-keys', signedIn);
+  await screen.findByRole('heading', { name: 'API Keys' });
+  // The validated param stays in the URL: a reload or back/forward keeps
+  // landing on the same section instead of dropping the deep link.
+  expect(router.state.location.search).toEqual({ section: 'api-keys' });
+});
+
+test('the section query scrolls the anchored section into view once it mounts', async () => {
+  // jsdom has no scrollIntoView; the effect calls it optionally, so the
+  // stub records which anchor the deep link actually landed on.
+  const scrolled: (string | null)[] = [];
+  const native = Element.prototype.scrollIntoView as unknown;
+  Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
+    scrolled.push(this.getAttribute('data-settings-anchor'));
+  } as typeof Element.prototype.scrollIntoView;
+  try {
+    open('/settings?section=api-keys', signedIn);
+    await screen.findByRole('heading', { name: 'API Keys' });
+    // The scroll waits for the session-resolved anchor: the deep link
+    // lands on the API-keys section, not the top of the page.
+    expect(scrolled).toContain('api-keys');
+  } finally {
+    if (typeof native === 'function') {
+      Element.prototype.scrollIntoView =
+        native as typeof Element.prototype.scrollIntoView;
+    } else {
+      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+    }
+  }
+});
+
+test('the help section links to the docs home and system status', async () => {
+  open('/settings');
+  await screen.findByRole('heading', { name: '设置' });
+  // Scoped to the main landmark: the sidebar keeps its own 系统状态 entry.
+  const main = within(screen.getByRole('main'));
+  const docsLink = main.getByRole('link', { name: '使用教程' });
+  expect(docsLink).toHaveAttribute('href', 'https://docs.test/docs/');
+  expect(docsLink).toHaveAttribute('target', '_blank');
+  expect(main.getByRole('link', { name: '系统状态' })).toHaveAttribute(
+    'href',
+    '/system',
+  );
 });

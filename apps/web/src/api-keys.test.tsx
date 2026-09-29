@@ -159,9 +159,7 @@ test('switching the language after the secret was hidden never reveals it again'
   await user.click(screen.getByRole('button', { name: '我已保存，隐藏密钥' }));
   // Language and theme changes route through settings; returning must
   // rebuild the page from metadata only — no cached secret anywhere.
-  await user.click(
-    within(navigation).getByRole('link', { name: '外观与语言' }),
-  );
+  await user.click(within(navigation).getByRole('link', { name: '设置' }));
   await user.click(await screen.findByRole('radio', { name: 'English' }));
   await user.click(
     within(screen.getByRole('navigation', { name: 'Main menu' })).getByRole(

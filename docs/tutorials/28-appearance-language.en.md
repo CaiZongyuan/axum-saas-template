@@ -6,7 +6,9 @@ The interface language and light/dark theme are device-scoped preferences: they 
 
 Run `just dev` and open `/login`. The top-right corner carries two controls — "简体中文 / English" and "跟随系统 / 亮色 / 暗色" (System / Light / Dark) — that behave identically before and after sign-in: clicking applies immediately, the page never reloads, and anything typed into the email/password fields stays. The register, forgot-password and reset-password pages use the same controls.
 
-After signing in, the sidebar bottom leads to "Appearance & language" (`/settings`): language and theme are two native radio groups writing the same preference state as the login-page controls. Switch to English and the sidebar, page title and `html.lang` become English together; the address bar is unchanged and no network request is made — switching is pure frontend state.
+After signing in, the sidebar bottom leads to "Settings" (`/settings`): language and theme live in the "Appearance & language" section, still two native radio groups writing the same preference state as the login-page controls. Switch to English and the sidebar, page title and `html.lang` become English together; the address bar is unchanged and no network request is made — switching is pure frontend state.
+
+The settings page is organized into sections: Appearance & language (this device), Account, API Keys, Design system (embedding the same showroom) and Help; the last three are signed-in capabilities and appear once the session resolves. A `?section=` query deep-links straight to a section, e.g. `/settings?section=api-keys`. The sidebar bottom converges on the "Settings" entry plus the signed-in shortcuts (API Keys, Design system, System status); Documentation moved into the settings page's Help section.
 
 ## 2. How the preference is decided
 

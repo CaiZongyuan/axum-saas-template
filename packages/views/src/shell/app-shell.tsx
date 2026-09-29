@@ -1,11 +1,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { GraduationCap, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { ModuleIcon } from '@saas/ui/components/module-icon';
 import type { AssembledApp } from './app-contract';
 import { coreModuleIcons } from './module-registry';
-import { docsHomeUrl } from './docs-links';
 import { useAppMessage } from './messages';
-import { usePreferences } from './preferences';
 import { BusinessNavigation, sidebarLinkClass } from './app-navigation';
 
 // The shell layout (docs/ui/design.md §4): a left sidebar — assembled
@@ -22,7 +20,6 @@ export function AppShellLayout({
   navigation,
   moduleIcons,
   role,
-  docsUrl,
   onOpen,
   children,
 }: {
@@ -30,13 +27,11 @@ export function AppShellLayout({
   /** Assembled module colors for the business links above. */
   moduleIcons?: AssembledApp['moduleIcons'];
   role?: ShellRole;
-  docsUrl: string;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
   children: ReactNode;
 }) {
   const message = useAppMessage();
-  const { locale } = usePreferences();
   const [menuOpen, setMenuOpen] = useState(false);
   const close = () => setMenuOpen(false);
   const signedIn = role !== undefined;
@@ -151,24 +146,15 @@ export function AppShellLayout({
             </div>
           ) : null}
           <div className="mt-auto flex flex-col gap-1 border-t border-border pt-3">
+            {/* The bottom block converges on 设置 (§5): the sections live
+                on the settings page; only the high-frequency, permission-
+                gated shortcuts stay as direct entries. Tutorials moved
+                into settings#help. */}
             {link('/settings', message('shell.nav.settings'))}
             {signedIn ? link('/api-keys', message('shell.nav.apiKeys')) : null}
             {signedIn
               ? link('/design-system', message('shell.nav.designSystem'))
               : null}
-            <a
-              href={docsHomeUrl(docsUrl, locale)}
-              target="_blank"
-              rel="noreferrer"
-              className={sidebarLinkClass}
-              onClick={close}
-            >
-              <GraduationCap
-                aria-hidden="true"
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-              {message('shell.nav.tutorials')}
-            </a>
             {link('/system', message('shell.nav.status'))}
           </div>
         </nav>

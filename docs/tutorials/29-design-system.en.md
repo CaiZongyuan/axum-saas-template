@@ -4,7 +4,7 @@ The design-system showroom (`/design-system`) is a reference room for the "repla
 
 ## 1. Feel it first: from settings to the showroom
 
-Run `just dev`, sign in, and open "Design system" at the bottom of the sidebar. The page has four tabs: **Foundation** lists color tokens, typography and spacing/radius; **Components** lets you actually operate buttons, form controls, overlays and feedback components; **Scenes** holds the generic form, list and empty-state scenes plus scenes registered by examples; **Icons** is an on-demand icon catalog searchable by name. Switch to English, switch to dark, and look again — all four language/theme combinations share the same production components; there is no second skin.
+Run `just dev`, sign in, and open "Design system" at the bottom of the sidebar — or use the same showroom embedded in the settings page's "Design system" section; both entries render one component and share one lazy chunk. The page has four tabs: **Foundation** lists color tokens, typography and spacing/radius; **Components** lets you actually operate buttons, form controls, overlays and feedback components; **Scenes** holds the generic form, list and empty-state scenes plus scenes registered by examples; **Icons** is an on-demand icon catalog searchable by name. Switch to English, switch to dark, and look again — all four language/theme combinations share the same production components; there is no second skin.
 
 ## 2. Foundation and components: reading production tokens directly
 

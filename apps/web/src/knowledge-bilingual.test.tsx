@@ -156,7 +156,7 @@ test('the documents page renders the zh workspace with localized dates and names
   const navigation = await screen.findByRole('navigation', {
     name: '主菜单',
   });
-  for (const label of ['我的文档', '知识库', '首页', '外观与语言'])
+  for (const label of ['我的文档', '知识库', '首页', '设置'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
   expect(
     await screen.findByRole('heading', { name: '我的文档' }),
@@ -178,12 +178,7 @@ test('the en workspace renders the documents page and reader with localized chro
   const navigation = await screen.findByRole('navigation', {
     name: 'Main menu',
   });
-  for (const label of [
-    'My documents',
-    'Knowledge bases',
-    'Home',
-    'Appearance & language',
-  ])
+  for (const label of ['My documents', 'Knowledge bases', 'Home', 'Settings'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
   expect(
     await screen.findByRole('heading', { name: 'My documents' }),

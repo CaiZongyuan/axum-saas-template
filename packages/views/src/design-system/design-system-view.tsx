@@ -32,6 +32,7 @@ export default function DesignSystemView({
   navigation,
   moduleIcons,
   role,
+  embedded = false,
 }: {
   docsUrl: string;
   /** Scenes registered by assembled examples; empty in Core-only apps. */
@@ -46,13 +47,52 @@ export default function DesignSystemView({
   moduleIcons?: AssembledApp['moduleIcons'];
   /** Resolved session role; signed-out chrome hides account links. */
   role?: ShellRole;
+  /** Inside settings: render the tabs only — the host page owns the
+      shell chrome, page title and section heading (§3 codexloom pattern). */
+  embedded?: boolean;
 }) {
   const message = useAppMessage();
   const { locale } = usePreferences();
-  usePageTitle('design.title');
+  usePageTitle(embedded ? undefined : 'design.title');
+
+  const showroom = (
+    <Tabs defaultValue="foundation">
+      <TabsList aria-label={message('design.title')}>
+        <TabsTrigger value="foundation">
+          {message('design.tab.foundation')}
+        </TabsTrigger>
+        <TabsTrigger value="components">
+          {message('design.tab.components')}
+        </TabsTrigger>
+        <TabsTrigger value="scenes">{message('design.tab.scenes')}</TabsTrigger>
+        <TabsTrigger value="icons">{message('design.tab.icons')}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="foundation">
+        <FoundationSection copyText={copyText} />
+      </TabsContent>
+      <TabsContent value="components">
+        <ComponentsSection />
+      </TabsContent>
+      <TabsContent value="scenes">
+        <ScenesSection scenes={scenes} />
+      </TabsContent>
+      <TabsContent value="icons">
+        <Suspense
+          fallback={
+            <p role="status" className="text-sm text-muted-foreground">
+              {message('design.icons.loading')}
+            </p>
+          }
+        >
+          <IconCatalog copyText={copyText} />
+        </Suspense>
+      </TabsContent>
+    </Tabs>
+  );
+  if (embedded) return showroom;
+
   return (
     <AppShellLayout
-      docsUrl={docsUrl}
       onOpen={onOpen}
       navigation={navigation}
       moduleIcons={moduleIcons}
@@ -63,42 +103,7 @@ export default function DesignSystemView({
         <p className="mt-2 text-sm text-muted-foreground">
           {message('design.description')}
         </p>
-        <Tabs defaultValue="foundation" className="mt-6">
-          <TabsList aria-label={message('design.title')}>
-            <TabsTrigger value="foundation">
-              {message('design.tab.foundation')}
-            </TabsTrigger>
-            <TabsTrigger value="components">
-              {message('design.tab.components')}
-            </TabsTrigger>
-            <TabsTrigger value="scenes">
-              {message('design.tab.scenes')}
-            </TabsTrigger>
-            <TabsTrigger value="icons">
-              {message('design.tab.icons')}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="foundation">
-            <FoundationSection copyText={copyText} />
-          </TabsContent>
-          <TabsContent value="components">
-            <ComponentsSection />
-          </TabsContent>
-          <TabsContent value="scenes">
-            <ScenesSection scenes={scenes} />
-          </TabsContent>
-          <TabsContent value="icons">
-            <Suspense
-              fallback={
-                <p role="status" className="text-sm text-muted-foreground">
-                  {message('design.icons.loading')}
-                </p>
-              }
-            >
-              <IconCatalog copyText={copyText} />
-            </Suspense>
-          </TabsContent>
-        </Tabs>
+        <div className="mt-6">{showroom}</div>
         <a
           href={docsChapterUrl(docsUrl, locale, 'tutorials/design-system.md')}
           target="_blank"

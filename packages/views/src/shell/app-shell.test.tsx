@@ -38,9 +38,7 @@ function Shell(props: Omit<Parameters<typeof AppShellLayout>[0], 'children'>) {
 
 test('the drawer toggles are Lucide glyphs, not bare characters', () => {
   pinLocale('en');
-  const { container } = render(
-    <Shell docsUrl="https://docs.test" role="member" />,
-  );
+  const { container } = render(<Shell role="member" />);
   const open = screen.getByRole('button', { name: 'Open navigation menu' });
   expect(open.querySelector('svg')).not.toBeNull();
   expect(container.textContent).not.toContain('☰');
@@ -49,7 +47,7 @@ test('the drawer toggles are Lucide glyphs, not bare characters', () => {
 
 test('core sidebar links carry their registry icon alongside the label', () => {
   pinLocale('en');
-  render(<Shell docsUrl="https://docs.test" role="member" />);
+  render(<Shell role="member" />);
   const home = screen.getByRole('link', { name: 'Home' });
   const icon = home.querySelector('[data-slot="module-icon"]');
   expect(icon?.getAttribute('data-variant')).toBe('blue');
@@ -61,7 +59,6 @@ test('business links take their icon from the assembled module registry', () => 
   pinLocale('en');
   render(
     <Shell
-      docsUrl="https://docs.test"
       role="member"
       navigation={[
         {

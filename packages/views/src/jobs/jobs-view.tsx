@@ -85,14 +85,12 @@ function Failure({ error }: { error: unknown }) {
 }
 export function JobsView({
   apiClient,
-  docsUrl,
   onOpen,
   onOpenJob,
   status,
   onStatusChange,
 }: {
   apiClient: ApiClient;
-  docsUrl: string;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
   onOpenJob: (id: string) => void;
@@ -103,7 +101,6 @@ export function JobsView({
   return (
     <AdminFrame
       apiClient={apiClient}
-      docsUrl={docsUrl}
       onOpen={onOpen}
       titleKey="jobs.title"
       adminOnlyKey="jobs.adminOnly"
@@ -266,12 +263,10 @@ function JobList({
 }
 export function JobView({
   apiClient,
-  docsUrl,
   onOpen,
   jobId,
 }: {
   apiClient: ApiClient;
-  docsUrl: string;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
   jobId: string;
@@ -280,7 +275,6 @@ export function JobView({
   return (
     <AdminFrame
       apiClient={apiClient}
-      docsUrl={docsUrl}
       onOpen={onOpen}
       titleKey="jobs.detail.title"
       adminOnlyKey="jobs.adminOnly"
