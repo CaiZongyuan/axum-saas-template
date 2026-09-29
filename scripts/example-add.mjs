@@ -64,6 +64,7 @@ for (const [file, blocks] of Object.entries(template)) {
     continue;
   }
   const lines = readFileSync(path, 'utf8').split('\n');
+  let touched = false;
   for (const block of blocks) {
     const startToken = `example:${manifest.markerPrefix}:${block.marker}:start`;
     const endToken = `example:${manifest.markerPrefix}:${block.marker}:end`;
@@ -79,9 +80,10 @@ for (const [file, blocks] of Object.entries(template)) {
         problems.push(
           `${file}: ${block.marker} text must contain ${token} exactly once`,
         );
-    const inserted = insertInto(lines, block, startToken, endToken, file);
-    if (inserted) edits.push({ path, content: inserted });
+    if (insertInto(lines, block, startToken, endToken, file)) touched = true;
   }
+  // One write per file: later blocks splice the same array in place.
+  if (touched) edits.push({ path, content: lines });
 }
 if (problems.length > 0) {
   console.error(
@@ -101,7 +103,7 @@ function insertInto(lines, block, startToken, endToken, file) {
   let at;
   if (block.afterLastMatch !== undefined) {
     const pattern = new RegExp(block.afterLastMatch);
-    at = findLastIndex(lines, (line) => pattern.test(line)) + 1;
+    at = lines.findLastIndex((line) => pattern.test(line)) + 1;
   } else if (block.beforeLine !== undefined) {
     const index = lines.indexOf(block.beforeLine);
     if (index >= 0 && lines.indexOf(block.beforeLine, index + 1) >= 0) {
@@ -128,9 +130,4 @@ function insertInto(lines, block, startToken, endToken, file) {
   if (lines[at - 1]?.trim() === '' && lines[at + text.length]?.trim() === '')
     lines.splice(at + text.length, 1);
   return lines;
-}
-
-function findLastIndex(lines, predicate) {
-  for (let i = lines.length - 1; i >= 0; i--) if (predicate(lines[i])) return i;
-  return -1;
 }
