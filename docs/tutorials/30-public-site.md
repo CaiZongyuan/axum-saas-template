@@ -11,7 +11,7 @@ pnpm docs:build   # 渲染双语站点并验证内置导航
 just docs         # 本地开发服务器，边改边看
 ```
 
-中文入口在根路径：`/`（Landing）、`/docs/`（文档教程）、`/blog/`、`/downloads/`；英文一一对应到 `/en/` 下。语言由路径决定：访问 `/en/blog/` 得到英文页，站点不做设备语言重定向；顶栏的「English / 中文」按 frontmatter 里的对应页切换，永远落在已存在的页面上。旧章节深链（如 `/getting-started/quickstart`）不受改版影响。
+中文入口在根路径：`/`（Landing）、`/docs/`（文档教程）、`/blog/`、`/downloads/`；英文一一对应到 `/en/` 下。语言由路径决定：访问 `/en/blog/` 得到英文页，站点不做设备语言重定向；顶栏右侧的语言药丸只显示另一语言的名称（中文页显示 English，英文页显示 中文），按 frontmatter 里的对应页切换，永远落在已存在的页面上。旧章节深链（如 `/getting-started/quickstart`）不受改版影响。
 
 ## 2. 信息结构：借鉴 Expo 的四段式
 
@@ -34,6 +34,8 @@ layout 页不进侧栏（渲染器同时写入 `sidebar: false`），只出现�
 
 Blog 与 Downloads 本轮只是占位：没有文章列表或发布管理，没有下载目录、版本/平台选择、安装包服务、订阅表单或进度承诺。占位页的义务是诚实——说明现在能做什么（回首页、看文档、关注仓库），不虚构文章、日期或发布资产；页面标题与 meta 如实标注状态。后续实现博客或下载时替换占位内容即可，入口路径与导航保持稳定。
 
+占位页与 Landing 共用 `page` 布局，而该布局不提供任何默认样式：页面内容包在 `.placeholder` 容器里，全部排版由 [custom.css](../../apps/docs/.vitepress/theme/custom.css) 提供——mono 徽章（「即将推出」）→ 原文一级标题 → 诚实文案 → 药丸动作行（复用 Landing 的 `.landing-actions`/`.landing-button`：回首页、看文档/快速开始、GitHub 仓库）。容器在任意宽度自带水平内边距；占位页不引入 `article`、`table`、下载按钮或日期元素，e2e 逐页清点这些元素为零。
+
 ## 5. 示例展示的归属
 
 Landing 里"参考示例：个人知识库"整段位于 `example:knowledge:landing:start/end` 标记之间，属于知识库示例的展示内容。标记之外的 Landing 文字只允许链接 Core 章节——删例演练后的 [docs:build](../../scripts/check-docs-build.mjs) 会对每一处链接做存在性检查，示例专属卡片随标记整块消失，不会留下失效入口。亲手演练一遍：
@@ -47,14 +49,14 @@ CI 的示例移除任务在每个 PR 上做同样的事，Core-only 站点必须
 
 ## 6. 语言、主题与部署
 
-主题偏好由 VitePress 外观切换保存在浏览器本机（`localStorage`），不跨设备同步；语言只看路径，不承诺跨站自动跟随。部署沿用既有静态链路：GitHub Pages 在 `main` 上发布（见[发布教程站点](../getting-started/publish-docs.md)），仓库子路径由 base 承担；自定义 base 用 `DOCS_BASE=/your-base/ pnpm docs:build` 构建并经内置检查验证——公开站的浏览器旅程（`just e2e-docs`）包含一次自定义 base 冒烟。
+主题偏好保存在浏览器本机（`localStorage` 键 `vitepress-theme-appearance`），不跨设备同步。顶栏的三态控件（跟随系统 / 浅色 / 深色）写 VitePress 原生的 `auto | light | dark` 取值：`auto` 在每次加载时跟随系统偏好（VitePress 的首绘脚本在渲染前解析它），选择跨刷新持久；VitePress 默认的双态太阳/月亮切换被隐藏（`.VPNavBarAppearance`/`.VPNavScreenAppearance`）。960px 以上顶栏右簇展示语言药丸与三态控件（纯 CSS `order` 调整，DOM 与键盘顺序不变）；窄屏上两者由汉堡菜单内 NavScreen 版本承担，且保持在菜单之前的 DOM 位，并带 44px 触控目标下限。顶栏重塑本身也是纯 CSS，升级 VitePress 时要一并核对：`.VPNavBar` 的背景经 `--vp-nav-bg-color` 压平为页面底色，菜单链接以 `.VPNavBarMenuLink` 药丸化（hover/active 软灰底），GitHub 入口是 `.VPNavBarSocialLink` 描边胶囊，右簇排列只动 `custom.css` 里的 `order`——这些类名或 `content-body` 结构若有上游变化，需同步调整。页脚有一行双语版权（MIT 许可证与仓库链接，无年份、无徽章）。语言只看路径，不承诺跨站自动跟随。部署沿用既有静态链路：GitHub Pages 在 `main` 上发布（见[发布教程站点](../getting-started/publish-docs.md)），仓库子路径由 base 承担；自定义 base 用 `DOCS_BASE=/your-base/ pnpm docs:build` 构建并经内置检查验证——公开站的浏览器旅程（`just e2e-docs`）包含一次自定义 base 冒烟。
 
 ## 7. 验证
 
 ```bash
 pnpm docs:check     # 双语契约、成对 meta、链接与片段
 pnpm docs:build     # 渲染 + 构建后导航检查（含 base 解析）
-just e2e-docs       # 公开站浏览器旅程：四类入口、CTA、占位页、切换、主题、窄屏、自定义 base
+just e2e-docs       # 公开站浏览器旅程：四类入口、CTA、占位页与容器、切换、三态主题、内边距、窄屏、自定义 base
 just check          # 主门禁
 ```
 

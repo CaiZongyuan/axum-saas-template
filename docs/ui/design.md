@@ -200,6 +200,8 @@ Core 首页保留稳定的 `/` 入口；登录/注册完成后才按应用配置
 
 具体明暗数值统一在现有 `packages/ui/src/styles.css` 管理，扩展背景、导航、浮层、选择、边框、文本与状态 token。示例展厅读取同一生产值，公开站点亦从同源生成（UI-R5：`scripts/generate-docs-palette.mjs` 在文档构建期把两张 token 表与 `--vp-*` 映射产出为派生 CSS，`custom.css` 不再手抄第二份色板）。上表数值已随 UI-R1 按参考表落地并通过明暗实际页面校验：`--radius` 基准 6px，控件 `rounded-md`/`sm`（4–6px）、容器与浮层一律 `rounded-lg`（8px 封顶），焦点环 2px 细环，补全 `surface-muted`/`selection`/`sidebar`/`input`/`ring`/`info`/`success`/`warning`/`destructive`/`link` 语义 token（暗面按参考炭黑三级），并新增缺失的 `--popover` 修复弹窗透明缺陷。
 
+公开站点例外（2026-09-29 用户确认的 Expo 式公开站视觉方向）：公开站 chrome 的控件几何不走 4–6px 控件基线——顶栏菜单链接、GitHub 胶囊、语言药丸、三态外观控件与 Landing/占位页按钮一律 999px 药丸（`custom.css`，UI17 落地）；44px 触控下限照常适用于窄屏（占位页按钮、NavScreen 里的语言与外观控件）。颜色仍全部走生成 palette；应用内与文档正文的 4–8px 基线不变，Landing 整体的展示级字号与大圆角卡片随 UI18 修订本文 §6。
+
 ### 风格对齐轮（UI-R1–R5）：缺口与整改
 
 第一轮合入后，用户核对交付物与参考项目相距甚远，查明六类缺口：①视觉几何沿用 shadcn 默认（控件 8px 圆角、3px 焦点环、44px 侧栏行高）未按参考收敛；②图标体系未进应用（侧栏纯文字、抽屉开关用 `☰`/`✕` 字符、分类色模式零移植）；③设置页只有单卡片两组 radio，无 Section/Row 分组与范围徽章；④壳无插槽 API，15+ 处页面各自包壳造成侧栏不一致；⑤`alert-dialog` 使用未定义的 `--popover` token 导致弹窗背景透明；⑥文档漂移（本文头部仍写「尚未实施」、公开站手抄第二份色板、暗色无真浏览器 e2e、无交接报告）。整改按依赖序拆五票交付：
