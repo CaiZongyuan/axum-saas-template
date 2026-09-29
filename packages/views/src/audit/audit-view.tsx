@@ -8,7 +8,13 @@ import {
   type ListAuditEventsData,
 } from '@saas/sdk';
 import { Button } from '@saas/ui/components/button';
-import { Empty, EmptyHeader, EmptyTitle } from '@saas/ui/components/empty';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@saas/ui/components/empty';
+import { ScrollTextIcon } from 'lucide-react';
 import { Field, FieldGroup, FieldLabel } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
 import {
@@ -191,6 +197,9 @@ function History({
       ) : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <ScrollTextIcon aria-hidden="true" />
+            </EmptyMedia>
             <EmptyTitle>{message('audit.empty')}</EmptyTitle>
           </EmptyHeader>
         </Empty>

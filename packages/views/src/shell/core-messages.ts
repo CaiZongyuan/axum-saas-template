@@ -278,6 +278,16 @@ export const coreMessages: {
     'design.icons.cat.navigation': '导航',
     'design.icons.cat.status': '状态',
     'design.icons.cat.objects': '对象',
+    'design.icons.moduleTitle': '模块图标',
+    'design.icons.moduleDescription':
+      'ModuleIcon 用 10 组分类色做小面积模块标识（侧栏、模块入口），取色独立于语义状态色；外观分裸色/平色/柔和/高光四种，交互与状态留在外层控件。',
+    'design.icons.moduleLight': '亮色分类表',
+    'design.icons.moduleDark': '暗色分类表',
+    'design.icons.filesTitle': '文件图标',
+    'design.icons.filesDescription':
+      '附件与导出按「文件名 → 后缀 → MIME」解析为 Material 文件图标，长后缀优先（如 .d.ts 先于 .ts）。',
+    'design.icons.materialLicense':
+      '文件图标来自 Material Icon Theme 5.38.1（MIT 许可），完整署名见仓库根 THIRD-PARTY-NOTICES.md。',
 
     'common.signedOut': '请先登录。',
     'common.sessionExpired': '会话已失效，请重新登录。',
@@ -713,6 +723,16 @@ export const coreMessages: {
     'design.icons.cat.navigation': 'Navigation',
     'design.icons.cat.status': 'Status',
     'design.icons.cat.objects': 'Objects',
+    'design.icons.moduleTitle': 'Module icons',
+    'design.icons.moduleDescription':
+      'ModuleIcon marks modules in small areas (sidebar, module entries) with ten category colors kept independent of semantic state colors; four appearances — bare, flat, soft, glossy — and interaction or state stay with the enclosing control.',
+    'design.icons.moduleLight': 'Light category table',
+    'design.icons.moduleDark': 'Dark category table',
+    'design.icons.filesTitle': 'File icons',
+    'design.icons.filesDescription':
+      'Attachments and exports resolve to Material file icons by filename, then extension, then MIME — longest suffix first (.d.ts before .ts).',
+    'design.icons.materialLicense':
+      'File icons come from Material Icon Theme 5.38.1 (MIT license); full attribution lives in THIRD-PARTY-NOTICES.md at the repository root.',
 
     'common.signedOut': 'Sign in first.',
     'common.sessionExpired': 'Your session has expired — sign in again.',

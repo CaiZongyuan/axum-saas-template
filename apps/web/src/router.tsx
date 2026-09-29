@@ -205,6 +205,7 @@ const homeRoute = createRoute({
         apiClient={apiClient}
         docsUrl={docsUrl}
         navigation={assembledApp.navigation}
+        moduleIcons={assembledApp.moduleIcons}
         onOpenNavigation={shellPathPort(navigate)}
       />
     );
@@ -231,8 +232,10 @@ const designSystemRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/design-system',
   component: function DesignSystemPage() {
-    const { docsUrl } = rootRoute.useRouteContext();
+    const { apiClient, docsUrl } = rootRoute.useRouteContext();
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const session = useQuery(sessionQuery(apiClient, queryClient));
     const message = useAppMessage();
     return (
       <Suspense
@@ -247,6 +250,9 @@ const designSystemRoute = createRoute({
           scenes={assembledApp.scenes}
           copyText={(text) => navigator.clipboard.writeText(text)}
           onOpen={shellPathPort(navigate)}
+          navigation={assembledApp.navigation}
+          moduleIcons={assembledApp.moduleIcons}
+          role={session.data?.user.role}
         />
       </Suspense>
     );
@@ -540,6 +546,7 @@ function adapterRoute(route: AssembledApp['routes'][number]) {
         <AppShellLayout
           docsUrl={docsUrl}
           navigation={assembledApp.navigation}
+          moduleIcons={assembledApp.moduleIcons}
           role={session.data?.user.role}
           onOpen={shellPathPort(navigate)}
         >

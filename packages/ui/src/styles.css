@@ -128,6 +128,130 @@
   color-scheme: dark;
 }
 
+/* Module category colors (docs/ui/design.md §6 Q9): display-only module
+   identity for small areas — never semantic state. Values are the Bio
+   Discovery X reference module tables verbatim; the scoped wrapper
+   selectors let the showroom preview both tables under one active
+   theme. */
+:root,
+.module-icon-theme-light {
+  --module-preview-background: oklch(0.985 0.002 260);
+  --module-preview-foreground: oklch(0.31 0.012 260);
+  --module-orange-start: oklch(0.96 0.035 55);
+  --module-orange-end: oklch(0.91 0.065 42);
+  --module-orange-foreground: oklch(0.49 0.14 45);
+  --module-amber-start: oklch(0.97 0.045 90);
+  --module-amber-end: oklch(0.93 0.075 75);
+  --module-amber-foreground: oklch(0.48 0.115 70);
+  --module-green-start: oklch(0.96 0.035 140);
+  --module-green-end: oklch(0.91 0.055 150);
+  --module-green-foreground: oklch(0.45 0.115 148);
+  --module-teal-start: oklch(0.96 0.03 173);
+  --module-teal-end: oklch(0.91 0.05 185);
+  --module-teal-foreground: oklch(0.45 0.085 182);
+  --module-cyan-start: oklch(0.96 0.03 210);
+  --module-cyan-end: oklch(0.91 0.05 225);
+  --module-cyan-foreground: oklch(0.46 0.105 224);
+  --module-blue-start: oklch(0.96 0.025 242);
+  --module-blue-end: oklch(0.91 0.045 258);
+  --module-blue-foreground: oklch(0.49 0.145 255);
+  --module-indigo-start: oklch(0.96 0.025 272);
+  --module-indigo-end: oklch(0.91 0.045 281);
+  --module-indigo-foreground: oklch(0.49 0.15 276);
+  --module-violet-start: oklch(0.96 0.025 290);
+  --module-violet-end: oklch(0.91 0.045 303);
+  --module-violet-foreground: oklch(0.49 0.15 298);
+  --module-purple-start: oklch(0.96 0.025 312);
+  --module-purple-end: oklch(0.91 0.045 325);
+  --module-purple-foreground: oklch(0.49 0.145 318);
+  --module-pink-start: oklch(0.96 0.025 345);
+  --module-pink-end: oklch(0.91 0.045 358);
+  --module-pink-foreground: oklch(0.5 0.145 352);
+  --module-icon-ring: oklch(0.3 0.015 260 / 0.07);
+  --module-icon-shadow: oklch(0.2 0.01 260 / 0.06);
+  --module-icon-highlight: oklch(1 0 0 / 0.72);
+}
+
+.dark,
+.module-icon-theme-dark {
+  --module-preview-background: oklch(0.21 0.005 260);
+  --module-preview-foreground: oklch(0.86 0.012 260);
+  --module-orange-start: oklch(0.31 0.045 55);
+  --module-orange-end: oklch(0.27 0.035 42);
+  --module-orange-foreground: oklch(0.82 0.105 55);
+  --module-amber-start: oklch(0.32 0.04 90);
+  --module-amber-end: oklch(0.28 0.035 75);
+  --module-amber-foreground: oklch(0.86 0.105 85);
+  --module-green-start: oklch(0.31 0.04 140);
+  --module-green-end: oklch(0.27 0.035 150);
+  --module-green-foreground: oklch(0.82 0.095 148);
+  --module-teal-start: oklch(0.31 0.03 173);
+  --module-teal-end: oklch(0.27 0.03 185);
+  --module-teal-foreground: oklch(0.82 0.08 182);
+  --module-cyan-start: oklch(0.31 0.035 210);
+  --module-cyan-end: oklch(0.27 0.03 225);
+  --module-cyan-foreground: oklch(0.83 0.075 220);
+  --module-blue-start: oklch(0.31 0.04 242);
+  --module-blue-end: oklch(0.27 0.035 258);
+  --module-blue-foreground: oklch(0.82 0.085 252);
+  --module-indigo-start: oklch(0.31 0.045 272);
+  --module-indigo-end: oklch(0.27 0.035 281);
+  --module-indigo-foreground: oklch(0.82 0.08 276);
+  --module-violet-start: oklch(0.31 0.045 290);
+  --module-violet-end: oklch(0.27 0.035 303);
+  --module-violet-foreground: oklch(0.82 0.085 298);
+  --module-purple-start: oklch(0.31 0.045 312);
+  --module-purple-end: oklch(0.27 0.035 325);
+  --module-purple-foreground: oklch(0.82 0.085 318);
+  --module-pink-start: oklch(0.31 0.04 345);
+  --module-pink-end: oklch(0.27 0.035 358);
+  --module-pink-foreground: oklch(0.82 0.085 352);
+  --module-icon-ring: oklch(0.9 0.01 260 / 0.08);
+  --module-icon-shadow: oklch(0 0 0 / 0.12);
+  --module-icon-highlight: oklch(0.95 0.01 260 / 0.12);
+}
+
+/* Appearance surfaces for ModuleIcon: the base chip carries the start
+   color and an inset hairline; soft/glossy add the diagonal gradient,
+   glossy a top highlight; bare drops the container entirely so only the
+   colored glyph remains. */
+.module-icon {
+  color: var(--module-icon-foreground);
+  background-color: var(--module-icon-start);
+  box-shadow: inset 0 0 0 1px var(--module-icon-ring);
+}
+
+.module-icon-soft,
+.module-icon-glossy {
+  background-image: linear-gradient(
+    145deg,
+    var(--module-icon-start),
+    var(--module-icon-end)
+  );
+  box-shadow:
+    inset 0 0 0 1px var(--module-icon-ring),
+    0 1px 1px var(--module-icon-shadow);
+}
+
+.module-icon-bare {
+  overflow: visible;
+  background-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+
+.module-icon-glossy::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 45% 0%,
+    var(--module-icon-highlight),
+    transparent 72%
+  );
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

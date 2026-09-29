@@ -8,6 +8,7 @@ import {
   KnowledgeBasesView,
   type FileTransfer,
 } from './index';
+import { BookOpenIcon } from 'lucide-react';
 import { useDocumentGuard } from './document-guard';
 import { knowledgeMessages } from './messages';
 import { SaveConflictScene } from './save-conflict-scene';
@@ -226,6 +227,12 @@ export function createKnowledgeExample({
         ],
       },
     ],
+    // The module colors of this example's own sidebar entries (docs/ui/
+    // design.md §6 Q9); removing the example removes them with it.
+    moduleIcons: {
+      '/documents': { icon: BookOpenIcon, variant: 'teal' },
+      '/knowledge-bases': { icon: BookOpenIcon, variant: 'teal' },
+    },
     messages: {
       zh: {
         ...knowledgeMessages.zh,

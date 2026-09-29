@@ -85,8 +85,8 @@
 
 具体代码证据（相对 `/home/caii/agents/bio-discovery-x`）：
 
-- `packages/ui/src/components/ui/module-icon.tsx`：Lucide 与分类色包装。
-- `packages/ui/src/components/ui/material-file-icon.tsx`、`packages/ui/src/assets/material-file-icons/`、`THIRD-PARTY-NOTICES.md`：文件图标子集与许可来源。
+- `packages/ui/src/components/module-icon.tsx`：Lucide 与分类色包装。
+- `packages/ui/src/components/material-file-icon.tsx`、`packages/ui/src/assets/material-file-icons/`、`THIRD-PARTY-NOTICES.md`：文件图标子集与许可来源。
 - `packages/views/src/settings/design-system-view.tsx`：基础、组件、工作流、图标系统四类生产组件展示。
 - `packages/views/src/theme/theme.tsx`、`packages/views/src/i18n/i18n.ts`：主题和语言控制参考。
 

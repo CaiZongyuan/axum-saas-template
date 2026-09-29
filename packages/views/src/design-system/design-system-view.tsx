@@ -5,7 +5,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@saas/ui/components/tabs';
-import { AppShellLayout } from '../shell/app-shell';
+import { AppShellLayout, type ShellRole } from '../shell/app-shell';
 import type { AssembledApp } from '../shell/app-contract';
 import { docsChapterUrl } from '../shell/docs-links';
 import { useAppMessage } from '../shell/messages';
@@ -29,6 +29,9 @@ export default function DesignSystemView({
   scenes,
   copyText,
   onOpen,
+  navigation,
+  moduleIcons,
+  role,
 }: {
   docsUrl: string;
   /** Scenes registered by assembled examples; empty in Core-only apps. */
@@ -37,12 +40,24 @@ export default function DesignSystemView({
   copyText: (text: string) => Promise<void>;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
+  /** Assembled business groups, for a sidebar identical to the home page. */
+  navigation?: AssembledApp['navigation'];
+  /** Assembled module colors for the business links above. */
+  moduleIcons?: AssembledApp['moduleIcons'];
+  /** Resolved session role; signed-out chrome hides account links. */
+  role?: ShellRole;
 }) {
   const message = useAppMessage();
   const { locale } = usePreferences();
   usePageTitle('design.title');
   return (
-    <AppShellLayout docsUrl={docsUrl} onOpen={onOpen}>
+    <AppShellLayout
+      docsUrl={docsUrl}
+      onOpen={onOpen}
+      navigation={navigation}
+      moduleIcons={moduleIcons}
+      role={role}
+    >
       <div className="mx-auto w-full max-w-3xl px-6 py-12">
         <h1 className="text-xl font-semibold">{message('design.title')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">

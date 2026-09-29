@@ -1,5 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { GraduationCap, Menu, X } from 'lucide-react';
+import { ModuleIcon } from '@saas/ui/components/module-icon';
 import type { AssembledApp } from './app-contract';
+import { coreModuleIcons } from './module-registry';
 import { docsHomeUrl } from './docs-links';
 import { useAppMessage } from './messages';
 import { usePreferences } from './preferences';
@@ -17,12 +20,15 @@ export type ShellRole = 'owner' | 'admin' | 'member';
 
 export function AppShellLayout({
   navigation,
+  moduleIcons,
   role,
   docsUrl,
   onOpen,
   children,
 }: {
   navigation?: AssembledApp['navigation'];
+  /** Assembled module colors for the business links above. */
+  moduleIcons?: AssembledApp['moduleIcons'];
   role?: ShellRole;
   docsUrl: string;
   /** Router port for opening paths without a full page load. */
@@ -48,21 +54,36 @@ export function AppShellLayout({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [menuOpen]);
 
-  const link = (path: string, label: string, extraClassName?: string) => (
-    <a
-      href={path}
-      className={sidebarLinkClass + (extraClassName ?? '')}
-      onClick={(event) => {
-        if (onOpen) {
-          event.preventDefault();
-          onOpen(path);
-        }
-        close();
-      }}
-    >
-      {label}
-    </a>
-  );
+  // One icon lookup for every sidebar link: the shell's core registry
+  // first, then the assembled example colors (which can never shadow a
+  // core path — assembly refuses that).
+  const icons = { ...coreModuleIcons, ...moduleIcons };
+  const link = (path: string, label: string, extraClassName?: string) => {
+    const icon = icons[path];
+    return (
+      <a
+        href={path}
+        className={sidebarLinkClass + (extraClassName ?? '')}
+        onClick={(event) => {
+          if (onOpen) {
+            event.preventDefault();
+            onOpen(path);
+          }
+          close();
+        }}
+      >
+        {icon ? (
+          <ModuleIcon
+            icon={icon.icon}
+            variant={icon.variant}
+            appearance="bare"
+            size="sm"
+          />
+        ) : null}
+        {label}
+      </a>
+    );
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -96,7 +117,7 @@ export function AppShellLayout({
             className="flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:hidden"
             onClick={close}
           >
-            ✕
+            <X aria-hidden="true" className="size-5" />
           </button>
         </div>
         <nav
@@ -106,6 +127,7 @@ export function AppShellLayout({
           {navigation && navigation.length > 0 ? (
             <BusinessNavigation
               navigation={navigation}
+              moduleIcons={icons}
               onOpen={(path) => {
                 if (onOpen) onOpen(path);
                 close();
@@ -141,6 +163,10 @@ export function AppShellLayout({
               className={sidebarLinkClass}
               onClick={close}
             >
+              <GraduationCap
+                aria-hidden="true"
+                className="size-4 shrink-0 text-muted-foreground"
+              />
               {message('shell.nav.tutorials')}
             </a>
             {link('/system', message('shell.nav.status'))}
@@ -157,7 +183,7 @@ export function AppShellLayout({
             className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-muted"
             onClick={() => setMenuOpen(true)}
           >
-            ☰
+            <Menu aria-hidden="true" className="size-5" />
           </button>
           <span className="text-sm font-semibold">{message('app.name')}</span>
         </header>

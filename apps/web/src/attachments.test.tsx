@@ -183,10 +183,23 @@ test('upload progress, failure and retry preserve the upload identity until publ
   expect(
     await screen.findByRole('button', { name: '下载 hello.txt' }),
   ).toBeVisible();
-  // Each published row carries its file-type icon with a localized
-  // accessible name; the type is never icon-only.
-  expect(screen.getByRole('img', { name: '文件' })).toBeVisible();
-  expect(screen.getByRole('img', { name: '图片文件' })).toBeVisible();
+  // Each published row resolves its file-type icon from the name and
+  // MIME (hello.txt → document, 图.png → image); the type is never
+  // icon-only — the row shows the file name and the download button
+  // carries a localized accessible name. Each row is reachable through
+  // its uniquely labeled download button.
+  expect(
+    screen
+      .getByRole('button', { name: '下载 hello.txt' })
+      .closest('li')
+      ?.querySelector('img[data-material-file-icon]'),
+  ).toHaveAttribute('data-material-file-icon', 'document');
+  expect(
+    screen
+      .getByRole('button', { name: '下载 图.png' })
+      .closest('li')
+      ?.querySelector('img[data-material-file-icon]'),
+  ).toHaveAttribute('data-material-file-icon', 'image');
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBeTruthy();
   expect(keys[1]).toBe(keys[0]);

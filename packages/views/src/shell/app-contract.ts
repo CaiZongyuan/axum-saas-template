@@ -1,7 +1,10 @@
 import type { Notification, NotificationTarget } from '@saas/sdk';
 import type { ApiClient } from '@saas/sdk';
+import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import type { ModuleIconVariant } from '@saas/ui/components/module-icon';
 import { coreMessages } from './core-messages';
+import { coreModuleIcons } from './module-registry';
 
 // The composition contract between the universal shell and the removable
 // example applications (docs/ui/design.md §4.1, ADR 0003):
@@ -79,6 +82,12 @@ export type AppScene = {
   render?: () => ReactNode;
 };
 
+/** Small-area module identity for one navigation path (docs/ui/design.md §6 Q9). */
+export type ModuleIconEntry = {
+  icon: LucideIcon;
+  variant: ModuleIconVariant;
+};
+
 /** Localized display info for one notification, resolved by its example. */
 export type NotificationDisplay = {
   titleKey: string;
@@ -106,6 +115,12 @@ export type ExampleContribution = {
     notice: Notification,
   ) => NotificationDisplay | undefined;
   scenes?: AppScene[];
+  /**
+   * Module icons for this example's own route paths. Keys must be routes
+   * the example contributes — an icon never outlives its example, and
+   * Core-owned paths stay with the shell's core registry.
+   */
+  moduleIcons?: Record<string, ModuleIconEntry>;
   /** Wraps this example's pages, e.g. to provide example-owned ports. */
   provide?: (page: ReactNode) => ReactNode;
 };
@@ -134,6 +149,8 @@ export type AssembledApp = {
   describeNotification?:
     ((notice: Notification) => NotificationDisplay | undefined) | undefined;
   scenes: AssembledScene[];
+  /** Core registry entries merged with every assembled example's icons. */
+  moduleIcons: Record<string, ModuleIconEntry>;
 };
 
 /** One assembled scene; its keys are namespaced and resolve in messages. */
@@ -265,6 +282,19 @@ function validatedExample(
       );
   }
 
+  // Module icons follow the same ownership rule as navigation: an icon
+  // may only dress a route the example itself contributes, so a removed
+  // example takes its module color with it.
+  for (const key of Object.keys(example.moduleIcons ?? {})) {
+    const normalized = normalizePath(key);
+    if (
+      !example.routes.some((route) => normalizePath(route.path) === normalized)
+    )
+      throw new Error(
+        `module icon ${normalized} names a path example ${example.id} does not contribute`,
+      );
+  }
+
   return { example, navigation, scenes, messages };
 }
 
@@ -336,6 +366,16 @@ export function assembleApp({
     .map((entry) => entry.example.describeNotification)
     .filter((describe) => describe !== undefined);
 
+  // Core registers its module colors first; examples extend the map with
+  // their own (already ownership-validated) paths. Contributed routes
+  // never collide with Core's, so no example can shadow a core color.
+  const moduleIcons: AssembledApp['moduleIcons'] = { ...coreModuleIcons };
+  for (const entry of assembled)
+    for (const [path, iconEntry] of Object.entries(
+      entry.example.moduleIcons ?? {},
+    ))
+      moduleIcons[normalizePath(path)] = iconEntry;
+
   return {
     examples: assembled.map((entry) => entry.example.id),
     routes: assembled.flatMap((entry) =>
@@ -347,6 +387,7 @@ export function assembleApp({
     navigation,
     messages,
     defaultEntry: entry,
+    moduleIcons,
     resolveNotificationTarget:
       resolvers.length === 0
         ? undefined

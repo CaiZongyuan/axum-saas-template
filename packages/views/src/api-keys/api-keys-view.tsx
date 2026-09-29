@@ -24,7 +24,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@saas/ui/components/card';
-import { Empty, EmptyHeader, EmptyTitle } from '@saas/ui/components/empty';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@saas/ui/components/empty';
+import { KeyRoundIcon } from 'lucide-react';
 import {
   Field,
   FieldGroup,
@@ -389,6 +395,9 @@ function Settings({
       ) : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <KeyRoundIcon aria-hidden="true" />
+            </EmptyMedia>
             <EmptyTitle>{message('apiKeys.list.empty')}</EmptyTitle>
           </EmptyHeader>
         </Empty>

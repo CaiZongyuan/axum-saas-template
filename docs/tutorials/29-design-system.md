@@ -20,7 +20,7 @@
 
 ## 4. 图标：按需加载的目录
 
-图标标签是精选的 Lucide 图标子集，按「操作 / 导航 / 状态 / 对象」四类组织，类别色来自生产令牌（`text-primary`、`text-link`、`text-success`、`text-warning`）。整个目录在自己的异步分块里，只有第一次打开这个标签才会下载——首包永远不包含图标目录，性能预算（`scripts/perf/baselines.json`）不因此调整。每个图标按钮的可访问名称是本地化的「复制图标名称 X」，点击复制图标名，复制结果用文字反馈而不是颜色。图标来自 [Lucide](https://lucide.dev)，ISC 许可，可以替换为任何兼容许可的图标库；想扩充目录就在 `icon-catalog.tsx` 的分类表里加一行。
+图标标签分三部分。上半部分是 **ModuleIcon 矩阵**：10 组分类色 × 裸色/平色/柔和/高光四种外观，在亮、暗两张 scoped 预览表里各渲染一遍——分类色只做小面积模块标识（侧栏、模块入口），取色独立于语义状态色；Core 模块的颜色登记在 `packages/views/src/shell/module-registry.ts`，示例模块通过 `ExampleContribution.moduleIcons` 声明自己路由的颜色并随示例一起移除。中间是**文件图标样例**：附件与文件列表按「文件名 → 后缀（最长匹配）→ MIME」解析为 Material Icon Theme 5.38.1 的 vendored 子集（32 枚，MIT 许可，署名见仓库根 `THIRD-PARTY-NOTICES.md`）；导出行只展示版本、状态与过期时间、不含文件名，因此暂不使用文件图标。下半部分才是精选的 Lucide 图标目录，按「操作 / 导航 / 状态 / 对象」四类组织，类别色来自生产令牌（`text-primary`、`text-link`、`text-success`、`text-warning`）。整个图标标签在自己的异步分块里，只有第一次打开才会下载——首包永远不包含它，性能预算（`scripts/perf/baselines.json`）不因此调整。每个图标按钮的可访问名称是本地化的「复制图标名称 X」，点击复制图标名，复制结果用文字反馈而不是颜色。Lucide 图标来自 [lucide.dev](https://lucide.dev)，ISC 许可，可以替换为任何兼容许可的图标库；想扩充目录就在 `icon-catalog.tsx` 的分类表里加一行。
 
 ## 5. 可访问交互
 

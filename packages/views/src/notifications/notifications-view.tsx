@@ -18,7 +18,13 @@ import { requestIdFromError } from '@saas/core';
 import { Alert, AlertDescription, AlertTitle } from '@saas/ui/components/alert';
 import { Badge } from '@saas/ui/components/badge';
 import { Button } from '@saas/ui/components/button';
-import { Empty, EmptyHeader, EmptyTitle } from '@saas/ui/components/empty';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@saas/ui/components/empty';
+import { BellOffIcon } from 'lucide-react';
 import type { NotificationDisplay } from '../shell/app-contract';
 import { sessionKey, sessionQuery } from '../identity';
 import { useAppMessage, type MessageParams } from '../shell/messages';
@@ -205,6 +211,9 @@ function Inbox({
       ) : items.length === 0 ? (
         <Empty>
           <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <BellOffIcon aria-hidden="true" />
+            </EmptyMedia>
             <EmptyTitle>
               {message(
                 unreadOnly

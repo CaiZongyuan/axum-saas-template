@@ -1,3 +1,4 @@
+import { StickyNoteIcon } from 'lucide-react';
 import { useAppMessage } from '../shell/messages';
 import type { ExampleContribution } from '../shell/app-contract';
 
@@ -60,5 +61,8 @@ export function createNotesExample(): ExampleContribution {
       },
     },
     scenes: [{ id: 'notes-demo', titleKey: 'nav.notes' }],
+    moduleIcons: {
+      '/notes': { icon: StickyNoteIcon, variant: 'indigo' },
+    },
   };
 }

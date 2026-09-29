@@ -19,10 +19,10 @@ import {
   FieldDescription,
 } from '@saas/ui/components/field';
 import { Input } from '@saas/ui/components/input';
+import { MaterialFileIcon } from '@saas/ui/components/material-file-icon';
 import type { FileTransfer } from './file-transfer';
 import { AttachmentFailure, UploadProgress } from './attachment-feedback';
 import type { UploadPhase } from './attachment-feedback';
-import { attachmentTypeFor } from './file-icons';
 import { DeleteResource } from './delete-resource';
 import { sessionKey } from '../identity';
 import { useAppMessage } from '../shell/messages';
@@ -320,62 +320,58 @@ export function AttachmentsPanel({
       ) : null}
       {!attachments.isError ? (
         <ul className="flex flex-col gap-3">
-          {items.map((file) => {
-            const { Icon: TypeIcon, labelKey } = attachmentTypeFor(
-              file.content_type,
-            );
-            return (
-              <li key={file.id} className="flex flex-wrap items-center gap-3">
-                <TypeIcon
-                  label={message(labelKey)}
-                  className="size-5 shrink-0 text-muted-foreground"
+          {items.map((file) => (
+            <li key={file.id} className="flex flex-wrap items-center gap-3">
+              <MaterialFileIcon
+                name={file.file_name}
+                mimeType={file.content_type}
+                className="size-5 shrink-0"
+              />
+              <span>
+                {file.file_name} · {formatBytes(file.size)}
+              </span>
+              <Button
+                variant="outline"
+                disabled={!!downloading}
+                aria-label={message('attachments.download', {
+                  name: file.file_name,
+                })}
+                onClick={() => {
+                  void download(file);
+                }}
+              >
+                {downloading === file.id
+                  ? message('common.downloading')
+                  : message('attachments.downloadAction')}
+              </Button>
+              {canDelete ? (
+                <DeleteResource
+                  apiClient={apiClient}
+                  identity={identity}
+                  resource={{
+                    kind: 'attachment',
+                    id: file.id,
+                    documentId,
+                    name: file.file_name,
+                  }}
+                  disabled={busy || !!downloading}
                 />
-                <span>
-                  {file.file_name} · {formatBytes(file.size)}
-                </span>
+              ) : null}
+              {onInsert && canUpload ? (
                 <Button
                   variant="outline"
-                  disabled={!!downloading}
-                  aria-label={message('attachments.download', {
-                    name: file.file_name,
-                  })}
                   onClick={() => {
-                    void download(file);
+                    const label = file.file_name.replace(/[\\[\]]/g, '\\$&');
+                    onInsert(
+                      `${file.previewable ? '!' : ''}[${label}](attachment:${file.id})`,
+                    );
                   }}
                 >
-                  {downloading === file.id
-                    ? message('common.downloading')
-                    : message('attachments.downloadAction')}
+                  {message('attachments.insertRef')}
                 </Button>
-                {canDelete ? (
-                  <DeleteResource
-                    apiClient={apiClient}
-                    identity={identity}
-                    resource={{
-                      kind: 'attachment',
-                      id: file.id,
-                      documentId,
-                      name: file.file_name,
-                    }}
-                    disabled={busy || !!downloading}
-                  />
-                ) : null}
-                {onInsert && canUpload ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      const label = file.file_name.replace(/[\\[\]]/g, '\\$&');
-                      onInsert(
-                        `${file.previewable ? '!' : ''}[${label}](attachment:${file.id})`,
-                      );
-                    }}
-                  >
-                    {message('attachments.insertRef')}
-                  </Button>
-                ) : null}
-              </li>
-            );
-          })}
+              ) : null}
+            </li>
+          ))}
         </ul>
       ) : null}
       {attachments.hasNextPage ? (

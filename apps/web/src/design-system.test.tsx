@@ -198,7 +198,9 @@ test('scenes run on isolated local state; example scenes come from the real asse
       // The example badge is scoped to its own scene card: several scenes
       // can belong to one example, so the badge text legitimately repeats
       // across cards but each card still carries exactly its own badge.
-      const card = screen
+      // The lookup stays inside the main landmark because a scene title
+      // may equally be a sidebar navigation label.
+      const card = within(screen.getByRole('main'))
         .getByText(assembledApp.messages.zh[scene.titleKey])
         .closest('div.rounded-lg');
       expect(card).not.toBeNull();
