@@ -1,6 +1,6 @@
 {
-  "title": "Axum SaaS Template",
-  "titleEn": "Axum SaaS Template",
+  "title": "Dougong 斗拱",
+  "titleEn": "Dougong",
   "description": "从真实请求开始，学习、验证并替换自己的业务。",
   "descriptionEn": "Start from a real request, then learn, verify and adapt it to your own product.",
   "repository": "CaiZongyuan/axum-saas-template",
@@ -24,8 +24,8 @@
       "titleEn": "Home",
       "group": "公开站",
       "layout": "page",
-      "pageTitle": "Axum SaaS Template —— 以真实应用学习的开源模板",
-      "pageTitleEn": "Axum SaaS Template — an open-source template you learn from by running it",
+      "pageTitle": "Dougong（斗拱）—— 以真实应用学习的开源模板",
+      "pageTitleEn": "Dougong — an open-source template you learn from by running it",
       "pageDescription": "以 Rust + React 为基础构建 SaaS，通过真实可运行的应用学习与扩展。",
       "pageDescriptionEn": "A Rust + React foundation for your next SaaS, with a working application to learn from."
     },
