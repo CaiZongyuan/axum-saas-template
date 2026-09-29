@@ -1,11 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { createApiClient, type CurrentSession } from '@saas/sdk';
-import { render, screen, within } from '@testing-library/react';
+import {
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
+import { assembledApp } from './app-examples';
 import { createAppRouter } from './router';
 
 // Shell composition (UI-R4, docs/ui/design.md §4): the shell mounts once
@@ -51,6 +57,13 @@ function open(path = '/', session: 'anonymous' | CurrentSession = 'anonymous') {
   return { user: userEvent.setup() };
 }
 
+// Derived, not named: the example-removal CI builds copies with examples
+// stripped, so the business-group assertions follow whatever this copy
+// assembles instead of naming the knowledge example's entry.
+const businessPaths = assembledApp.navigation.flatMap((group) =>
+  group.items.map((item) => item.path),
+);
+
 test('the shell mounts once: navigating between shell routes keeps the sidebar node', async () => {
   const { user } = open('/', signedIn);
   expect(await screen.findByText('composition@example.com')).toBeVisible();
@@ -73,18 +86,22 @@ test('signed in, assembled business groups appear on every shell route', async (
   expect(await screen.findByRole('heading', { name: '设置' })).toBeVisible();
   const navigation = screen.getByRole('navigation', { name: '主菜单' });
   // The groups mount with the resolved session on the shared shell.
-  expect(
-    await within(navigation).findByRole('link', { name: '我的文档' }),
-  ).toBeVisible();
+  await waitFor(() => {
+    const hrefs = within(navigation)
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'));
+    for (const path of businessPaths) expect(hrefs).toContain(path);
+  });
 });
 
 test('signed out, no assembled business groups render on any shell route', async () => {
   open('/settings');
   expect(await screen.findByRole('heading', { name: '设置' })).toBeVisible();
   const navigation = screen.getByRole('navigation', { name: '主菜单' });
-  expect(
-    within(navigation).queryByRole('link', { name: '我的文档' }),
-  ).toBeNull();
+  const hrefs = within(navigation)
+    .getAllByRole('link')
+    .map((link) => link.getAttribute('href'));
+  for (const path of businessPaths) expect(hrefs).not.toContain(path);
 });
 
 test('the notifications page renders inside the shell', async () => {
