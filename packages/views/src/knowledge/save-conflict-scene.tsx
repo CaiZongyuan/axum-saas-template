@@ -3,6 +3,7 @@ import type { Document } from '@saas/sdk';
 import { Button } from '@saas/ui/components/button';
 import { ConflictSection, Failure } from './document-feedback';
 import { MarkdownPreview } from './markdown-preview';
+import { choiceRowClass } from '../shell/rows';
 import { useAppMessage } from '../shell/messages';
 
 // The design-system scene for UI07: the editor's four save outcomes run on
@@ -52,10 +53,7 @@ export function SaveConflictScene() {
         className="flex flex-col gap-1"
       >
         {SCENARIOS.map(({ id, labelKey }) => (
-          <label
-            key={id}
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-sm hover:bg-muted"
-          >
+          <label key={id} className={choiceRowClass}>
             <input
               type="radio"
               name="knowledge-save-conflict-scene"

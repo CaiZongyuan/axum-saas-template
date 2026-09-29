@@ -667,7 +667,7 @@ function DocumentForm({
                   tabIndex={editorMode === mode ? 0 : -1}
                   onClick={() => selectEditorMode(mode)}
                   onKeyDown={onEditorTabKeyDown}
-                  className="min-h-11 rounded-md px-3 text-sm font-medium aria-selected:bg-background aria-selected:shadow-sm"
+                  className="min-h-11 rounded-md px-3 text-sm font-medium aria-selected:bg-background aria-selected:shadow-sm lg:min-h-9"
                 >
                   {message(
                     mode === 'edit'

@@ -1,8 +1,9 @@
 import type { AssembledApp } from './app-contract';
 
 // One sidebar link shape everywhere (shell and assembled groups alike).
+// Compact h-9 on desktop; the drawer keeps the 44px touch target.
 export const sidebarLinkClass =
-  'flex h-11 items-center rounded-md px-3 text-sm text-foreground hover:bg-muted ';
+  'flex h-11 items-center rounded-md px-3 text-sm text-foreground hover:bg-accent lg:h-9 ';
 import { useAppMessage } from './messages';
 
 // Renders the assembled business navigation groups. The shell never

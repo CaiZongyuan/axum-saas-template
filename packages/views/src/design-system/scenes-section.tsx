@@ -18,6 +18,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@saas/ui/components/empty';
+import { choiceRowClass } from '../shell/rows';
 import { useAppMessage } from '../shell/messages';
 import type { AssembledApp } from '../shell/app-contract';
 
@@ -86,10 +87,7 @@ export function ScenesSection({ scenes }: { scenes: AssembledApp['scenes'] }) {
           <fieldset className="flex flex-col gap-1">
             <legend className="sr-only">{message('design.scenes.list')}</legend>
             {listItems.map((item) => (
-              <label
-                key={item.id}
-                className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-sm hover:bg-muted"
-              >
+              <label key={item.id} className={choiceRowClass}>
                 <input
                   type="radio"
                   name="design-scene-list"

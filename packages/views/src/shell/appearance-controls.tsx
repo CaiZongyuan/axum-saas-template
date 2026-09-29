@@ -10,6 +10,14 @@ import {
 // aria-pressed so keyboard and screen-reader behavior comes for free; the
 // switching is pure state — no reload, no lost input.
 
+// One segmented-toggle button shape for both groups: 44px touch target
+// below lg, compact h-9 on desktop.
+const toggleButtonClass = (selected: boolean) =>
+  (selected
+    ? 'bg-primary text-primary-foreground'
+    : 'bg-background text-foreground') +
+  ' h-11 px-3 text-sm transition-colors hover:bg-muted lg:h-9';
+
 export function LanguageToggle() {
   const message = useAppMessage();
   const { locale, setLocale } = usePreferences();
@@ -28,12 +36,7 @@ export function LanguageToggle() {
           key={option.value}
           type="button"
           aria-pressed={locale === option.value}
-          className={
-            (locale === option.value
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-background text-foreground') +
-            ' h-11 px-3 text-sm transition-colors hover:bg-muted'
-          }
+          className={toggleButtonClass(locale === option.value)}
           onClick={() => setLocale(option.value)}
         >
           {option.label}
@@ -80,12 +83,7 @@ export function ThemeToggle() {
           key={option.value}
           type="button"
           aria-pressed={theme === option.value}
-          className={
-            (theme === option.value
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-background text-foreground') +
-            ' h-11 px-3 text-sm transition-colors hover:bg-muted'
-          }
+          className={toggleButtonClass(theme === option.value)}
           onClick={() => setTheme(option.value)}
         >
           {option.label}

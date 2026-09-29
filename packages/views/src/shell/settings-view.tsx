@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@saas/ui/components/card';
 import { AppShellLayout, type ShellRole } from './app-shell';
+import { choiceRowClass } from './rows';
 import { docsChapterUrl } from './docs-links';
 import { useAppMessage } from './messages';
 import {
@@ -47,10 +48,7 @@ function ChoiceGroup<T extends string>({
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       <div className="flex flex-col gap-1">
         {options.map((option) => (
-          <label
-            key={option.value}
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-sm hover:bg-muted"
-          >
+          <label key={option.value} className={choiceRowClass}>
             <input
               type="radio"
               name={name}

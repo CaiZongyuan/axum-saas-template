@@ -5,6 +5,7 @@ import { Button } from '@saas/ui/components/button';
 import { exportLabelKeys } from './export-feedback';
 import { notificationHeading } from '../notifications/notifications-view';
 import type { NotificationDisplay } from '../shell/app-contract';
+import { choiceRowClass } from '../shell/rows';
 import { useAppMessage } from '../shell/messages';
 import { useAppFormat } from '../shell/format';
 
@@ -136,10 +137,7 @@ export function ExportStatesScene({
     <div className="flex flex-col gap-3">
       <fieldset aria-label={message('scene.exportStates.statusTitle')}>
         {STATUSES.map((id) => (
-          <label
-            key={id}
-            className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-sm hover:bg-muted"
-          >
+          <label key={id} className={choiceRowClass}>
             <input
               type="radio"
               name="knowledge-export-scene"

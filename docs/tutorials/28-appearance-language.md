@@ -37,7 +37,7 @@ React 首帧渲染之前，[index.html](../../apps/web/index.html) 的一段内�
 
 ## 5. 无障碍与窄屏
 
-语言和主题控件是真实按钮（`aria-pressed` 标注当前项），设置页用原生 `fieldset/legend` 单选框，键盘行为跟随平台。切换语言时 `html.lang`、页面 `<title>` 与 meta description、导航的无障碍名称（"主菜单 / Main menu"）一并更新。侧栏在窄屏折叠为抽屉，开合按钮用 `aria-expanded` / `aria-controls` 声明状态，Esc 也会收起；主要触控目标不小于 44px。通知与 API Keys 属于登录后能力，未登录的侧栏不展示。
+语言和主题控件是真实按钮（`aria-pressed` 标注当前项），设置页用原生 `fieldset/legend` 单选框，键盘行为跟随平台。切换语言时 `html.lang`、页面 `<title>` 与 meta description、导航的无障碍名称（"主菜单 / Main menu"）一并更新。侧栏在窄屏折叠为抽屉，开合按钮用 `aria-expanded` / `aria-controls` 声明状态，Esc 也会收起；窄屏触控目标保持不小于 44px，桌面行高压至 36px。通知与 API Keys 属于登录后能力，未登录的侧栏不展示。
 
 ## 6. 验证
 

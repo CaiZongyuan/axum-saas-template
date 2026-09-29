@@ -6,77 +6,125 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'Noto Sans CJK SC',
+    'Microsoft YaHei', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-link: var(--link);
   --color-sidebar: var(--sidebar);
+  --color-selection: var(--selection);
+  --color-selection-foreground: var(--selection-foreground);
+  --color-surface-muted: var(--surface-muted);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Containers and overlays share the 8px cap with controls one step below;
+     nothing in the UI goes rounder than `rounded-lg`. */
+  --radius-xl: var(--radius);
 }
 
-/* The visual baseline (docs/ui/design.md §4): neutral surfaces layered as
-   a white workspace plus a light-gray navigation column, hairline borders,
-   ~4–6px control radii with ~8px containers, and compact 14/20px body
+/* The visual baseline (docs/ui/design.md §5): neutral surfaces layered as a
+   white workspace plus a light-gray navigation column, hairline borders,
+   4–6px control radii with an 8px container cap, and compact 14/20px body
    type. Links, focus and selection use blue; success/warning/danger stay
-   small-area accents. Every token has a dark counterpart in `.dark`. */
+   small-area accents. Every token has a dark counterpart in `.dark`, and
+   these tables are the single production source — the showroom reads them
+   live and the public site derives from them. Light/dark values follow the
+   confirmed Bio Discovery X reference tables. */
 :root {
   --radius: 0.5rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --success: oklch(0.55 0.16 150);
-  --warning: oklch(0.62 0.16 65);
-  --link: oklch(0.52 0.2 262);
-  --sidebar: oklch(0.97 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.55 0.14 262);
+  --background: #ffffff;
+  --foreground: #252629;
+  --card: #ffffff;
+  --card-foreground: #252629;
+  --popover: #ffffff;
+  --popover-foreground: #252629;
+  --primary: #202124;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f2f3;
+  --secondary-foreground: #35373b;
+  --muted: #f5f6f7;
+  --muted-foreground: #696d74;
+  --accent: #edeef0;
+  --accent-foreground: #252629;
+  --selection: #eaf2fc;
+  --selection-foreground: #185eaa;
+  --surface-muted: #fafafa;
+  --destructive: #c53636;
+  --destructive-foreground: #ffffff;
+  --info: #176bc0;
+  --info-foreground: #ffffff;
+  --warning: #95600c;
+  --warning-foreground: #ffffff;
+  --success: #24764a;
+  --success-foreground: #ffffff;
+  --link: #176bc0;
+  --sidebar: #fcfcfc;
+  --border: #e9eaec;
+  --input: #dfe1e5;
+  --ring: #3683d6;
   color-scheme: light;
 }
 
 .dark {
-  --background: oklch(0.141 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.181 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.26 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.26 0 0);
-  --muted-foreground: oklch(0.72 0 0);
-  --destructive: oklch(0.68 0.2 25);
-  --success: oklch(0.74 0.16 152);
-  --warning: oklch(0.8 0.14 75);
-  --link: oklch(0.72 0.13 255);
-  --sidebar: oklch(0.175 0 0);
-  --border: oklch(0.27 0 0);
-  --input: oklch(0.27 0 0);
-  --ring: oklch(0.62 0.13 258);
+  --background: #191a1c;
+  --foreground: #ececee;
+  --card: #1e1f21;
+  --card-foreground: #ececee;
+  --popover: #242527;
+  --popover-foreground: #ececee;
+  --primary: #f0f0f1;
+  --primary-foreground: #202124;
+  --secondary: #2b2c2f;
+  --secondary-foreground: #e3e4e6;
+  --muted: #242527;
+  --muted-foreground: #a0a3aa;
+  --accent: #2e3033;
+  --accent-foreground: #f0f0f1;
+  --selection: #21354b;
+  --selection-foreground: #9cc9fa;
+  --surface-muted: #1c1d1f;
+  --destructive: #f08080;
+  --destructive-foreground: #321c1c;
+  --info: #79b5f0;
+  --info-foreground: #162638;
+  --warning: #e2b565;
+  --warning-foreground: #302311;
+  --success: #77c59a;
+  --success-foreground: #192e22;
+  --link: #79b5f0;
+  /* The one non-hex entry: the reference table itself states this value
+     in oklch, copied verbatim. */
+  --sidebar: oklch(0.16 0.004 285);
+  --border: #303236;
+  --input: #42454b;
+  --ring: #79b5f0;
   color-scheme: dark;
 }
 
@@ -86,16 +134,14 @@
   }
   body {
     @apply m-0 bg-background text-sm text-foreground antialiased;
-    font-family:
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      'Segoe UI',
-      'Noto Sans CJK SC',
-      'Microsoft YaHei',
-      sans-serif;
+    font-family: var(--font-sans);
+    letter-spacing: 0;
   }
   a {
     color: var(--link);
+  }
+  ::selection {
+    background: var(--selection);
+    color: var(--selection-foreground);
   }
 }

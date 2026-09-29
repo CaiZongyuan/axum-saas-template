@@ -37,7 +37,7 @@ Dates and numbers format through the current locale's `Intl.DateTimeFormat` / `I
 
 ## 5. Accessibility and narrow screens
 
-The language and theme controls are real buttons (`aria-pressed` marks the active option); the settings page uses native `fieldset/legend` radios, so keyboard behavior is the platform's. Switching languages updates `html.lang`, the page `<title>` and meta description, and the navigation's accessible name ("主菜单 / Main menu") together. On narrow screens the sidebar folds into a drawer whose toggle announces state through `aria-expanded` / `aria-controls`, and Escape dismisses it; primary touch targets stay at or above 44px. Notifications and API keys are signed-in capabilities, so the signed-out sidebar does not advertise them.
+The language and theme controls are real buttons (`aria-pressed` marks the active option); the settings page uses native `fieldset/legend` radios, so keyboard behavior is the platform's. Switching languages updates `html.lang`, the page `<title>` and meta description, and the navigation's accessible name ("主菜单 / Main menu") together. On narrow screens the sidebar folds into a drawer whose toggle announces state through `aria-expanded` / `aria-controls`, and Escape dismisses it; touch targets stay at or above 44px on narrow screens, while desktop rows compact to 36px. Notifications and API keys are signed-in capabilities, so the signed-out sidebar does not advertise them.
 
 ## 6. Verify it
 
