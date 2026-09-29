@@ -149,8 +149,6 @@ const zh: Catalog = {
   'attachments.downloadAction': '下载',
   'attachments.insertRef': '插入引用',
   'attachments.loadMore': '加载更多附件',
-  'attachments.imageType': '图片文件',
-  'attachments.fileType': '文件',
 
   // Exports: panel, feedback, detail.
   'exports.section': '文档导出',
@@ -427,8 +425,6 @@ const en: Catalog = {
   'attachments.downloadAction': 'Download',
   'attachments.insertRef': 'Insert reference',
   'attachments.loadMore': 'Load more attachments',
-  'attachments.imageType': 'Image file',
-  'attachments.fileType': 'File',
 
   'exports.section': 'Document exports',
   'exports.heading': 'Export the document',

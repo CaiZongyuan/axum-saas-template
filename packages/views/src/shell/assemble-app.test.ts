@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
+import { BookOpenIcon } from 'lucide-react';
 import { assembleApp, CORE_RESERVED_ROUTES } from './app-contract';
 import type { ExampleContribution } from './app-contract';
+import { coreModuleIcons } from './module-registry';
 
 // The public composition contract: examples declare pages, navigation,
 // messages and optional notification parsing under a stable id; the shell
@@ -278,5 +280,72 @@ describe('assembleApp', () => {
         target: { ...notice.target, kind: 'other' },
       }),
     ).toBeUndefined();
+  });
+
+  test('core module icons ship with every assembly and core-only builds keep only them', () => {
+    const app = assembleApp({ examples: [example()] });
+    expect(app.moduleIcons['/']).toMatchObject({ variant: 'blue' });
+    expect(app.moduleIcons['/settings']).toMatchObject({ variant: 'teal' });
+    expect(Object.keys(coreModuleIcons).length).toBeGreaterThan(0);
+
+    const coreOnly = assembleApp({ examples: [] });
+    expect(coreOnly.moduleIcons).toEqual(coreModuleIcons);
+    // The knowledge module color must never outlive its example.
+    expect(coreOnly.moduleIcons['/documents']).toBeUndefined();
+  });
+
+  test('example module icons merge by path alongside the core registry', () => {
+    const knowledge = example({
+      id: 'knowledge',
+      defaultEntry: '/documents',
+      routes: [{ path: '/documents', component: () => null }],
+      navigation: [
+        {
+          id: 'g',
+          labelKey: 'group.label',
+          items: [{ id: 'a', labelKey: 'nav.notes', path: '/documents' }],
+        },
+      ],
+      moduleIcons: { '/documents': { icon: BookOpenIcon, variant: 'teal' } },
+    });
+    const app = assembleApp({ examples: [knowledge] });
+    expect(app.moduleIcons['/documents']).toMatchObject({ variant: 'teal' });
+    expect(app.moduleIcons['/']).toMatchObject({ variant: 'blue' });
+  });
+
+  test('module icon keys outside the example routes fail the assembly', () => {
+    const stray = example({
+      id: 'knowledge',
+      defaultEntry: '/documents',
+      routes: [{ path: '/documents', component: () => null }],
+      navigation: [
+        {
+          id: 'g',
+          labelKey: 'group.label',
+          items: [{ id: 'a', labelKey: 'nav.notes', path: '/documents' }],
+        },
+      ],
+      moduleIcons: { '/elsewhere': { icon: BookOpenIcon, variant: 'teal' } },
+    });
+    expect(() => assembleApp({ examples: [stray] })).toThrow(
+      /module icon \/elsewhere .* example knowledge does not contribute/,
+    );
+  });
+
+  test('a module icon cannot squat a Core reserved path', () => {
+    const squatter = example({
+      routes: [{ path: '/settings', component: () => null }],
+      navigation: [
+        {
+          id: 'g',
+          labelKey: 'group.label',
+          items: [{ id: 'a', labelKey: 'nav.notes', path: '/settings' }],
+        },
+      ],
+      moduleIcons: { '/settings': { icon: BookOpenIcon, variant: 'teal' } },
+    });
+    expect(() => assembleApp({ examples: [squatter] })).toThrow(
+      /Core reserved route \/settings/,
+    );
   });
 });

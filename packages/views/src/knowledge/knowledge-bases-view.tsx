@@ -36,9 +36,11 @@ import { Input } from '@saas/ui/components/input';
 import {
   Empty,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
   EmptyDescription,
 } from '@saas/ui/components/empty';
+import { FolderOpenIcon } from 'lucide-react';
 import { DocumentList } from './documents-view';
 import { knowledgeBaseQuery } from './knowledge-base-query';
 
@@ -293,6 +295,9 @@ function BaseList({
           {items.length === 0 ? (
             <Empty>
               <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <FolderOpenIcon aria-hidden="true" />
+                </EmptyMedia>
                 <EmptyTitle>{message('bases.emptyTitle')}</EmptyTitle>
                 <EmptyDescription>
                   {message('bases.emptyHint')}

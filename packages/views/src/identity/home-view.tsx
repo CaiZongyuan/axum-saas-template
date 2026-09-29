@@ -21,11 +21,13 @@ export function HomeView({
   apiClient,
   docsUrl,
   navigation,
+  moduleIcons,
   onOpenNavigation,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
   navigation?: AssembledApp['navigation'];
+  moduleIcons?: AssembledApp['moduleIcons'];
   onOpenNavigation?: (path: string) => void;
 }) {
   const message = useAppMessage();
@@ -53,6 +55,7 @@ export function HomeView({
   return (
     <AppShellLayout
       navigation={user ? navigation : undefined}
+      moduleIcons={user ? moduleIcons : undefined}
       role={role}
       docsUrl={docsUrl}
       onOpen={onOpenNavigation}

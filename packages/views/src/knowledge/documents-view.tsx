@@ -38,8 +38,10 @@ import {
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
+  EmptyMedia,
   EmptyTitle,
 } from '@saas/ui/components/empty';
+import { FileSearchIcon } from 'lucide-react';
 import {
   Field,
   FieldDescription,
@@ -264,6 +266,9 @@ export function DocumentList({
         items.length === 0 ? (
           <Empty className="border">
             <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <FileSearchIcon aria-hidden="true" />
+              </EmptyMedia>
               <EmptyTitle>
                 {keyword
                   ? message('documents.emptyNoMatch')

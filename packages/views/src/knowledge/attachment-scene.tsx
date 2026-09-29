@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@saas/ui/components/button';
+import { MaterialFileIcon } from '@saas/ui/components/material-file-icon';
 import { AttachmentFailure, UploadProgress } from './attachment-feedback';
-import { FileDocumentIcon, FileImageIcon } from './file-icons';
 import { choiceRowClass } from '../shell/rows';
 import { useAppMessage } from '../shell/messages';
 
@@ -39,11 +39,11 @@ export function AttachmentScene() {
         </p>
         <ul className="mt-1 flex flex-col gap-1 text-sm text-muted-foreground">
           <li className="flex items-center gap-2">
-            <FileImageIcon className="size-5 shrink-0" />
+            <MaterialFileIcon name="scan.png" className="size-5 shrink-0" />
             {message('scene.attachments.iconImage')} · image
           </li>
           <li className="flex items-center gap-2">
-            <FileDocumentIcon className="size-5 shrink-0" />
+            <MaterialFileIcon name="report.pdf" className="size-5 shrink-0" />
             {message('scene.attachments.iconDocument')} · description
           </li>
         </ul>
@@ -69,9 +69,9 @@ export function AttachmentScene() {
         <>
           <UploadProgress phase="uploading" progress={60} />
           <p className="text-sm">
-            <FileImageIcon
-              label={message('attachments.imageType')}
-              className="mr-2 inline size-5 align-text-bottom text-muted-foreground"
+            <MaterialFileIcon
+              name={message('scene.attachments.demoImageName')}
+              className="mr-2 inline size-5 align-text-bottom"
             />
             {message('scene.attachments.demoImageName')} ·{' '}
             {message('scene.attachments.demoImageMeta')}
@@ -83,9 +83,9 @@ export function AttachmentScene() {
         <>
           <p role="status">{message('attachments.uploaded')}</p>
           <p className="text-sm">
-            <FileDocumentIcon
-              label={message('attachments.fileType')}
-              className="mr-2 inline size-5 align-text-bottom text-muted-foreground"
+            <MaterialFileIcon
+              name={message('scene.attachments.demoDocName')}
+              className="mr-2 inline size-5 align-text-bottom"
             />
             {message('scene.attachments.demoDocName')} ·{' '}
             {message('scene.attachments.demoDocMeta')}
