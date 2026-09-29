@@ -1,11 +1,8 @@
+import { withTestServices } from './lib/test-services.mjs';
 import { createRequire } from 'node:module';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { withTestPostgres } from './lib/postgres.mjs';
-import { withTestRustfs } from './lib/rustfs.mjs';
-import { withTestMailpit } from './lib/mailpit.mjs';
-import { withTestRedis } from './lib/redis.mjs';
 import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
 
 // The disposable desktop stack shared by the shell commands (smoke, soak):
@@ -28,53 +25,46 @@ export async function withDesktopStack(
     CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? '4',
   });
   run('pnpm', ['--filter', '@saas/desktop', 'build']);
-  await withTestPostgres(async ({ name, url }) => {
-    await withTestRustfs(async ({ name: storageName, env: storage }) => {
-      await withTestRedis(async ({ env: cacheEnv }) => {
-        await withTestMailpit(async ({ env: mailEnv }) => {
-          const apiPort = await freePort();
-          const webPort = await freePort();
-          const downloadsDir = mkdtempSync(join(tmpdir(), 'saas-desktop-dl-'));
-          const webOrigin = `http://127.0.0.1:${webPort}`;
-          const env = {
-            ...process.env,
-            ...storage,
-            ...cacheEnv,
-            ...mailEnv,
-            TELEMETRY_ENDPOINT: '',
-            TELEMETRY_LOG_DIRECTORY: '',
-            CACHE_PREFIX: `${cachePrefix}:${name}`,
-            DATABASE_URL: url,
-            APP_BIND: `127.0.0.1:${apiPort}`,
-            RUST_LOG: 'info',
-            VITE_API_PROXY: `http://127.0.0.1:${apiPort}`,
-            WEB_PORT: String(webPort),
-            E2E_API_URL: `http://127.0.0.1:${apiPort}`,
-            E2E_WEB_URL: webOrigin,
-            APP_ORIGIN: webOrigin,
-            TEST_PG_CONTAINER: name,
-            E2E_STORAGE_CONTAINER: storageName,
-            ...extraEnv,
-          };
-          let api;
-          let web;
-          try {
-            run(resolve(root, 'target/debug/migrate'), [], env);
-            run(resolve(root, 'target/debug/bootstrap-storage'), [], env);
-            api = launch(resolve(root, 'target/debug/saas-api'), [], env);
-            await waitFor(`${env.E2E_API_URL}/health/ready`, api);
-            if (seed) await seed({ env, webOrigin });
-            web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);
-            await waitFor(env.E2E_WEB_URL, web);
-            await body({ env, webOrigin, downloadsDir });
-          } finally {
-            await Promise.all([stop(web), stop(api)]);
-            rmSync(downloadsDir, { recursive: true, force: true });
-          }
-        });
-      });
-    });
-  });
+  await withTestServices(
+    async ({ postgresName, storageName, env: services }) => {
+      const apiPort = await freePort();
+      const webPort = await freePort();
+      const downloadsDir = mkdtempSync(join(tmpdir(), 'saas-desktop-dl-'));
+      const webOrigin = `http://127.0.0.1:${webPort}`;
+      const env = {
+        ...process.env,
+        ...services,
+        TELEMETRY_ENDPOINT: '',
+        TELEMETRY_LOG_DIRECTORY: '',
+        CACHE_PREFIX: `${cachePrefix}:${postgresName}`,
+        APP_BIND: `127.0.0.1:${apiPort}`,
+        RUST_LOG: 'info',
+        VITE_API_PROXY: `http://127.0.0.1:${apiPort}`,
+        WEB_PORT: String(webPort),
+        E2E_API_URL: `http://127.0.0.1:${apiPort}`,
+        E2E_WEB_URL: webOrigin,
+        APP_ORIGIN: webOrigin,
+        TEST_PG_CONTAINER: postgresName,
+        E2E_STORAGE_CONTAINER: storageName,
+        ...extraEnv,
+      };
+      let api;
+      let web;
+      try {
+        run(resolve(root, 'target/debug/migrate'), [], env);
+        run(resolve(root, 'target/debug/bootstrap-storage'), [], env);
+        api = launch(resolve(root, 'target/debug/saas-api'), [], env);
+        await waitFor(`${env.E2E_API_URL}/health/ready`, api);
+        if (seed) await seed({ env, webOrigin });
+        web = launch('pnpm', ['--filter', '@saas/web', 'dev'], env);
+        await waitFor(env.E2E_WEB_URL, web);
+        await body({ env, webOrigin, downloadsDir });
+      } finally {
+        await Promise.all([stop(web), stop(api)]);
+        rmSync(downloadsDir, { recursive: true, force: true });
+      }
+    },
+  );
 }
 
 function displayAvailable() {
