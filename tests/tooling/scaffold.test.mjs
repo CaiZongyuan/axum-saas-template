@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { isUtf8 } from 'node:buffer';
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
   existsSync,
@@ -7,6 +8,7 @@ import {
   rmSync,
   writeFileSync,
   chmodSync,
+  readdirSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -14,6 +16,12 @@ import test from 'node:test';
 import { parseEnv } from 'node:util';
 
 const cli = resolve('tools/create-axum-saas/index.mjs');
+function files(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    return entry.isDirectory() ? files(path) : entry.isFile() ? [path] : [];
+  });
+}
 execFileSync(process.execPath, ['scripts/build-create-package.mjs'], {
   stdio: 'inherit',
 });
@@ -62,17 +70,14 @@ test('the packaged creator emits renamed, history-free copies with disjoint port
     ),
   );
   assert.equal(new Set([...red, ...blue]).size, red.length + blue.length);
-  const grep = spawnSync(
-    'rg',
-    [
-      '-n',
-      '--hidden',
-      'saas_core|@saas/|saas-api|saas[.]locale|SAAS_DESKTOP|saasDesktop',
-      first,
-    ],
-    { encoding: 'utf8' },
-  );
-  assert.equal(grep.status, 1, grep.stdout);
+  const legacy =
+    /saas_core|@saas\/|saas-api|saas[.]locale|SAAS_DESKTOP|saasDesktop/;
+  for (const path of files(first)) {
+    assert.doesNotMatch(path, legacy);
+    const content = readFileSync(path);
+    if (isUtf8(content))
+      assert.doesNotMatch(content.toString('utf8'), legacy, path);
+  }
   const secondAttempt = spawnSync(process.execPath, [cli, 'red-maple'], {
     cwd: directory,
     encoding: 'utf8',

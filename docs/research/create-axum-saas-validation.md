@@ -51,3 +51,5 @@ Standards 首轮发现创建目录与 `cd` 不一致，随后发现父仓库版�
 PR #124 的首轮 CI 通过 backend、frontend、documentation、teaching-backend 与 desktop-smoke；tooling 在 Core 快照的离线依赖重解析处失败。本地缓存没有揭示该问题。
 
 Core 打包现改为通过 YAML API 从 importer 中删除已不再声明的依赖，同时保留自动安装的 peer dependencies，再使用 `pnpm install --frozen-lockfile`。输出确认 `resolution step is skipped`，保留已锁定版本和供应链检查。安装错误不再由 `--silent` 隐藏。定向四项真实产物测试与 lint 刷新通过；最终 CI 结果以 PR checks 为准。
+
+第二轮 CI 完成 Core 打包和其余三项产物测试，发现残留标识检查依赖未安装的 `rg`。改用 Node 文件 API 遍历全部文本产物及路径，保留相同的旧标识断言，不为检查引入额外系统工具。
