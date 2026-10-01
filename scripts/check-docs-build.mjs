@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { siteModel } from './lib/docs.mjs';
+import { checkBuiltLinks } from './lib/docs-links.mjs';
 
 // Post-build verification of the real site: every internal link in the
 // built HTML must land on a built page, and every page's locale switcher
@@ -31,71 +32,17 @@ const walk = (dir) => {
 };
 walk(dist);
 
-// Built file -> the URL path it serves under cleanUrls.
-const urlOfFile = (file) =>
-  `/${file.replace(/(^|\/)index\.html$/, '$1').replace(/\.html$/, '')}`;
-const served = new Map([...pages].map((file) => [urlOfFile(file), file]));
 const has404 = pages.has('404.html');
-if (!has404 || !served.has('/'))
+if (!has404 || !pages.has('index.html'))
   throw new Error('Built site lacks the root page or 404 fallback.');
 
-// URL path -> the file that must exist: directory URLs come from an
-// index.html, paths with their own extension (the OpenAPI download) from
-// the literal file, everything else from <path>.html. Returns null for
-// paths outside the configured base so the caller reports them per page.
-const fileOfUrl = (path) => {
-  if (!path.startsWith(base)) return null;
-  const withoutBase = path.slice(base.length);
-  if (withoutBase === '' || withoutBase.endsWith('/'))
-    return `${withoutBase}index.html`;
-  return existsSync(join(dist, withoutBase))
-    ? withoutBase
-    : `${withoutBase}.html`;
-};
-
-const checked = new Set();
-const broken = [];
-for (const file of pages) {
-  if (file === '404.html') continue;
-  const html = readFileSync(join(dist, file), 'utf8');
-  const hrefs = [...html.matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
-  const targets = hrefs.filter(
-    (href) =>
-      !/^(https?:|mailto:|#)/.test(href) &&
-      !/\.(js|css|ico|svg|png|woff2?)$/.test(href.split('#')[0]) &&
-      href !== '',
-  );
-  if (targets.length === 0)
-    broken.push(`${file}: no internal navigation found`);
-  // Relative hrefs resolve against the page's own URL under the base;
-  // VitePress keeps within-locale links relative in the built HTML.
-  const resolve = (href) =>
-    new URL(href, `http://x${base.replace(/\/$/, '')}${urlOfFile(file)}`)
-      .pathname;
-  for (const href of targets) {
-    const absolute = resolve(href);
-    const target = fileOfUrl(absolute);
-    if (target === null) {
-      broken.push(`${file} links at ${href} outside base ${base}`);
-      continue;
-    }
-    checked.add(target);
-    // Pages must exist as built HTML; published non-page artifacts (the
-    // OpenAPI download) just need to exist in the output.
-    const exists = target.endsWith('.html')
-      ? pages.has(target)
-      : existsSync(join(dist, target));
-    if (!exists) broken.push(`${file} links at ${href} -> missing ${target}`);
-  }
-  const switcher = html.match(/class="docs-locale-link"[^>]*href="([^"]*)"/);
-  if (!switcher)
-    broken.push(`${file}: locale switcher link missing from built page`);
-  else {
-    const target = fileOfUrl(resolve(switcher[1]));
-    if (!pages.has(target))
-      broken.push(`${file} locale switch targets missing ${target}`);
-  }
-}
+const { checked, broken } = checkBuiltLinks(
+  new Map(
+    [...pages].map((file) => [file, readFileSync(join(dist, file), 'utf8')]),
+  ),
+  base,
+  (file) => existsSync(join(dist, file)),
+);
 
 if (broken.length) {
   throw new Error(

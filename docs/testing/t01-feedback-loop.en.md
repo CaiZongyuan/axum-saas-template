@@ -1,54 +1,97 @@
-# Running the current tests and feedback loop
+# Test your backend and keep a useful feedback loop
 
-T01's test subject is the first public full-stack request. The commands below are real checks, not empty gates parked for v1 features that do not exist yet.
+Observe ordinary use cases through Axum HTTP, task/storage consistency through public capabilities, and complex pure rules through Domain tests. Run one failing behavior, then implement its complete path. File existence and private method calls cannot substitute for outcomes.
 
-## Backend
+You need Rust, Node/pnpm, Docker and installed dependencies. Run commands from the repository root. Tooling creates test dependencies without using development or production databases.
+
+## Give a new module an executable HTTP check
+
+Create `apps/api/tests/my_business.rs` and first verify real migrations and assembly:
+
+```rust
+use axum::{
+    body::Body,
+    http::{Request, StatusCode},
+};
+use sqlx::PgPool;
+use tower::ServiceExt;
+
+#[sqlx::test(migrations = "../../migrations")]
+async fn migrations_make_the_application_ready(pool: PgPool) {
+    let app = saas_api::router(pool, Default::default());
+    let response = app
+        .oneshot(
+            Request::get("/health/ready")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(response.headers().contains_key("x-request-id"));
+}
+```
+
+```bash
+node scripts/test-backend.mjs --test my_business
+```
+
+Success establishes real migrations, Router and request context. Replace this initial smoke with public business requests: create and read matching fields; reject unauthorized writes and read unchanged state/version; replay one idempotent request without duplicate results. Missing route assembly should produce 404, and invalid requests should return structured errors with request_id.
+
+A complete checked module example is [tutorial_module.rs](../../apps/api/tests/tutorial_module.rs) with `pnpm tutorial:check`. It verifies declarations, both Router paths and OpenAPI in a temporary source copy without existing databases.
+
+## Choose sufficient observation interfaces
+
+| Risk                                                             | Interface and real dependencies                      | Observable result                                   |
+| ---------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------- |
+| Identity, resource access, CRUD, conflicts, idempotency          | Axum Router + isolated PostgreSQL                    | Response and subsequent public reads                |
+| Audit/Job transactions, leases, file publication, cache fallback | Public Application/Adapter + PostgreSQL/Redis/RustFS | Rollback, terminal state, object bytes and recovery |
+| Last Owner and complex state transitions                         | Domain without infrastructure                        | Full rule boundaries                                |
+| Web forms and failure feedback                                   | Views + Testing Library; MSW replaces HTTP only      | Input, visible feedback and preserved drafts        |
+| Cookie/CSRF, SDK and real-page composition                       | A few real-browser journeys                          | Complete wiring and critical outcomes               |
+
+Run the full backend suite:
 
 ```bash
 just test-backend
 ```
 
-The script creates an isolated PostgreSQL container; SQLx tests run real migrations. The development database's data volume is never wiped by tests. Tests going through the Router verify liveness, readiness, public errors/request_id, OpenAPI, and the real database migration state. The startup configuration test runs the real API executable and checks that failures happen before listening and never leak credentials.
+[test-services.mjs](../../scripts/lib/test-services.mjs) creates isolated PostgreSQL, RustFS, Redis and Mailpit, supplies dynamic configuration and cleans them in reverse order. `#[sqlx::test]` applies real migrations. Concurrent transactions need real multiple connections, not a single-connection rollback fixture. Failure tests pause and clean up only resources they created.
 
-The migration test also holds the real PostgreSQL migration lock and then runs the migration command, verifying that it fails and exits within the configured deadline; HTTP tests use a database lock to verify queries do not wait forever.
+[Migration checks](../../apps/api/tests/migration.rs) verify uninitialized readiness and bounded migration locks/queries; [Jobs checks](../../apps/api/tests/jobs.rs) cover claiming and recovery. Reuse these public interfaces with assertions for your own successes, denials and rollbacks.
 
-## Frontend
+## Daily integrated checks
+
+```bash
+just check
+```
+
+This includes Rust fmt/clippy, frontend formatting/lint/typecheck, contract drift, boundaries, tooling/backend/View tests, deterministic budgets and Web/documentation builds. New endpoints update generated contracts, SDK, tutorials and ownership together. Low-risk content changes can start with `pnpm docs:check` and `pnpm docs:build`; these do not establish business-state correctness.
+
+When adding clients, use focused checks:
 
 ```bash
 just test-frontend
-```
-
-Vitest / Testing Library drives the real views; MSW replaces only HTTP. Coverage runs from loading through success, failure messages, request_id and retry after recovery, to the service not responding: loading ends and retry is offered; every test creates a fresh QueryClient.
-
-## Dev-process cleanup
-
-```bash
 pnpm test:tooling
 ```
 
-The test starts a real HTTP subprocess and lets it ignore SIGTERM. Even if the outer launcher exits first, stopping the development services must clean up the subprocess still holding the port. The test watches whether the service still responds, never counting internal signal invocations.
+View tests create a fresh QueryClient each time. MSW does not mock your hooks or state. Tool tests cover engineering contracts such as real subprocess shutdown and released ports.
 
-## Real browser
-
-First-time Chromium preparation:
+## When to use browsers or desktop checks
 
 ```bash
 pnpm exec playwright install chromium
 just e2e
 ```
 
-E2E creates an isolated database on dynamic ports, compiles and runs the real API, starts the Web app and visits it through Chromium. It checks that responses come from the real interfaces, pauses its own database container to verify readiness fails while liveness survives, then restores it. Logs, failure screenshots and traces go into the test-artifacts directory.
+`just e2e` starts an isolated real application stack for critical Web journeys, browser regressions or milestones. A few journeys prove Cookie/CSRF, SDK, pages and backend wiring; complete role/failure matrices stay in faster backend tests. `just check-full` combines the main gate with application E2E.
 
-## Main check
+`just e2e-docs` builds and browses only the static site, verifying navigation, language, theme, reading layout and deployment base without application services. A desktop browser viewport differs from Electron shell testing. Content/command edits normally need no Electron run; `just desktop-smoke` and resource soak apply when providing or changing a desktop client.
 
-```bash
-just check
-```
+## Failures, records and next steps
 
-It includes Rust fmt/clippy, frontend format/lint/typecheck, contract drift, boundary checks, process cleanup and backend/view tests, docs checks, and the web/docs builds. Daily checks never launch a browser; run `just e2e` after key journeys, and `just check-full` for full milestone acceptance. CI's manual entry can tick `run_e2e`; ordinary push/PR keeps the fast checks. Mobile is out of v1 scope (implementation ticket [#22](https://github.com/CaiZongyuan/axum-saas-template/issues/22) recorded as not planned; spec §15.2 stays as a design note); the shipped soak tests and business features each have their own checks — nothing idles, nothing pretends.
+Preserve first failures and redacted request/job ids. Locate response, transaction or process faults before rerunning. Coordinate races explicitly and bound waits. Authentication artifacts must not retain credentials, raw action parameters, page snapshots or complete signed URLs; follow the [testing strategy](strategy.md).
 
-## Red → green during implementation
+Record the tested commit and uncommitted scope: compilation, HTTP, docs builds and browser checks each establish different responsibilities. Once required checks pass, unchanged journeys need not be repeated after every push/merge.
 
-This ticket first observed, in order: unregistered routes returning 404, errors missing request_id, a missing 503 contract while the database was not ready, an unmigrated database falsely reporting ready, missing OpenAPI, a misconfigured setup still listening, and views without loading/failure feedback; then implemented each behavior one by one.
-
-Later modules keep looping on the agreed public entry points, never substituting internal method-call counts or file existence for behavior.
+Next: [Deploy a backend that has passed business tests](../tutorials/21-single-machine-production.md).

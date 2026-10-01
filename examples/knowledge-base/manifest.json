@@ -27,40 +27,23 @@
     "apps/web/src/attachments.test.tsx",
     "apps/web/src/knowledge-files.ts",
     "tests/e2e/attachments.spec.ts",
-    "docs/tutorials/09-attachments.md",
-    "docs/tutorials/09-attachments.en.md",
     "migrations/0009_exports.sql",
     "apps/api/tests/exports.rs",
     "docs/research/document-export-streaming.md",
     "apps/web/src/exports.test.tsx",
     "tests/e2e/exports.spec.ts",
-    "docs/tutorials/10-document-exports.md",
-    "docs/tutorials/10-document-exports.en.md",
     "tests/e2e/job-recovery.spec.ts",
-    "docs/tutorials/11-job-recovery.md",
-    "docs/tutorials/11-job-recovery.en.md",
     "migrations/0012_knowledge_deletion.sql",
     "apps/api/tests/deletion.rs",
     "apps/web/src/deletion.test.tsx",
     "tests/e2e/deletion.spec.ts",
-    "docs/tutorials/12-deletion-cleanup.md",
-    "docs/tutorials/12-deletion-cleanup.en.md",
     "apps/web/src/export-notifications.test.tsx",
-    "docs/tutorials/13-export-notifications.md",
-    "docs/tutorials/13-export-notifications.en.md",
     "apps/api/tests/audit_knowledge.rs",
     "tests/e2e/audit.spec.ts",
-    "docs/tutorials/14-audit-history.md",
-    "docs/tutorials/14-audit-history.en.md",
     "apps/api/tests/key_documents.rs",
-    "docs/tutorials/15-api-keys.md",
-    "docs/tutorials/15-api-keys.en.md",
     "apps/api/tests/cached_documents.rs",
-    "docs/tutorials/16-versioned-cache.md",
     "docs/research/redis-cache-runtime.md",
     "scripts/knowledge-observability-smoke.mjs",
-    "docs/tutorials/19-observability.md",
-    "docs/tutorials/19-observability.en.md",
     "tests/desktop/knowledge-shell.spec.ts",
     "apps/api/tests/perf_documents.rs",
     "docs/tutorials/24-perf-gates.md",
@@ -104,7 +87,116 @@
     "docs/index.en.md": ["landing"],
     "docs/getting-started/quickstart.en.md": ["quickstart"],
     "docs/getting-started/documentation.md": ["documentation"],
-    "docs/getting-started/documentation.en.md": ["documentation"]
+    "docs/getting-started/documentation.en.md": ["documentation"],
+    "docs/tutorials/02-registration.md": ["reference-01"],
+    "docs/tutorials/02-registration.en.md": ["reference-01"],
+    "docs/tutorials/03-sessions.md": ["reference-01"],
+    "docs/tutorials/03-sessions.en.md": ["reference-01"],
+    "docs/tutorials/08-members.md": ["reference-01", "reference-02"],
+    "docs/tutorials/08-members.en.md": ["reference-01", "reference-02"],
+    "docs/tutorials/09-attachments.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/09-attachments.en.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/10-document-exports.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04",
+      "reference-05",
+      "reference-06"
+    ],
+    "docs/tutorials/10-document-exports.en.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04",
+      "reference-05",
+      "reference-06"
+    ],
+    "docs/tutorials/11-job-recovery.md": ["reference-01"],
+    "docs/tutorials/11-job-recovery.en.md": ["reference-01"],
+    "docs/tutorials/12-deletion-cleanup.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/12-deletion-cleanup.en.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/13-export-notifications.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/13-export-notifications.en.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/14-audit-history.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04",
+      "reference-05"
+    ],
+    "docs/tutorials/14-audit-history.en.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04",
+      "reference-05"
+    ],
+    "docs/tutorials/15-api-keys.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/15-api-keys.en.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/16-versioned-cache.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/16-versioned-cache.en.md": [
+      "reference-01",
+      "reference-02",
+      "reference-03",
+      "reference-04"
+    ],
+    "docs/tutorials/19-observability.md": ["reference-01"],
+    "docs/tutorials/19-observability.en.md": ["reference-01"],
+    "docs/reference/rust.md": ["reference"],
+    "docs/reference/rust.en.md": ["reference"],
+    "docs/reference/commands.md": ["reference"],
+    "docs/reference/commands.en.md": ["reference"],
+    "docs/reference/errors.md": ["reference"],
+    "docs/reference/errors.en.md": ["reference"],
+    "docs/reference/configuration-sources.md": ["configuration-source"],
+    "docs/reference/configuration-sources.en.md": ["configuration-source"],
+    "justfile": ["desktop-soak"]
   },
   "ownedDependencies": {
     "packages/views/package.json": [

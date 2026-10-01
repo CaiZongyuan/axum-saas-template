@@ -17,6 +17,8 @@
 
 先读[项目结构](docs/architecture/project-structure.md)，再按[新增业务模块](docs/guides/develop-module.md)写自己的第一条接口。指南说明代码归属、路由/OpenAPI 组装与 HTTP 验证。模块拥有自己的数据和规则，通过公开接口复用 Core 的身份、成员、审计、幂等、文件与任务。
 
+连续学习从[工单 SaaS 后端课程](docs/learn/index.md)开始：十课、四个可运行检查点，带同一个模块走过持久化、授权、事务、附件、Worker 导出、测试与恢复。
+
 知识库用于查阅完整实现；后端合同完成后再接客户端。文档与教学源码一起维护中英文版本，规则见[作者指南](docs/guides/maintain-docs.md)。
 
 ## 为什么选择这个模板

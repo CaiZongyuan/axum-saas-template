@@ -101,7 +101,9 @@ Worker 崩溃、过期租约、事务回滚的详细组合以集成测试承担�
 | 时机 | 检查 |
 | --- | --- |
 | 编辑循环 | 相关 Rust 测试 / Vitest 文件、类型检查、生成 contract 的必要校验 |
-| 每张功能 PR | fmt/lint/typecheck、必要单元/真实集成、View 测试、contract drift、docs、边界、perf-ci、build、关键 E2E |
+| 功能 PR | 按变更路径选择后端、前端、合同、边界、性能和构建检查，`verify` 汇总被选中任务；关键 E2E 在里程碑运行 |
+| 纯文档 PR | tooling 与 documentation：格式/lint、文档合同和网站构建；文档浏览器旅程在导航/base/阅读体验变更时运行 |
+| 教学后端源码 | 四阶段课程的真实迁移、两条 API 接入、HTTP/存储/任务与 Worker 检查；修改 Rust 示例时编译对应源码 |
 | 默认 `just check` | 与该阶段已实现行为一致的主门禁；缺少未实施能力时说明当前阶段，不运行空脚本冒充通过 |
 | GUI CI job | Electron 壳 smoke、preload/IPC 与 shared views 接线 |
 | nightly/release | 大数据 query plan、load/saturation/trajectory/soak、Desktop 资源增长 |

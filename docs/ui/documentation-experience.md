@@ -23,3 +23,9 @@ DOC01 was verified against base `0b53e60` plus its uncommitted documentation, re
 - `just e2e-docs` passed 14 public-site journeys and a custom-base smoke, including same-page languages, explicit next navigation, local search in both languages, theme and narrow-screen keyboard controls.
 
 The complete persistence/authorization/jobs teaching course belongs to DOC02; this evidence covers DOC01 and does not claim that future course stages were executed. Later slices update this record with their own source revision and verification scope.
+
+## Completed Course And Site
+
+DOC02-DOC05 were verified against DOC01's merge revision `e2df5399c4b9da982ab8e043578a50a75c40f885` plus the task's current worktree. The accepted layout now presents the ten-lesson bilingual backend course and Core/reference paths. At 1920px the sidebar remains x=0 and 264px wide. The English jobs lesson at 320px has no page overflow; long source blocks scroll within their own containers.
+
+The entire course pager and current-lesson language switch passed in the real static site, alongside search, theme, keyboard navigation and a custom deployment base. Four installed code checkpoints and local production backup/recovery were actually executed. Full source scope, evidence and limits are recorded in [documentation rebuild validation](../research/documentation-rebuild-validation.md); the [safe recovery report](../research/documentation-recovery-evidence.json) records local TLS and restored business results. This browser evidence describes website viewports; it does not claim an Electron client journey was required for writing documentation.

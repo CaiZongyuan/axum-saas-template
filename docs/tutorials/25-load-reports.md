@@ -1,80 +1,73 @@
-# 跟做：负载、饱和与长测报告
+# 为自己的业务编写负载与容量报告
 
-[上一章](./24-perf-gates.md)的[性能合同](../../CONTEXT.md)管确定性预算：往返次数、行数、字节，CI 每次都验收。本章补上[规范 §17.3](../saas-template-architecture-spec.md) 的另一半——墙钟行为：常规负载什么样子、并发到哪里出现饱和点、长时间运行队列与内存是否稳定。这类数字天生跨机器抖动，所以模板给它们立了三条规矩：**负载只打受控栈，绝不指向你已有的数据库**；**报告在夜跑与版本发布时产出，永远不进普通 PR 的门禁**；**限流不是错误**——429 与 `rate_limit.exceeded` 是文档化的背压合同，报告单列为“预期限流”，与真实业务错误分开呈现。
+确定性预算通过后，用受控负载栈观察真实请求的吞吐、延迟、错误、连接池、队列和进程内存。报告用于夜跑与版本发布时比较容量趋势；跨机器墙钟数字不作为普通 PR 门槛。
 
-## 1. 受控负载栈：压的是临时栈，不是你的数据
+需要 Docker、Rust release 工具链、pnpm 依赖和 [k6](https://grafana.com/docs/k6/latest/set-up/install-k6/)。命令在仓库根目录运行；不连接现有开发或生产数据库。当前场景调用知识库参考 API，新增业务必须替换数据和请求，才能得到自己的容量证据。
 
-每条负载命令都先由 [stack.mjs](../../scripts/perf/stack.mjs) 拉起一个全新的[受控负载栈](../../CONTEXT.md)：用仓库里那份开发 compose 文件，但以独立项目名 `saas-perf` 启动，每个服务每次现场分配空闲端口、卷随项目隔离——你的开发栈（`axum-saas-template` 项目）与任何生产部署都不可能被碰到，连数据目录都不共享。API 与 Worker 用宿主机上的 release 构建运行，因为容量读数应该度量的是产品本身的速度。命令结束（无论成败）时 `down -v` 连卷销毁，栈从不存在“跑完还留着数据”的状态；要事后排查可用 `PERF_STACK_KEEP=1` 保留，脚本会打印销毁命令。
-
-栈上限流被放宽到每分钟一百万次——容量读数要度量的是应用，不是本地默认限流（注册每分钟 20 次会把播种循环淹死）。放宽的还有 Redis 降级时的本地兜底限额：负载压上来时 Redis 计数偶尔错过预算，限流器会退化到按对端计数的本地兜底桶，兜底若保持默认的每分钟 120 次，整个窗口会变成 429 风暴而不是容量读数。场景代码仍然逐请求把 429 分类计数，所以哪天你把限流调回真实值重跑，报告依旧诚实。
-
-## 2. 数据与场景：全部走公开接口
-
-[fixtures.mjs](../../scripts/perf/fixtures.mjs) 按可配置规模播种数据集，全程走注册、建文档、传附件的公开 HTTP 接口，从不直接写数据库；规模档位与实际播种数量写进报告的 fixtures 元数据，让每个数字都能对上“它是在多大的数据上测出来的”。
-
-| 场景         | 文件                                                    | 做什么                                                                                             | 默认档        |
-| ------------ | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------- |
-| `load`       | [k6/load.js](../../scripts/perf/k6/load.js)             | 常规负载：登录后的读多写少混合（列表 / 读文档 / 偶尔创建），恒定并发                               | 4 VU × 60s    |
-| `saturation` | [k6/saturation.js](../../scripts/perf/k6/saturation.js) | 只读混合的固定并发阶梯，由运行器逐档执行再合并成吞吐-并发曲线                                      | 1→32 VU × 20s |
-| `trajectory` | [k6/trajectory.js](../../scripts/perf/k6/trajectory.js) | 真实用户轨迹：注册→登录→创建→编辑冲突（409 后重试）→附件上传/下载→导出申请→等 Worker→下载导出→通知 | 2 VU × 60s    |
-| `soak`       | [k6/soak.js](../../scripts/perf/k6/soak.js)             | 低并发长跑：编辑、附件、导出申请循环，观察队列排空与内存走势                                       | 2 VU × 600s   |
-
-每个 VU 在首个迭代登录一次并复用会话；写请求带随机幂等键，与其他客户端没有任何区别。k6 缺失时命令打印安装指引退出，不会假装跑过；仓库里的报告以 k6 v2.3.0 产出。
-
-## 3. 报告里有什么、怎么读
-
-每条命令写 `.scratch/perf/<场景>-report.json`，四块内容：
-
-- **k6 指标**：吞吐（req/s）、`http_req_duration` 的 P50/P95/P99、检查失败率、`expected_throttles` 与 `business_errors` 计数器——业务错误还拆出 `business_error_4xx` / `business_error_5xx` 两列，4xx 波是回归、5xx 波是容量降级，一眼可辨。读稳态报告先看业务错误——一条把业务错误刷爆的运行不是读数，是故障记录。
-- **饱和点读法**（saturation 报告）：吞吐随并发上升，到某一档后不再增长、错误开始出现——曲线的转折就是饱和点。报告给出 `plateauFromVUs` 提示（吞吐达到最佳档 90% 的最小并发档），它只是阅读辅助，不构成任何断言。稳态场景（load / trajectory / soak）带 `business_errors` 计数轨道，把刷爆错误的运行挡在门外；饱和阶梯故意越过容量，顶端档出现错误正是要观察的信号，所以它没有这条轨道——错误拆成 4xx/5xx 记进报告，而不是让命令失败。
-- **栈采样**：场景运行期间每 2 秒采样一次的连接池占用（`pg_stat_activity`）、任务队列深度（按 `saas_core.jobs` 状态分组）与 api/worker 进程 RSS，聚合出 min/avg/max，原始采样序列一并保留——soak 的价值就在这条时间线上。
-- **环境元数据**：规模档、VU 数、时长、限流配置、fixtures 实况——报告必须自带复现条件。
-
-## 4. 在哪跑、怎么调
+## 先运行一个受控场景
 
 ```bash
-just perf-load        # 或 perf-saturation / perf-trajectory / perf-soak
+PERF_VUS=2 PERF_DURATION=20 just perf-load
 ```
 
-前置工具只有 k6。规模与时长全部由环境变量调节，命令本身不带参数：
+[运行器](../../scripts/perf/run-scenario.mjs)调用[受控栈](../../scripts/perf/stack.mjs)：独立 Compose 项目 `saas-perf`、动态空闲端口、项目级卷，宿主机运行 release API/Worker。结束时删除自己的卷；`PERF_STACK_KEEP=1` 可保留用于排错，并输出清理命令。项目名固定，所以同一工作环境不要并行运行两条负载命令。
 
-| 变量                                | 默认          | 作用                                       |
-| ----------------------------------- | ------------- | ------------------------------------------ |
-| `PERF_SCALE`                        | `sm`          | 数据规模档（sm / md / lg）                 |
-| `PERF_USERS` / `PERF_DOCS_PER_USER` | 规模档决定    | 精确覆盖播种数量                           |
-| `PERF_VUS`                          | 场景决定      | 并发虚拟用户数                             |
-| `PERF_DURATION`                     | 场景决定      | 时长（秒；saturation 用 `PERF_STEP_SECS`） |
-| `PERF_STEPS`                        | `1,4,8,16,32` | 饱和阶梯的并发档位                         |
-| `PERF_STEP_SECS`                    | `20`          | 饱和阶梯每档时长（秒）                     |
-| `PERF_SAMPLE_MS`                    | `2000`        | 栈采样间隔（连接池 / 队列 / RSS，毫秒）    |
-| `PERF_STACK_KEEP`                   | 未设          | 设为 `1` 保留栈供排查                      |
+成功时生成 `.scratch/perf/load-report.json`，其中有环境、fixtures、k6 指标与栈采样。k6 未安装、依赖失败或稳态场景真实业务错误过多时，命令失败；失败报告也应保留分析。
 
-[perf-nightly.yml](../../.github/workflows/perf-nightly.yml) 在夜跑（与手动触发）时跑全套：装 checksum 校验过的 k6、跑 load / 饱和阶梯（截短）/ trajectory / 限时 soak，报告作为 artifact 保留 30 天。普通 PR 永远不跑它们——PR 上只有[上一章的确定性门禁](./24-perf-gates.md)。
+容量栈放宽 Redis 与本地回退限流预算，避免默认限流掩盖应用容量。报告记录实际配置，429/`rate_limit.exceeded` 单列为预期限流；需要评估生产限流策略时，用相应配置单独运行并解释结果。
 
-## 5. 首份实测与删例后的去处
+## 给自己的 API 写一个场景
 
-首份实测留档如下（本地 x86_64 WSL2，默认规模档 6 用户 × 8 文档；数字随机器、邻居负载与数据分布浮动——留档的意义是给后来者一个可对比的起点，不是任何机器上的承诺）：
+先新增 `scripts/perf/k6/readiness.js`，验证已经存在的框架健康接口。以下是完整 k6 文件，复用[公共 HTTP helper](../../scripts/perf/k6/lib.js)：
 
-| 场景       | 配置（默认档） | 吞吐                                | P50 / P95 / P99                    | 业务错误                             |
-| ---------- | -------------- | ----------------------------------- | ---------------------------------- | ------------------------------------ |
-| load       | 4 VU × 60s     | 308.1 req/s（18,480 请求）          | 10.5 / 28.3 / 38.1 ms              | 0                                    |
-| saturation | 1→16 VU × 15s  | 131.9 → 270.9 → 270.2 → 177.4 req/s | p95: 10.3 → 23.5 → 54.8 → 155.2 ms | 8 与 16 VU 档各 23 / 29 次，全为 5xx |
-| trajectory | 2 VU × 60s     | 46.3 req/s（164 次完整旅程）        | p95 34.8 ms                        | 0                                    |
-| soak       | 2 VU × 300s    | 9.4 req/s（2,832 请求）             | 20.5 / — / 24.0 ms                 | 0                                    |
+```js
+import http from 'k6/http';
+import { call, scenarioOptions, writeSummary } from './lib.js';
 
-按 §3 的读法：饱和曲线在 4 VU 档进入最佳吞吐（270.9 req/s）的九成以上，`plateauFromVUs=4`；再往上并发，吞吐回落而 p95 拉长近六倍，8/16 VU 档开始出现 5xx——这就是这条曲线要观察的容量降级信号，报告照实记录而不判定失败。soak 的 151 个采样点才是长测的价值所在：api 进程 RSS 全程稳定在 61.9–62.5 MiB、worker 在 17.0–17.3 MiB，连接池占用稳定在 3–7，导出队列最深仅 2、即刻排空——五分钟长测里看不到泄漏或积压的迹象。k6 v2.3.0；完整报告（含原始采样序列与环境元数据）由命令写入 `.scratch/perf/*-report.json`，不入版本库。
+export const options = scenarioOptions({ vus: 2, duration: '20s' });
 
-<!-- EVIDENCE-TABLE -->
+export default function () {
+  call('readiness', 200, () => http.get(`${__ENV.PERF_BASE_URL}/health/ready`));
+}
 
-删例边界与[性能门禁](./24-perf-gates.md)同一条线：四个场景与 fixtures 以知识库示例的端点为载体，示例移除后 `just perf-load` 等命令会在开工前诚实说明并退出。场景脚本与 fixtures 留在仓库里作骨架模板，但真正业务无关、删例后照常可用的是[受控负载栈](../../scripts/perf/stack.mjs)、采样器与报告结构（[report.mjs](../../scripts/perf/report.mjs)）。为自己的业务建模时：场景换成你的热路径接口，fixtures 换成你的领域数据，“限流单列、饱和点只记录”的规矩原样保留。
+export const handleSummary = writeSummary({
+  description: 'backend readiness under controlled load',
+});
+```
 
-关于微基准的一次成文决定：本票评估过给导出渲染（工作区唯一的纯计算热点）挂 Criterion。它不在热路径上——导出是异步任务——而 criterion 会进入每次 `clippy --all-targets` 的编译成本。结论是不引入；规范要的负载证据由场景报告提供，若未来出现真正的热路径纯函数，再按同一节流程补上。
+在运行器 `SCENARIOS` 对象追加文件、默认并发、时长与播种策略：
 
-## 6. 运行本章检查
+```js
+readiness: { file: 'readiness.js', seed: false, vus: 2, durationSecs: 20 },
+```
 
 ```bash
-just perf-load        # 任一负载命令跑通即验证本章链路
-just check            # 主门禁不包含负载场景——这正是设计
+node scripts/perf/run-scenario.mjs readiness
 ```
 
-示例移除后的行为由[移除工具测试](../../tests/tooling/example-remove.test.mjs)与删例 CI 验收覆盖；负载命令的诚实退出与 `production-smoke` 同一套模式。
+预期生成 `.scratch/perf/readiness-report.json`，健康请求返回 200，报告没有业务错误。之后仿照 [load.js](../../scripts/perf/k6/load.js)编写自己的业务场景。
+
+文件由运行器传入 `PERF_BASE_URL` 和 `PERF_SUMMARY`，不能把地址硬编码为生产。随后把健康请求替换为自己已实现的热路径：登录后的列表、详情、少量写入、版本冲突恢复与任务结果。复用 Origin、Session Cookie、CSRF 和随机幂等键；预期冲突应显式恢复，不能误记为容量错误或静默忽略。
+
+[fixtures.mjs](../../scripts/perf/fixtures.mjs)当前经公开接口创建账号、文档与附件。为新业务增加相同方式的播种，记录用户数、资源数、文件大小与实际成功数量；不要通过直接 SQL 绕过要测试的业务规则。
+
+## 选择场景与数据规模
+
+| 命令                   | 观察目标                                     | 当前默认                   |
+| ---------------------- | -------------------------------------------- | -------------------------- |
+| `just perf-load`       | 读多写少的稳态请求                           | 4 VU，60 秒                |
+| `just perf-saturation` | 并发阶梯与吞吐转折                           | 1/4/8/16/32 VU，每档 20 秒 |
+| `just perf-trajectory` | 注册、读写、冲突、文件、任务与通知的完整轨迹 | 2 VU，60 秒                |
+| `just perf-soak`       | 低并发长期队列和内存走势                     | 2 VU，600 秒               |
+
+`PERF_SCALE=sm|md|lg` 选择数据档，`PERF_USERS`、`PERF_DOCS_PER_USER` 覆盖当前参考数据数量；`PERF_VUS`、`PERF_DURATION`（数字秒）调稳态场景。`PERF_STEPS`、`PERF_STEP_SECS` 调饱和阶梯；`PERF_SAMPLE_MS` 默认 2000 毫秒。新增业务应同步自己的规模变量与报告元数据。
+
+## 读报告并处理失败
+
+先检查 `business_errors`、4xx/5xx 与预期限流，再比较吞吐和 P50/P95/P99。稳态场景有业务错误计数上限，超限是故障运行；饱和场景故意越过容量，不以顶部档错误判失败。`plateauFromVUs` 只是吞吐达到最佳档 90% 的阅读提示，不能当作 SLA。
+
+栈每两秒采样数据库连接、按 Job 状态分组的队列深度和 API/Worker RSS。保留原始时间序列，区分短暂积压与持续增长，并在相同源码、数据规模和机器上复跑。一次短长测没有增长不能证明没有泄漏。
+
+夜跑配置在 [perf-nightly.yml](../../.github/workflows/perf-nightly.yml)，报告作为 artifact 保存；普通 `just check` 不运行这些场景。示例移除后，现有负载命令在启动前说明并退出；受控栈、采样和[报告整形](../../scripts/perf/report.mjs)保留，运行器的示例前置条件也应随新业务接入更新。
+
+下一步：后端交付回到[部署指南](21-single-machine-production.md)；提供 Electron 客户端时再读[桌面资源长测](26-desktop-soak.md)。

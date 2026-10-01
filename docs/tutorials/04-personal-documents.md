@@ -1,75 +1,48 @@
-# 跟做：保存第一篇 Markdown 文档
+# 模型、业务事务与幂等
 
-运行 `just dev`，注册或登录后从共享壳侧栏进入“我的文档”。新账号先看到空状态，点击“新建文档”，输入标题与 Markdown，再点击“保存文档”。刷新详情页，内容仍从 PostgreSQL 读取。
+目标：在自己的模块实现“校验输入 → 授权 → 保存 → 审计 → 提交”，并保护用户重试。前提是已有[业务 Router](../guides/develop-module.md)和 [Session](03-sessions.md)。本页以知识库完整实现为参照，知识库表和规则属于参考业务。
 
-本章页面的固定文案由知识库示例的双语消息目录提供，界面语言可在注册页、登录页或“外观与语言”中切换；中英文操作名称保持一致：
+## 代码放在哪里
 
-| 页面元素 | 中文          | English       |
-| -------- | ------------- | ------------- |
-| 业务导航 | 我的文档      | My documents  |
-| 新建按钮 | 新建文档      | New document  |
-| 标题字段 | 标题          | Title         |
-| 正文字段 | Markdown 正文 | Markdown body |
-| 保存动作 | 保存文档      | Save document |
-| 编辑入口 | 编辑文档      | Edit document |
-| 加载更多 | 加载更多      | Load more     |
+| 责任     | 知识库参考位置                                                          | 自己的业务要定义什么               |
+| -------- | ----------------------------------------------------------------------- | ---------------------------------- |
+| 数据归属 | [业务迁移](../../migrations/0003_knowledge.sql)                         | 自己的 schema、表、约束和索引      |
+| 纯规则   | [domain.rs](../../crates/app/src/modules/knowledge/domain.rs)           | 输入规范化和业务上限               |
+| 用例     | [application.rs](../../crates/app/src/modules/knowledge/application.rs) | 授权、SQL、事务和 Core 调用        |
+| 协议     | [mod.rs](../../crates/app/src/modules/knowledge/mod.rs)                 | 请求/响应、Handler、Router/OpenAPI |
 
-普通 Member 不用等待管理员建库。第一次成功保存会在同一事务准备个人 Knowledge Base、Editor Grant、Document 和对应审计。当前章节展示新建、列表和原文读取；[下一章](05-search-preview.md)加入安全预览和搜索，并发编辑由后续章节交付。
+参考内容规则是标题 1–200 字符、Markdown 最多 1 MiB UTF-8，拒绝 NUL；这不是所有 SaaS 实体的统一限制。`BoundedJson<T>` 只处理 HTTP JSON 与读取预算，字段规则仍由自己的 Domain 判断。
 
-## 1. 把业务放进自己的模块
+## 一次保存的提交顺序
 
-知识库的[纯内容规则](../../crates/app/src/modules/knowledge/domain.rs)限制标题为 1–200 个字符、Markdown UTF-8 内容为 1 MiB，并拒绝 PostgreSQL 文本不能保存的空字节。规则集中在自己的 Domain 文件，可按自己的产品修改，不需要把知识库概念写进 Core。
+Knowledge 创建用例先锁定当前 Membership，再锁定并授权目标知识库；个人库仅在真正首次创建时赋予 Editor Grant，不会为被撤权的已有库补授权。库、Grant、Document、Audit 和幂等记录共同提交，正文保存在 PostgreSQL。
 
-[Application 用例](../../crates/app/src/modules/knowledge/application.rs)编排事务和权限；[HTTP 接口](../../crates/app/src/modules/knowledge/mod.rs)处理协议与公开错误。[业务迁移](../../migrations/0003_knowledge.sql)只拥有 `knowledge` schema 的表，Core 的注册不会创建个人库或调用这些用例。
+自己的业务同样由用例持有 `pool.begin()` 创建的事务，把同一连接传入 Core；不要让审计或任务另开事务，也不要在事务里执行对象存储网络 I/O。
 
-第一次写作以 `personal_owner` 唯一约束协调并发。只有实际创建新库的事务才赋予 Editor；已有库缺少授权时会拒绝写入，重试初始化不会悄悄补回撤销的权限。Owner/Admin 按已确认规则可访问企业所有知识库，其他普通成员必须有该库 Grant。
+## 接入公共幂等能力
 
-写入时通过 Organization 的公开接口锁定当前成员身份，并持有库的共享锁检查授权。之后角色停用和库授权变更可以使用对应排他锁，形成明确的提交顺序。
+[Core Idempotency](../../crates/app/src/modules/idempotency/mod.rs)公开这些接口：
 
-## 2. 一次事务保护一整次保存
-
-创建库、授予默认权限、创建文档及 Audit 共同提交。审计失败会回滚全部变化，不能出现“文档存在，但审计或权限缺失”的半成品。
-
-文档正文保存在 PostgreSQL；当前不向 RustFS 写入 Markdown，RustFS 将负责后续附件和导出二进制。
-
-## 3. 让重试仍是同一次操作
-
-[Core Idempotency](../../crates/app/src/modules/idempotency/mod.rs)提供 `claim` / `complete`，由业务持有事务并在授权后调用。作用域包含账号、操作与目标库，保存规范化请求的 fingerprint 和结果。幂等记录与业务/Audit 同事务提交；并发请求在同一记录上串行协调。
-
-同一个 `Idempotency-Key` 和相同内容返回原结果；同 key 改变内容返回 409。默认重放窗口 24 小时，过期键可重新使用；调用时按有界批次回收过期记录。重放前依然检查会话、当前成员与库权限，不把缓存当授权依据。
-
-新建页面在同一份输入重试时保留 key；输入改变时生成新 key。网络超时后用户可以重试，服务端仍只产生一次文档结果。SDK 不自动重试 POST。
-
-## 4. 从合同接到页面
-
-[API 组装点](../../apps/api/src/lib.rs)合并 Core 与 Knowledge 的 Router/OpenAPI；生成 SDK 根据组合后的合同导出方法。Core 的 Router 构建器不 import 知识库。
-
-```bash
-just generate
-pnpm contracts:check
+```rust
+pub fn fingerprint(payload: &impl Serialize) -> Result<Vec<u8>, Error>;
+pub async fn claim(connection: &mut PgConnection, attempt: &Attempt<'_>)
+    -> Result<Option<Value>, Error>;
+pub async fn complete(connection: &mut PgConnection, attempt: &Attempt<'_>, response: Value)
+    -> Result<(), Error>;
 ```
 
-[Knowledge Views](../../packages/views/src/knowledge/documents-view.tsx)复用 Core 会话、生成 SDK 和通用 UI。列表仅返回摘要，采用默认 50、最多 100 条的 cursor 分页；cursor 绑定当前身份与排序，不能换账号沿用。查询每次仍独立授权，cursor 不是访问凭据。
+这是签名摘录；完整调用见 `application.rs` 的 `create`。`Attempt` 为 `actor_id / scope / key / fingerprint`。先重新授权，再以规范化输入计算摘要、claim：`Some` 为重放，`None` 执行新写入、Audit、complete，最后 commit。scope 应含操作和资源 ID，不让不同目标共享命令。
 
-页面自身只渲染工作区内容：侧栏导航、页面地标与角色可见入口由应用适配器提供的共享壳渲染，业务导航条目和全部文案来自示例注册的导航与消息目录。切换界面语言时页面原地重新渲染，列表与输入不丢失，用户内容保持原文。
+key 为 1–128 字节的可打印非空格 ASCII。同用户/作用域/key 改变输入返回 Conflict；默认记录期限 24 小时，过期 key 可以重新使用。重放只存稳定 ID，重新读取当前资源与可见性，避免删除后返回缓存正文；短期签名 URL 不进入记录。
 
-本章最初通过原文详情接通读取；当前版本已按[下一章](05-search-preview.md)显示安全预览。保存失败会保留输入和请求编号；切换账号后上一身份的保存响应不能更新新身份的界面。
+## 验证与失败恢复
 
-## 5. 验证行为和可移除性
+在仓库根目录运行，测试运行器会创建隔离的真实依赖：
 
 ```bash
 node scripts/test-backend.mjs --test knowledge
-pnpm exec vitest run apps/web/src/knowledge.test.tsx apps/web/src/knowledge-bilingual.test.tsx
-pnpm boundaries:check
-just check
 ```
 
-后端覆盖创建→读取、隐私隔离、撤权后初始化/重放拒绝、真实锁控制的并发、幂等重试和事务回滚。View 检查空状态、新建导航、失败保留输入与复用请求 key。关键旅程完成时集中运行：
+[公开 HTTP 测试](../../apps/api/tests/knowledge.rs)创建文档再读取，验证同 key 只写一次、改输入 409、无权不可见、并发首次创建和 Audit 故障整体回滚。自己的 API 至少覆盖同样的创建/读取、重试和回滚路径。
 
-```bash
-node scripts/e2e.mjs tests/e2e/knowledge.spec.ts
-```
-
-真实浏览器以新 Member 注册，直接保存第一篇正文，再刷新和从列表重新打开。
-
-[所有权清单](../../examples/knowledge-base/manifest.json)登记业务目录、迁移、测试、教程及少量组装点。带 `example:knowledge` 标记的区块是明确的接入位置；后续移除工具将按清单在新副本中操作，不靠文件名猜测，更不自动删除已有生产数据。Core 的身份、审计、幂等和通用 HTTP 能力会保留。
+网络响应丢失时保留原输入和 key，由用户明确重试；输入改变生成新 key。SDK 不自动重试 POST。版本条件更新是另一项责任，继续[并发修改](06-edit-conflicts.md)；读取列表接着实现[筛选和分页](05-search-preview.md)。

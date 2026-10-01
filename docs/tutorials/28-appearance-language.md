@@ -1,55 +1,74 @@
-# 跟做：外观与语言设置
+# 在业务客户端复用语言与外观偏好
 
-界面语言和明暗主题是设备级偏好：登录前就能切换，选择保存在当前浏览器或桌面端，不跨设备同步，也不进入账号数据。本章走一遍偏好的完整行为——首访跟随设备、手动选择优先、刷新恢复、无效值回退、存储不可用时仍可切换——以及应用文案的双语归属规则：Core 与各示例各自维护目录，在组装点合并，运行时缺失翻译回退到可理解文案而不是裸 key。
+自己的页面使用壳提供的 Preferences 和 Messages，避免另建一份语言状态或主题表。它们是当前设备的客户端偏好，不修改 User、Membership 或后端授权。后端业务完成后再接入这些可选界面能力。
 
-## 1. 先体验：从登录页到设置页
+前提是页面已按[贡献指南](27-add-example.md)进入应用壳，Provider 由 Web 入口挂载。以下代码位于自己的业务 View，命令在仓库根目录运行。
 
-运行 `just dev`，打开 `/login`。右上角有「简体中文 / English」和「跟随系统 / 亮色 / 暗色」两组控件，登录前后行为一致：点击立即生效，页面不重载，正在输入的邮箱/密码原样保留。注册页、忘记/重置密码页使用同一组控件。
+## 为同一个页面添加双语内容
 
-登录后侧栏底部进入「设置」（`/settings`）：语言和主题在「外观与语言」分区里，仍是两组原生单选框，与登录页控件写同一个偏好状态。切到 English 后侧栏、页面标题、`html.lang` 同步变为英文；地址栏没有变化，也没有网络请求——切换是纯前端状态。
+沿用 Billing 贡献中的 `messages.zh` / `messages.en`，每个 key 都提供两种语言。新建 `packages/views/src/billing/summary.tsx`，页面通过命名空间解析，不在组件里判断设备语言：
 
-左下角用户区域点击后直接进入设置。设置目录紧贴主侧栏，分为外观与语言、个人资料、API Keys、设计系统、系统状态与帮助；身份相关分区在登录后出现。`?section=` 直达分区，例如 `/settings?section=api-keys`。API Keys、设计系统和系统状态都在设置中操作，旧 `/api-keys`、`/design-system`、`/system` 书签仍可访问。
+```tsx
+import { useAppFormat } from '../shell/format';
+import { useAppMessage } from '../shell/messages';
 
-桌面侧栏右边缘可拖动调宽；键盘聚焦分隔条后，方向键调节，Home/End 到达边界，双击恢复默认。宽度保存在本机。个人资料中的头像使用 DiceBear，默认 Lorelei，支持选择图案与背景；选择先形成草稿，确认后应用。头像按用户在本机记忆，不修改账号资料，也不跨设备同步。
-
-## 2. 偏好判定顺序
-
-[preferences 模块](../../packages/views/src/shell/preferences.tsx)实现三条规则：
-
-1. **首次使用跟随设备**。读取 `navigator.languages` 按顺序找第一个中文或英文标签：中文（`zh-*`）→ 简体中文；英文（`en-*`）→ English；都没有 → English。`html.lang` 相应写 `zh-CN` 或 `en`。
-2. **手动选择优先并保存**。选择写入 `localStorage` 的 `saas.locale` 与 `saas.theme`；下次打开直接采用，不再看设备语言。
-3. **无效值回退**。存储里的值不在已知集合内（例如手工改过）时按"未保存"处理，回到第 1 条。
-
-主题默认「跟随系统」：只有该模式监听系统明暗变化并实时切换；「亮色 / 暗色」固定不变。
-
-## 3. 首屏不闪烁：绘制前的内联脚本
-
-React 首帧渲染之前，[index.html](../../apps/web/index.html) 的一段内联脚本读取同样的两个键，直接在 `<html>` 上设置 `lang`、`dark` class 和 `color-scheme`。这样刷新深色偏好时不会先白一帧。脚本逻辑与 `PreferencesProvider` 必须保持一致——两边都读同一个键、同一个回退顺序；改任一侧时同步另一侧。
-
-存储不可用（隐私模式禁用存储等）时两个读取都静默失败：应用照常启动，偏好只在当前会话内有效，切换控件仍然工作。
-
-## 4. 双语文案按归属注册
-
-界面文案分两处维护：
-
-- **Core 目录**：[core-messages.ts](../../packages/views/src/shell/core-messages.ts) 持有壳、首页、身份流程、设置、错误与通用提示的中英文案。发布完整性由对齐测试保证——中英 key 集合一致、无空值、占位符一致。
-- **示例目录**：每个示例在自己的 `ExampleContribution.messages` 里提供双语文案，键以示例 id 命名空间开头（如 `notes.page.title`）。
-
-组装时 Core 先注册，示例随后追加；示例占用他人已注册的 key 会在组装时报错，不会静默覆盖。页面通过 `useAppMessage()`（或带命名空间的 `useAppMessage('notes')`）解析：当前语言缺失时回退英文，再缺失时显示"这段界面文字暂不可用。"之类的可理解提示——永不显示裸 key，也不抛错。`{name}` 形式的参数插值由共享解析器完成。
-
-日期与数字用当前语言的 `Intl.DateTimeFormat` / `Intl.NumberFormat` 格式化（`useAppFormat`），时区沿用设备设置。设置页底部的教程链接按当前语言打开本章的对应深链（中文 `/docs/`、英文 `/en/docs/`，站点 base 参与拼路径）。
-
-## 5. 无障碍与窄屏
-
-语言和主题控件是真实按钮（`aria-pressed` 标注当前项），设置页用原生 `fieldset/legend` 单选框，键盘行为跟随平台。切换语言时 `html.lang`、页面 `<title>` 与 meta description、导航的无障碍名称（"主菜单 / Main menu"）一并更新。侧栏在窄屏折叠为抽屉，开合按钮用 `aria-expanded` / `aria-controls` 声明状态，Esc 也会收起；窄屏触控目标保持不小于 44px，桌面行高压至 36px。通知与 API Keys 属于登录后能力，未登录的侧栏不展示。
-
-## 6. 验证
-
-```bash
-pnpm exec vitest run packages/views/src/shell/preferences.test.tsx
-pnpm exec vitest run packages/views/src/shell/core-messages.test.ts
-pnpm exec vitest run apps/web/src/settings.test.tsx
-just check
+export function BillingSummary() {
+  const message = useAppMessage('billing');
+  const format = useAppFormat();
+  return (
+    <section>
+      <h1>{message('page.title')}</h1>
+      <output>{format.formatNumber(1200)}</output>
+    </section>
+  );
+}
 ```
 
-偏好测试覆盖设备语言顺序、主题解析、持久化、无效值回退、系统主题联动与存储不可用；Core 目录测试做中英对齐检查；settings 测试在真实 Router 里走切换、持久化与输入不丢失。浏览器验证集中在一次：首屏主题、刷新恢复、系统明暗切换与窄屏抽屉。移除任一示例后本章能力不受影响——偏好与 Core 文案不属于任何示例。
+在上一章的 `billing/example.tsx` 导入并替换已有 `routes` 字段：
+
+```tsx
+import { BillingSummary } from './summary';
+```
+
+```tsx
+routes: [{ path: '/billing', component: () => <BillingSummary /> }],
+```
+
+原来的 `BillingPage` 可以删除。`page.title` 使用上一章已有 key，示例数字只演示格式化，不表示货币金额。日期使用 `formatDateTime`，时区沿用当前设备。
+
+业务目录只声明自己的 key，例如 `page.title`；组装后成为 `billing.page.title`。Core 文案由 [core-messages.ts](../../packages/views/src/shell/core-messages.ts)拥有，业务不得覆盖。`assembleApp` 检查中英 key、导航和场景标题是否完整，不能靠运行时回退掩盖缺失翻译。
+
+## 使用已有偏好，不重复 Provider
+
+[preferences.tsx](../../packages/views/src/shell/preferences.tsx)公开 `usePreferences()`：
+
+| 字段/操作              | 合同            |
+| ---------------------- | --------------- |
+| `locale` / `setLocale` | `zh             | en`，显式选择立即生效 |
+| `theme` / `setTheme`   | `system         | light                 | dark` |
+| `resolvedTheme`        | 当前实际 `light | dark`                 |
+
+壳的登录页与设置页已提供控件，业务页面一般只消费状态。手动选择保存在 `saas.locale` 和 `saas.theme`，不跨设备同步。首次语言按 `navigator.languages` 顺序选第一个中文或英文，均不匹配时回退英文；主题默认跟随系统。
+
+无效存储值按未保存处理；存储不可用时应用照常启动，选择只保留在当前会话。系统明暗变化只影响 `system`。密码重置链接可暂时覆盖流程语言，首次手动选择结束覆盖，原保存值不会被链接暗中改写。
+
+## 保持首屏与生产主题一致
+
+[apps/web/index.html](../../apps/web/index.html)在 React 绘制前读取同一存储键，设置 `html.lang`、`dark` 和 `color-scheme`。改偏好键或回退规则时同步首绘脚本，否则刷新深色页面会先闪浅色。
+
+业务 UI 使用 [生产 tokens](../../packages/ui/src/styles.css)的 `text-foreground`、`bg-background`、`text-muted-foreground` 等语义类，跟随壳主题。不要在自己的组件另加整页颜色状态。文案、`html.lang`、页面标题与可访问名称应随语言变化，输入内容不丢失。
+
+Electron 由[平台适配器](../../apps/web/src/desktop-preferences.tsx)镜像两个偏好枚举到本地错误页；浏览器与桌面存储互相独立。
+
+## 验证与失败检查
+
+```bash
+pnpm exec vitest run packages/views/src/shell/preferences.test.tsx packages/views/src/shell/core-messages.test.ts apps/web/src/settings.test.tsx
+pnpm typecheck
+```
+
+启动 `just dev`，在已有设置控件切换语言与主题：自己的标题、数字格式和表面应同步，刷新仍保留选择。临时删掉 Billing 的英文 `page.title`，组装应失败；补回后重跑。自己新增的复杂表单还应检查语言切换不丢草稿。
+
+运行时 [messages.tsx](../../packages/views/src/shell/messages.tsx)依次尝试当前语言、英文、可理解的通用提示，不向用户显示裸 key；这用于异常容错，发布检查仍要求目录完整。上述能力是 Core，不随参考业务删除。
+
+下一步：[使用生产组件并注册隔离演示场景](29-design-system.md)。

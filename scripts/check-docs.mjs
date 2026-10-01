@@ -1,5 +1,10 @@
 import { renderDocs, siteModel } from './lib/docs.mjs';
 import { sitePath } from './lib/docs-locales.mjs';
+import { validateMarkdownContent } from './lib/docs-content.mjs';
+import {
+  commandRegistry,
+  validateDocumentCommands,
+} from './lib/docs-commands.mjs';
 
 // The documentation check entry: besides fence/snippet integrity of every
 // rendered page in both locales, it validates the bilingual contract that
@@ -13,6 +18,8 @@ import { sitePath } from './lib/docs-locales.mjs';
 
 const pages = renderDocs();
 const site = siteModel();
+const commands = commandRegistry();
+const commandCounts = { just: 0, pnpm: 0, node: 0 };
 
 const frontmatter = (route) => {
   const match = /^---\n(docLocale: .+)\n(counterpart: .+)\n/.exec(
@@ -28,11 +35,10 @@ const frontmatter = (route) => {
 
 for (const [route, content] of pages) {
   if (!route.endsWith('.md')) continue;
-  const fences = content
-    .split('\n')
-    .filter((line) => line.startsWith('```')).length;
-  if (fences % 2) throw new Error(`Unclosed code fence in ${route}`);
-  if (/^<<< /m.test(content)) throw new Error(`Unresolved snippet in ${route}`);
+  validateMarkdownContent(content, route);
+  const checked = validateDocumentCommands(content, route, commands);
+  for (const type of Object.keys(commandCounts))
+    commandCounts[type] += checked[type];
 }
 
 for (const chapter of [...site.pages, ...site.references]) {
@@ -58,6 +64,13 @@ for (const chapter of [...site.pages, ...site.references]) {
     );
 }
 
+console.log(
+  'Registered literal commands verified: ' +
+    Object.entries(commandCounts)
+      .map(([type, count]) => type + ' ' + count)
+      .join(', ') +
+    '.',
+);
 console.log(
   `Documentation navigation, source links, snippets, locale pairing and generated references verified (${pages.size} files).`,
 );

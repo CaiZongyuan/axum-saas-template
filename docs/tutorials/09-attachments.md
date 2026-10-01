@@ -1,85 +1,73 @@
-# 跟做：上传附件、引用图片与下载
+# 为自己的业务接入 Files
 
-`just dev` 现在启动 PostgreSQL 与 RustFS，运行数据库迁移，并初始化专用私有 bucket 的浏览器 CORS。首次运行需要拉取固定版本镜像；API/Web 仍支持原来的开发反馈循环。
+目标：为业务资源添加私有附件，复用 Core 文件生命周期和 S3 适配器。前提是 API/PostgreSQL/RustFS 已通过[快速开始](../getting-started/quickstart.md)运行，资源已有授权策略。业务拥有资源/file 关联表，Files 不知道文档或工单权限。
 
-保存一篇文档，在“附件”选择文件并点击“上传附件”。页面显示准备、上传进度和校验状态，校验完成后附件才进入列表。列表为每行标注文件类型图标：图片与文档两类来自内置的 Material Symbols 子集（含许可文件，随知识库示例一起移除），通用操作图标仍用 Lucide。点击下载可以取回原始字节；图片可以在编辑页点击“插入引用”，切到预览查看，再显式保存正文。设计系统的“场景”页签里有“附件图标与上传状态”，用演示数据离线查看这套文件图标与上传生命周期反馈，不会创建真实文件。
+<!-- example:knowledge:reference-01:start -->
 
-默认单文件上限 20 MiB、上传会话 15 分钟、下载链接 60 秒。实际值来自[生成配置参考](site:reference/config.md)，不能只修改前端提示。
+完整参考：[授权策略](07-library-grants.md)。
 
-## 1. 浏览器拿到的是受限能力
+<!-- example:knowledge:reference-01:end -->
 
-[Web 文件适配](../../apps/web/src/knowledge-files.ts)负责读取 File、计算 SHA-256、XHR 上传进度和实际下载。应用 Cookie 只用于自己的 API，对 S3 传输省略凭据。单次字节传输最多 120 秒（包含响应体读取），超时后恢复重试操作；离开页面会取消传输。
+## 构造与公共接口
 
-申请上传时发送文件名、MIME、大小和校验和。服务端验证文档编辑权，生成暂存 key，保存上传记录及业务关联，并返回 URL、方法、必需 headers 与截止时间。前端不能指定 bucket/key，也拿不到存储管理密钥。原始文件名只是显示值，不用作对象路径。
+[Files 类型与服务](../../crates/app/src/modules/files/mod.rs)公开 `FileService::from_settings(storage, limits)`；替换适配器用 `FileService::new(storage, bucket, policy)`。`UploadInput` 为 `file_name / content_type / size / sha256`；validate 规范化 MIME/摘要并检查预算，start 也重新验证。
 
-[ObjectStorage 适配器](../../crates/platform/src/object_storage.rs)使用标准 S3 API，固定 RustFS 1.0.0 与 AWS SDK 1.149.0。内部操作端点与公开签名端点分开，先按公开地址签名，不事后改 hostname 或路径。签名绑定类型、校验头与上传标识；Content-Encoding 固定为 identity，避免下载时发生内容解码变化。浏览器控制的 Content-Length 不进入返回 headers。
+| 阶段     | 公共方法                                 | 返回值                               |
+| -------- | ---------------------------------------- | ------------------------------------ |
+| 注册     | `start(connection, actor_id, input)`     | `Upload`，公开 `id`                  |
+| 重放     | `load(connection, id)`                   | 原 Upload                            |
+| 签上传   | `upload_capability(upload)`              | URL、method、headers、expires_at     |
+| 规划完成 | `plan_completion(connection, id)`        | Ready / Attempt / Expired / Rejected |
+| 核验     | `verify_candidate(attempt)`              | VerifiedCandidate                    |
+| 放弃     | `abandon(connection, attempt, rejected)` | 候选可被清理                         |
+| 发布     | `publish(connection, verified)`          | Adopted / Existing / Expired         |
+| 下载     | `download(connection, id, inline)`       | DownloadCapability                   |
 
-专用 bucket 默认私有。初始化只在 HEAD 确认 404 时创建，不把 403 当作不存在；可重复执行的初始化使用有上限的标准重试，覆盖实测的并发 CreateBucket `503 SlowDown`。条件复制保持一次尝试，超时结果通过候选记录处理。
+这些是方法调用形状；完整签名和类型见源码。`CompletionAttempt / VerifiedCandidate` 字段私有，必须由服务返回，不能手工制造绕过核验。
 
-## 2. 上传到存储，不代表附件已经发布
+<!-- example:knowledge:reference-02:start -->
 
-[Core Files](../../crates/app/src/modules/files/mod.rs)拥有文件状态和候选对象记录；[知识库附件用例](../../crates/app/src/modules/knowledge/attachments.rs)拥有文档关联和库级授权。Core 不读取 Document 或 Grant 表。
+完整参考：[Knowledge 附件](../../crates/app/src/modules/knowledge/attachments.rs)。
 
-完成操作分三个阶段：
+<!-- example:knowledge:reference-02:end -->
 
-1. 短事务重新验证文档编辑权，先登记唯一候选 key，再提交。
-2. 在事务外读取暂存对象 ETag，条件复制到独占候选 key，检查候选的实际长度、MIME/上传标识、完整字节和 SHA-256。
-3. 再次验证当前凭据、文档存在性、Grant、上传状态与期限，原子选定唯一 ready 对象、关联附件并写入 Audit。
+## 完整提交边界
 
-候选复制同时使用源 ETag 条件和目标 `If-None-Match: *`。发布后不再写这个 key；旧上传 URL 只能作用于暂存对象。两个完成请求竞争时，只有一个候选被采用，其他请求返回同一附件。
+1. 短事务 A：验证 Session，锁当前 Membership 和业务资源、授权；claim 幂等命令，start 并写资源/file 关联，complete 只存 upload_id，commit。重放检查关联并 load。事务外签上传，不存短期 URL。
+2. 客户端使用返回 method/headers PUT staging；成功上传仍不在业务附件列表可见。
+3. 短事务 B：再次授权、确认关联，plan_completion 并提交候选记录。Ready 重放仍检查业务已发布关联；Expired/Rejected 明确拒绝。
+4. 事务外 verify_candidate：HEAD、按源 ETag 条件 COPY 到唯一候选、HEAD/完整字节/长度/MIME/SHA-256 校验。候选目标不可覆盖；图片/PDF 另查文件标识。
+5. 短事务 C：重新验证当前凭据、成员、资源/授权/关联和期限，publish、发布业务关联、Audit、commit。失败候选调用 abandon，持久清理记录保留。
 
-图片与 PDF 额外检查文件标识；其他类型按声明的 MIME 和完整字节校验下载。本模板不做通用文档解析或恶意内容扫描，上传 HTML 也不会被当作可信应用页面执行。
+事务外 I/O 后必须重新授权；开始时合法不代表完成时合法。并发完成只采用一个 ready 对象，其他返回相同附件。Audit 失败回滚文件状态和关联，可恢复完成。超时不证明远端写入失败，候选位置先登记再 I/O。
 
-## 3. 重试与失败
+## 下载与配置边界
 
-创建上传资源使用 Idempotency-Key，记录稳定 upload_id。短期 URL 每次重新授权后生成，截止时间不超过上传会话。网络失败可重试同一资源；过期或被拒绝时明确提示重新上传，并使用新资源。
+默认单文件 20 MiB、上传 900 秒、下载 60 秒，实际值以[配置参考](site:reference/config.md)为准。下载先检查业务关联和当前资源权限，再对 ready 文件签名；`ready_info(connection, ids)` 只批量读已授权 IDs，不替业务授权。
 
-大小/类型不匹配不会发布；撤权、认证会话过期或源文档消失也会阻止最终提交。审计失败时 ready 状态与附件关联一起回滚，之后仍可重试完成。
+撤权/删除后停止签发新链接，已签 URL 到期前仍可能有效，已接受传输可能继续。业务只保存 file ID，不保存签名 URL。S3 凭据只在 API/Worker，Cookie 不发送到 S3。`S3_ENDPOINT` 与 `S3_PUBLIC_ENDPOINT` 分开；按公共 origin 签名，不能事后改 hostname/path。
 
-每个候选在 I/O 前就有持久记录。复制超时可能已经在远端成功，失败候选和暂存位置不会被遗忘；后续清理章节会处理过期、拒绝与删除对象。不能把一次 Delete 或 SDK timeout 当作“再也不会出现晚到对象”的证明。
+## 验证与恢复
 
-## 4. 短期下载与 Markdown 引用
-
-只有仍关联可见文档的 ready 附件可以取得新下载链接。Reader 可下载，Editor 可上传；撤权后不能继续申请链接，已经签发的链接在到期前仍可能有效，已接受的传输也可能继续。这是此直下载模式的明确权限边界。
-
-默认下载使用 attachment disposition、no-store 和安全文件名编码。Web 将下载内容校对长度后保存为二进制文件；临时 Blob URL 随后释放。
-
-Markdown 保存的是 `attachment:<附件 ID>`，不会保存预签名 URL 或永久公开地址。[Markdown 附件渲染](../../packages/views/src/knowledge/attachment-markdown.tsx)验证引用格式，再按当前文档与成员向 API 请求访问能力。只有通过检查的常见位图支持 inline 预览；其他附件用下载动作，任意外链图片仍不会自动加载。
-
-## 5. 从本地配置到自己的部署
-
-本地 `.env.example` 提供仅用于开发的 RustFS 凭据。关键配置为：
-
-- `S3_ENDPOINT`：API/Worker 使用的内部 S3 根地址；不设置时文件能力关闭，文本与认证继续工作。
-- `S3_PUBLIC_ENDPOINT`：浏览器可访问的独立 S3 origin；生产使用 HTTPS，不挂在会改写路径的子目录。
-- `S3_BUCKET / S3_REGION / S3_ACCESS_KEY / S3_SECRET_KEY`：专用 bucket 与显式服务端凭据。
-- `FILE_MAX_BYTES / UPLOAD_SESSION_SECS / DOWNLOAD_URL_SECS`：实际上传与签名边界。
-
-API 与 Worker 都把已校验的存储配置和文件限制交给 `FileService::from_settings`，由 Core Files 统一创建 S3 适配器与文件策略。替换存储实现时，仍可通过 `FileService::new` 注入 `ObjectStorage`。
+仓库根目录执行：
 
 ```bash
 just bootstrap-storage
-```
-
-初始化命令像 `just dev` 一样加载 `.env.example` / `.env` 及进程环境，使用应用配置管理专用 bucket 的 CORS。RustFS 数据和日志命名卷需允许 UID/GID 10001 写入；`/health/ready` 用于就绪判断。`Ctrl+C` 停止 API/Web，数据卷保留。
-
-## 6. 验证同一条路径
-
-```bash
 node scripts/test-storage.mjs
-node scripts/test-backend.mjs --test attachments
-pnpm exec vitest run apps/web/src/attachments.test.tsx
-just check
 ```
 
-存储测试连接真实 RustFS，覆盖期限与签名头、错误校验和、字节读取、源/目标复制条件与并发初始化。HTTP 测试连接真实数据库和存储，覆盖暂存不可见、唯一发布、重放、期限、大小/类型、审计回滚、Reader/Editor、跨文档引用，以及复制期间撤权/会话过期/源资源消失。
-
-View 测试使用真实页面、WebCrypto 和 HTTP 边界，验证上传进度、失败后复用资源、大小限制、只读、引用插入和安全图片 URL，并断言每个附件行带有带可访问名称的文件类型图标。设计系统测试走查“附件图标与上传状态”场景：图标画廊与上传中、完成、失败三种状态的演示数据反馈。关键旅程完成后运行一次：
+<!-- example:knowledge:reference-03:start -->
 
 ```bash
-node scripts/e2e.mjs tests/e2e/attachments.spec.ts
+node scripts/test-backend.mjs --test attachments
 ```
 
-浏览器上传真实图片，下载后比对字节，再保存附件引用并刷新预览。默认反馈循环不重复运行浏览器旅程。
+<!-- example:knowledge:reference-03:end -->
 
-[所有权清单](../../examples/knowledge-base/manifest.json)将附件关联、业务路由、Views、Web 接线与教程归到知识库示例；Core Files、S3 adapter、通用配置与隔离测试运行器会保留，供自己的业务复用。
+真实 HTTP/存储测试证明 staging 不可见、唯一发布、大小/类型拒绝、Audit 回滚、关联检查，以及复制期间撤权/Session 过期/资源消失的发布拒绝。过期或 rejected 上传使用新资源；暂时故障重试原资源。自己的业务沿用同样边界，并登记关联迁移、Router、测试与所有权。继续[生成文件与 Jobs](10-document-exports.md)和[对象清理](12-deletion-cleanup.md)。
+
+<!-- example:knowledge:reference-04:start -->
+
+完整参考：[真实 HTTP/存储测试](../../apps/api/tests/attachments.rs)。
+
+<!-- example:knowledge:reference-04:end -->

@@ -1,67 +1,89 @@
-# 接入一个参考业务
+# 把自己的业务页面接入应用壳
 
-通用应用壳不认识任何具体业务。示例通过一个声明式的贡献对象（页面、导航分组、双语文案、可选默认入口）在显式组装点接入，壳负责校验与装配。默认源码只注册知识库；仓库另附带便签示例（默认不注册，源码保留）——本章用它走一遍完整接入：既介绍机械工具 `scripts/example-add.mjs`（删例的逆操作，同一 marker 合同），也解释手工接入的每一步，并演示单、双、零示例源码组合的运行与验证方式。
+后端模块与 OpenAPI 已接入后，通过 ExampleContribution 为 Universal App Shell 提供 Web 页面、导航和双语文案。前端贡献对象不注册后端 Router，也不能授予资源权限；这两件事分别由 API 组装点和业务授权负责。
 
-## 1. 一个示例拥有什么
+前提是熟悉[项目结构](../architecture/project-structure.md)、已安装 pnpm 依赖。以下改动在自己的开发副本进行，命令从仓库根目录运行。
 
-每个示例在 `examples/<id>/manifest.json` 登记文件所有权（`ownedPaths`）与注册标记（`registrationMarkers`），删例工具据此整建制移除。运行时代码上，一个示例通过 `ExampleContribution` 贡献：
+## 创建最小完整贡献
 
-```ts
-{
-  id: 'notes',                        // 稳定 id：导航分组、文案命名空间、路由归属都来自它
-  routes: [{ path: '/notes', component }],
-  navigation: [{ id: 'main', labelKey: 'nav.group', items: [...] }],
-  messages: { zh: { ... }, en: { ... } }, // 双语文案；缺任一语言在组装时失败
-  defaultEntry: '/notes',             // 可选：登录后的业务默认入口
-  scenes: [...],                      // 可选：场景描述声明
-  provide,                            // 可选：包住本示例页面，提供示例自己的端口
+新建 `packages/views/src/billing/example.tsx`。本阶段只接入一个页面，后续由 `AppPageProps.apiClient` 调用自己的生成 SDK：
+
+```tsx
+import type { ExampleContribution } from '../shell/app-contract';
+import { useAppMessage } from '../shell/messages';
+
+function BillingPage() {
+  const message = useAppMessage('billing');
+  return <h1>{message('page.title')}</h1>;
+}
+
+export function createBillingExample(): ExampleContribution {
+  return {
+    id: 'billing',
+    routes: [{ path: '/billing', component: () => <BillingPage /> }],
+    navigation: [
+      {
+        id: 'main',
+        labelKey: 'nav.group',
+        items: [{ id: 'billing', labelKey: 'page.title', path: '/billing' }],
+      },
+    ],
+    messages: {
+      zh: { 'nav.group': '账务', 'page.title': '账务' },
+      en: { 'nav.group': 'Billing', 'page.title': 'Billing' },
+    },
+    defaultEntry: '/billing',
+  };
 }
 ```
 
-类型与 `assembleApp` 校验都在 `packages/views/src/shell/app-contract.ts`。重复贡献 id、路由冲突、占用 Core 保留路由、文案缺翻译，都会在组装时明确失败——不会出现"后来者静默覆盖"。导航项只能指向示例自己贡献的路由，空分组自动消失。
+在 [Views 出口](../../packages/views/src/index.ts)追加：
 
-## 2. 便签示例长什么样
-
-`packages/views/src/notes/example.tsx` 是一个完整的最小示例：一个可访问页面（便签示例页）、一个导航分组（便签）、每语言六条文案和一个场景声明。它不依赖任何后端——第二个示例存在的目的就是证明组合接口不包含知识库的任何特例。页面内部用 `useAppMessage('notes')` 解析本示例的文案键；组装后的目录以 `notes.` 为前缀，因此不同示例的文案天然不会冲突。
-
-## 3. 在组装点接入
-
-`apps/web/src/app-examples.tsx` 是接入唯一需要编辑的文件。壳与 Core 代码不 import 具体示例，示例之间也不互相 import——组装点导入一切，并把结果交给壳。接入 = 把示例的两组标记块插进组装点（有其他示例时插在它的标记块之后）：
-
-```tsx
-// example:notes:assembly:start
-import { createNotesExample } from '@saas/views';
-// example:notes:assembly:end
-
-export const exampleEntries: ExampleContribution[] = [
-  // example:knowledge:entries:start
-  // …已有示例的贡献…
-  // example:knowledge:entries:end
-  // example:notes:entries:start
-  createNotesExample(),
-  // example:notes:entries:end
-];
+```ts
+export { createBillingExample } from './billing/example';
 ```
 
-机械方式一行完成：`node scripts/example-add.mjs --example notes`。工具读取 `examples/notes/registration.mjs` 声明的块与锚点，事务式插入——先验证全部锚点再落盘，重复添加、脏副本、锚点歧义都会被拒绝。它是删例工具的逆操作，同一 marker 合同；想理解合同或接入全新示例时，手工编辑与工具殊途同归。
+小页面先保持简单；需要参数、导航或客户端时使用[公开页面端口](../../packages/views/src/shell/app-contract.ts)的 `params`、`navigate`、`apiClient`。共享页面不 import Web Router。
 
-每个示例拥有两组标记块：`assembly`（导入）与 `entries`（列表项），每个标记名在一个文件中只出现一次，删例工具因此可以机械改写。Router 只存在于应用适配层 `apps/web/src/router.tsx`：它把组装结果变成真实路由，业务页面通过端口（`params`、`navigate`、`apiClient`）获得路由能力，自身不 import 具体 Router。
+## 在显式组装点注册
 
-## 4. 源码组合
+[app-examples.tsx](../../apps/web/src/app-examples.tsx)是唯一导入业务贡献的 Web 组装点。追加导入和列表项，放在已有业务 marker 外：
 
-| 组合                 | 怎么得到                                                         | 登录后落到哪里                         |
-| -------------------- | ---------------------------------------------------------------- | -------------------------------------- |
-| 仅知识库（默认源码） | `just dev` 直接跑                                                | 知识库「我的文档」默认入口             |
-| 双示例               | `node scripts/example-add.mjs --example notes`                   | 知识库「我的文档」默认入口             |
-| 仅便签               | 在双示例副本 `node scripts/example-remove.mjs`（默认移除知识库） | 通用首页 `/`（便签示例不声明默认入口） |
-| 仅 Core              | 同一副本再 `node scripts/example-remove.mjs --example notes`     | 通用首页 `/`                           |
+```tsx
+// example:billing:assembly:start
+import { createBillingExample } from '@saas/views';
+// example:billing:assembly:end
+```
 
-从默认源码出发删掉知识库即得零示例（见[组合与移除](23-example-removal.md)）。反向要注意：便签默认未注册，删例工具会拒绝缺失的注册标记（这份谨慎保护你的定制不被误拆）——想整体删除便签源码，先用装回工具注册它再移除，CI 场景正是这个流程。两次工具操作之间要提交一次副本改动——工具只改干净的副本，这份谨慎同样保护你的定制。
+```tsx
+  // example:billing:entries:start
+  createBillingExample(),
+  // example:billing:entries:end
+```
 
-默认入口策略在组装处裁决：第一个声明默认入口的示例胜出，组装处也可显式指定覆盖；登录/注册后进入选出的业务默认入口，默认入口所属示例被移除时自然回到通用首页。直接访问 `/` 永远停在通用首页，不会被强制送往业务入口；合法业务深链接优先于默认入口。目标缺失时未知路径回落到首页，没有重定向循环。
+第二段位于现有 `exampleEntries` 数组内。通用壳、设置和通知读取 `assembledApp`，无需认识 Billing。Router 在 [apps/web/src/router.tsx](../../apps/web/src/router.tsx)把贡献转换为真实路由。
 
-每种组合都过同一组前端门禁：`pnpm typecheck`、`pnpm test:frontend`、`pnpm --filter @saas/web build` 与 `pnpm boundaries:check`。应用壳测试读取组装结果做断言（导航分组、默认入口、未知路径、深链接），所以同一份测试在四种组合里都成立；示例自己的行为测试随示例一起移除。CI 的 example-removal 任务会真实跑完四种组合。菜单显示不替代直接路由或后端授权——权限反馈仍由各业务页面与后端合同给出。
+```bash
+pnpm typecheck
+pnpm test:frontend
+pnpm --filter @saas/web build
+pnpm boundaries:check
+```
 
-## 5. 登记所有权
+启动 `just dev`，登录后访问 `/billing`，中英切换均应显示标题。临时把路由改成 Core 保留的 `/settings`，组装应明确报错；恢复后再次验证。
 
-接入完成后，把新增文件登记进 `examples/<id>/manifest.json`：`ownedPaths` 列出页面、测试与适配文件；`compositionPoints` 与 `registrationMarkers` 登记组装点文件及标记名。此后随时可以按[组合与移除](23-example-removal.md)的流程整建制移除，其余分组与 Core 功能保持稳定。
+## 默认入口与授权
+
+第一个声明 `defaultEntry` 的贡献决定登录/注册后落点，组装处可显式覆盖。已有默认业务仍排在前面时，追加 Billing 不会自动改变落点；直接访问 `/` 永远是通用首页。合法业务深链优先，目标被移除后回到通用首页。
+
+`assembleApp` 会拒绝重复 id、路由冲突、Core 保留路由、缺失中英 key 或导航指向未贡献的路由。隐藏导航不是授权；用户直达页面和 API 时仍执行后端身份、有效成员与资源规则。
+
+## 登记所有权与可选贡献
+
+为自己的可移除参考业务创建 `examples/billing/manifest.json`，登记稳定 id/markerPrefix、模块和页面路径、双语教程、迁移、测试、独占依赖，以及这些组装区块。共享能力不登记为业务独占；业务之间不互相 import。完整规则见[移除指南](23-example-removal.md)。
+
+可按真实需要追加 `provide`（页面自己的端口环境）、`resolveNotificationTarget`（通知目标）、`describeNotification`（本地化通知）、`scenes`（演示场景）与 `moduleIcons`（业务路由图标）。未知通知目标仍可读，目标 API 每次重新授权。未添加的字段不需要占位。
+
+仓库的纯 UI 便签可通过 `node scripts/example-add.mjs --example notes` 在干净副本注册；它验证组合合同，不是后端便签产品。工具读取 `examples/<id>/registration.mjs` 并在所有锚点通过后写入，拒绝脏副本、重复添加和歧义锚点。全新业务仍需自己实现贡献与登记，工具不会生成领域规则。
+
+下一步：[复用语言和外观偏好](28-appearance-language.md)，再[注册隔离演示场景](29-design-system.md)。

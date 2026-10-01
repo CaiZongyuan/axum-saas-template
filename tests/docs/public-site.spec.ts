@@ -122,6 +122,50 @@ test('blog and downloads are direct Coming soon pages without fabricated content
   await expect(meta).toHaveAttribute('content', /尚未开始实现/);
 });
 
+test('a developer follows the complete backend course and changes language on the current lesson', async ({
+  page,
+}) => {
+  await go(page, '/docs/');
+  await page.locator('.docs-path').first().focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/\/learn\/$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    '构建自己的工单 SaaS 后端',
+  );
+  for (const route of [
+    'module',
+    'migrations',
+    'protocol',
+    'authorization',
+    'transactions',
+    'retries-versions',
+    'files',
+    'jobs',
+    'verification',
+    'production',
+  ]) {
+    await page.locator('.pager-link.next').click();
+    await expect(page).toHaveURL(new RegExp(`/learn/${route}$`));
+    await expect(page.locator('.vp-doc')).toBeVisible();
+  }
+  await expect(page.locator('.pager-link.next')).toHaveCount(0);
+  await page.locator('.docs-locale-link').click();
+  await expect(page).toHaveURL(/\/en\/learn\/production$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+    '10 Deploy, observe and recover your ticket business',
+  );
+  await page.locator('.pager-link.prev').click();
+  await expect(page).toHaveURL(/\/en\/learn\/verification$/);
+  await expect(page.locator('.vp-doc')).toContainText('tutorial:course:check');
+  await page.setViewportSize({ width: 320, height: 720 });
+  await expect(page.locator('.VPContent')).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test('local search finds a backend guide and keeps its locale', async ({
   page,
 }) => {

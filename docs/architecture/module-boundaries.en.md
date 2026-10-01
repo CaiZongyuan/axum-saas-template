@@ -1,37 +1,81 @@
-# Boundaries between Core and the reference example
+# Boundaries for Core, Platform and your business
 
-Core provides identity, sessions, membership, audit, idempotency, files, jobs, notifications, mail, API keys and general HTTP capabilities. The reference example plugs its own business in through the application entry; Core never depends back on it.
+SaaS Core owns identity, Organization Memberships and shared capabilities. Your business module owns models, rules, tables, HTTP interfaces and Handlers. Platform adapts configuration and external systems. Application entries assemble them explicitly; Core and Platform do not depend back on business types.
 
-- **platform** owns configuration, connection pools, migration running, the optional Redis text cache and logging initialization, and depends on neither the application nor the knowledge-base type.
-- **app**'s modules each own their use cases and tables; a pure `domain.rs` depends on neither HTTP nor the database.
-- **API entry** assembles the Router/OpenAPI in `apps/api/src/lib.rs`; the generic builder accepts extra routes and contracts.
-- **contracts / sdk** are generated from OpenAPI; the SDK's types use contracts.
-- **core** holds platform-agnostic client helpers.
-- **ui / views** provide generic React DOM components and shareable pages respectively.
-- **Web entry** owns browser and Router wiring; shared views navigate through callbacks.
+Read [project structure](project-structure.md) first. This page explains capability ownership; begin implementation with [Add a business module](../guides/develop-module.md).
 
-The [example ownership manifest](../../examples/knowledge-base/manifest.json) records business directories, migrations, tests, tutorials and the explicit assembly blocks. Register new features there as you add them; the removal tooling later operates on exactly what is registered, and Core's capabilities are never deleted along with a reference example.
+## Dependencies and request flow
+
+```text
+apps/api/src/lib.rs ──assembles──→ Core Router + business Router/OpenAPI
+                                  │                 │
+                                  │ public APIs ←───┘
+                                  ↓
+                      crates/platform (config, PG, S3, Redis, SMTP, telemetry)
+
+apps/worker/src/main.rs ──assembles──→ Handler Registry + Jobs Worker
+apps/web/src/app-examples.tsx ──assembles──→ Universal App Shell + business Views
+```
+
+Backend modules live in `crates/app/src/modules/<name>/`. A small module can start in `mod.rs`, splitting HTTP, Application and pure `domain.rs` as complexity warrants. Pure Domain does not import Axum, SQLx or infrastructure. Responsibilities define boundaries; every endpoint does not require Repository/Service layers.
+
+| Owner                | Responsibility                                                                                       | Should not own                                             |
+| -------------------- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Platform             | Settings, pools, migration execution, bounded Redis/S3/SMTP operations and Telemetry                 | Organization policy or business DTOs                       |
+| Core modules         | Identity, Organization, Audit, Idempotency, Files, Jobs, Notifications, Mail, API Keys and RateLimit | Business-resource policies or tables                       |
+| Your business        | Protocols, domain rules, resource authorization, transaction coordination, owned tables and Handlers | Other modules' private SQL                                 |
+| Application assembly | Router/OpenAPI, scopes, Handlers and UI contributions                                                | Registration state implicitly read by all modules          |
+| Client packages      | contracts → SDK → Views, with generic UI and platform-independent helpers                            | Duplicate DTOs or cached backend authorization conclusions |
+
+`packages/core` contains platform-independent client helpers; it is distinct from Rust SaaS Core. `packages/ui` provides generic React DOM components.
+
+## Minimal backend assembly interface
+
+[crates/app/src/lib.rs](../../crates/app/src/lib.rs) exposes `compose_routes` and `compose_routes_with_options`. This complete function assembles Core only and belongs in an application adapter:
+
+```rust
+pub fn core_router(
+    pool: sqlx::PgPool,
+    auth: saas_platform::config::AuthSettings,
+) -> axum::Router {
+    saas_app::compose_routes(
+        pool,
+        auth,
+        axum::Router::new(),
+        saas_app::openapi(),
+    )
+}
+```
+
+Pass your Router and merged OpenAPI through the same interface when adding business code, without making Core import it. Production calls `configured_router`; tests also call `router_with_cache`. Register a module along both actual paths. Advanced assembly supplies scopes, Cache, RateLimiter and the password-reset service through `CoreOptions`.
+
+## Collaboration and transaction ownership
+
+Owned migrations and `module.json.tables` declare table ownership. Stable identifiers such as `saas_core.users(id)` may be referenced by database constraints; profile reads, active Membership checks and cross-module writes still use public interfaces.
+
+| Capability            | Caller responsibility                                                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Identity/Organization | Obtain identity, verify active Membership and apply business-resource authorization; critical writes can lock Memberships to stabilize authorization |
+| Audit                 | Call `audit::append` inside your transaction and roll back business writes on failure                                                                |
+| Idempotency           | Keep claim, business writes and complete in one transaction; fingerprint normalized input                                                            |
+| Jobs/Notifications    | Enqueue and register notification intent in the request transaction; Jobs publishes atomically on terminal state                                     |
+| Files                 | Authorize business resources first; Files owns object state, and network I/O is not PostgreSQL-atomic                                                |
+| API Key/Cache         | Register implemented scopes, intersect credentials with current resource access and reauthorize before cache hits                                    |
+| Telemetry             | Use tracing/public scopes; request/trace ids correlate events and never grant access                                                                 |
+
+Organization roles differ from business-resource access. Owner/Admin/Member do not automatically replace your resource rules. Each deployment has one Organization; adding modules does not create a tenant boundary. See [ADR 0001](../adr/0001-single-organization-deployment.md).
+
+Cache and rate limiting use bounded Platform Redis capabilities rather than arbitrary business commands. Identity owns reset validity and short-lived ciphertext; Jobs stores only reset ids. Credentials and signed URLs stay outside logs, Job payloads and caches. Domain holds no runtime OTel Context.
+
+## Check boundaries and diagnose failures
 
 ```bash
 pnpm boundaries:check
+cargo check --locked --workspace
 ```
 
-The current check verifies package import directions, direct references from Core to reference types, infrastructure imports inside pure domains, the SQL tables each module declares ownership of, and the assembly manifest. Every Rust module's `module.json` is the entry point for table ownership; modules cooperate only through public interfaces — for example, Audit appends records inside the caller's transaction.
+The [checker](../../scripts/check-boundaries.mjs) validates package imports, reverse Core dependencies, infrastructure in Domain, table ownership, ownership conflicts and registration markers. Temporarily register or access a private Core table from your business module; it should fail. Restore the code and run business HTTP/transaction tests.
 
-The SQL check works from strings in the source and the registered table names; it cannot prove everything about dynamic SQL, quoted identifiers or symbol aliases — those still need review. Rust visibility plus real HTTP/database tests complete the verification. Actual example-removal acceptance is exercised by the removal tooling's corresponding task.
+SQL checks inspect source strings and registered table names; they cannot establish correctness for all dynamic SQL, quoted identifiers or aliases. Rust visibility, review and real database tests supplement them. For removable Reference Domains, register source, migrations, tutorials and tests and follow [removal](../tutorials/23-example-removal.md) in a temporary copy to prove Core still builds.
 
-When you bring your own business, use the public identity, files and jobs capabilities; never make Core depend on the example through private tables or reverse imports. For the decisions behind this, see [the executable-removable-reference ADR](../adr/0002-executable-removable-reference.md).
-
-Notifications owns job notification intents and the inbox; business code registers intents in the request transaction through public interfaces, and Jobs publishes notifications in the terminal-state transaction. Navigation targets are resolved by the app shell; Core views open them through callbacks; the target API always re-authorizes. Unknown targets never affect reading or marking as read.
-
-API Keys manages generic credentials and their scopes. The application entry registers the scopes each module actually provides; business handlers obtain the current user through the public authentication capability, then perform their own resource authorization. Core's `profile:read` and key management survive example removal; one-time secrets never enter replays, queries or the mutation cache.
-
-CoreOptions passes scope registration and the shared cache at the application assembly point. The cache only handles budgeted Redis I/O and in-process metering; Knowledge owns its own database authorization, body versions and keys; Core never stores or reuses business permission decisions.
-
-RateLimit classifies requests in Core, maintains the bounded local fallback and the fixed policy metering; the Platform WindowCounter performs the limited Redis atomic operations. Cache and counters share a private transport implementation, each holding its own capacity and timeout budgets; business modules never send arbitrary Redis commands directly.
-
-Identity owns reset validity, hashing, the short-lived cipher table and the mail handler; Mail provides bounded encryption/decryption and delivery capability, and Platform wraps SMTP. Jobs stores only the reset ID and owns leases and retries. Core's password-reset page, tutorial and browser tests are independent of knowledge-base ownership and survive example removal.
-
-Platform Telemetry wraps the optional OTel exporter, W3C propagation, bounded metering and the lossy JSON log sink. Application uses tracing with public scopes; HTTP records the actor at authentication success points, Jobs saves observation metadata in the same transaction, the Worker starts a new attempt span from the persisted parent, and Audit records the currently valid trace ID. The domain never depends on OTel, and business payloads never carry runtime context.
-
-`just dev-observability` starts the generic Collector/Prometheus/Loki/Tempo/Grafana profile alongside the normal development entry; `just observability-down` stops only the observability services and keeps their volumes. Core's configuration reference, HTTP/job/storage metering, audit correlation, dashboards and protocol/failure tests all survive example removal. Trace IDs are never used for authorization, and sampling or telemetry-export failures never change business state. Raw request contents, credentials, signed URLs and third-party transport debug output never enter the observability pipeline.
+Tradeoffs and assembly responsibilities are in [ADR 0002](../adr/0002-executable-removable-reference.md) and [ADR 0003](../adr/0003-static-example-composition.md). Next: [Choose public behavior tests for your business](../testing/t01-feedback-loop.md).

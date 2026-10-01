@@ -1,67 +1,89 @@
-# Add a reference example
+# Connect your business pages to the application shell
 
-The universal app shell knows nothing about concrete businesses. An example joins through a declarative contribution object (pages, navigation groups, bilingual messages, an optional default entry) at an explicit assembly point, and the shell validates and assembles it. The default source registers only the knowledge base; the repository also ships the notes example (unregistered by default, source kept). This chapter walks the full wiring with it — introducing the mechanical helper `scripts/example-add.mjs` (the inverse of the removal tool, under the same marker contract) as well as every hand-written step — and shows how the single-, dual- and zero-example source combinations run and get verified.
+After composing your backend module and OpenAPI, contribute Web pages, navigation and bilingual messages through ExampleContribution to the Universal App Shell. A frontend contribution does not register backend routes or grant resource access; API assembly and business authorization own those responsibilities.
 
-## 1. What an example owns
+Prerequisites are [project structure](../architecture/project-structure.md) and installed pnpm dependencies. Make these changes in your development copy and run commands from the repository root.
 
-Each example registers file ownership (`ownedPaths`) and registration markers (`registrationMarkers`) in `examples/<id>/manifest.json`; the removal tool uses them to strip the example in one piece. At runtime, an example contributes an `ExampleContribution`:
+## Create a complete minimal contribution
 
-```ts
-{
-  id: 'notes',                        // stable id: nav groups, message namespace and route ownership all derive from it
-  routes: [{ path: '/notes', component }],
-  navigation: [{ id: 'main', labelKey: 'nav.group', items: [...] }],
-  messages: { zh: { ... }, en: { ... } }, // bilingual texts; a missing locale fails at assembly
-  defaultEntry: '/notes',             // optional: the post-login business default entry
-  scenes: [...],                      // optional: demo scene declarations
-  provide,                            // optional: wraps this example's pages with its own ports
+Create `packages/views/src/billing/example.tsx`. This stage adds one page; later use `AppPageProps.apiClient` with your generated SDK:
+
+```tsx
+import type { ExampleContribution } from '../shell/app-contract';
+import { useAppMessage } from '../shell/messages';
+
+function BillingPage() {
+  const message = useAppMessage('billing');
+  return <h1>{message('page.title')}</h1>;
+}
+
+export function createBillingExample(): ExampleContribution {
+  return {
+    id: 'billing',
+    routes: [{ path: '/billing', component: () => <BillingPage /> }],
+    navigation: [
+      {
+        id: 'main',
+        labelKey: 'nav.group',
+        items: [{ id: 'billing', labelKey: 'page.title', path: '/billing' }],
+      },
+    ],
+    messages: {
+      zh: { 'nav.group': '账务', 'page.title': '账务' },
+      en: { 'nav.group': 'Billing', 'page.title': 'Billing' },
+    },
+    defaultEntry: '/billing',
+  };
 }
 ```
 
-The types and the `assembleApp` validation live in `packages/views/src/shell/app-contract.ts`. Duplicate ids, route conflicts, Core reserved routes and missing translations all fail loudly at assembly — the last registration never silently wins. Navigation items may only point at routes the example itself contributes, and empty groups disappear.
+Append to the [Views entry](../../packages/views/src/index.ts):
 
-## 2. What the notes example looks like
-
-`packages/views/src/notes/example.tsx` is a complete minimal example: one reachable page (Notes example page), one navigation group (Notes), six texts per locale and one scene declaration. It depends on no backend — the second example exists precisely to prove that the composition interface contains no knowledge-specific special case. Pages resolve their texts with `useAppMessage('notes')`; the assembled catalog prefixes keys with `notes.`, so messages from different examples can never collide.
-
-## 3. Joining at the assembly point
-
-`apps/web/src/app-examples.tsx` is the only file a new example edits. Shell and Core code never import a concrete example, and examples never import each other — the assembly point imports everything and hands the result to the shell. Joining means inserting the example's two marker blocks (after the existing example's blocks, when there is one):
-
-```tsx
-// example:notes:assembly:start
-import { createNotesExample } from '@saas/views';
-// example:notes:assembly:end
-
-export const exampleEntries: ExampleContribution[] = [
-  // example:knowledge:entries:start
-  // …the existing example's contribution…
-  // example:knowledge:entries:end
-  // example:notes:entries:start
-  createNotesExample(),
-  // example:notes:entries:end
-];
+```ts
+export { createBillingExample } from './billing/example';
 ```
 
-One mechanical command does the same: `node scripts/example-add.mjs --example notes`. The tool reads the blocks and anchors declared in `examples/notes/registration.mjs` and inserts them transactionally — it verifies every anchor before writing anything, and refuses duplicates, dirty copies and ambiguous anchors. It is the inverse of the removal tool under the same marker contract; when you want to understand the contract or wire a brand-new example, hand-editing and the tool meet in the same place.
+Keep a small page simple. When it needs parameters, navigation or a client, use `params`, `navigate` and `apiClient` from the [public page ports](../../packages/views/src/shell/app-contract.ts). Shared pages do not import the Web Router.
 
-Each example owns two marker blocks: `assembly` (its imports) and `entries` (its list entry), and every marker name appears at most once per file so the removal tool can rewrite them mechanically. The Router exists only in the app adapter `apps/web/src/router.tsx`: it turns the assembled result into real routes, while pages receive routing through ports (`params`, `navigate`, `apiClient`) and never import a concrete Router.
+## Register at the Assembly Point
 
-## 4. The source combinations
+[app-examples.tsx](../../apps/web/src/app-examples.tsx) is the Web assembly file importing business contributions. Add this import and array entry outside existing business markers:
 
-| Combination              | How to get it                                                                      | Where login lands                                        |
-| ------------------------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Knowledge-only (default) | run `just dev`                                                                     | the knowledge example's My documents entry               |
-| Dual                     | `node scripts/example-add.mjs --example notes`                                     | the knowledge example's My documents entry               |
-| Notes-only               | in the dual copy, `node scripts/example-remove.mjs` (removes knowledge by default) | the universal home `/` (notes declares no default entry) |
-| Core-only                | in the same copy, `node scripts/example-remove.mjs --example notes`                | the universal home `/`                                   |
+```tsx
+// example:billing:assembly:start
+import { createBillingExample } from '@saas/views';
+// example:billing:assembly:end
+```
 
-Removing knowledge from the default source yields the zero-example app (see [compose-and-remove](23-example-removal.md)). The reverse needs one extra step: notes ships unregistered, so the removal tool refuses its missing registration markers — the same care that protects your customizations from being stripped. To delete the notes source entirely, register it with the add tool first and then remove it; the CI scenario runs exactly that flow. Commit the copy between two tool operations — the tools only edit clean copies, and the same care protects your customizations.
+```tsx
+  // example:billing:entries:start
+  createBillingExample(),
+  // example:billing:entries:end
+```
 
-The default-entry strategy is decided at assembly: the first example that declares a default entry wins, and the assembly point may pin one explicitly; after login or registration the app opens the selected business default entry, and when the example owning it is removed the app falls back to the universal home. A direct visit to `/` always stays on the universal home and is never forced to a business entry; valid business deep links take precedence over the default entry. Missing targets fall back home without a redirect loop.
+The second block belongs inside the existing `exampleEntries` array. Shared shell, settings and notifications consume `assembledApp` without knowing Billing. [apps/web/src/router.tsx](../../apps/web/src/router.tsx) turns contributions into real routes.
 
-Every combination passes the same frontend gates: `pnpm typecheck`, `pnpm test:frontend`, `pnpm --filter @saas/web build` and `pnpm boundaries:check`. The app-shell tests assert against the assembled result (navigation groups, default entry, unknown paths, deep links), so one test file holds in all four combinations; example-owned behavior tests leave together with the example. The CI example-removal job runs all four combinations for real. Menu display never replaces direct routes or backend authorization — permission feedback still comes from the business pages and the backend contracts.
+```bash
+pnpm typecheck
+pnpm test:frontend
+pnpm --filter @saas/web build
+pnpm boundaries:check
+```
 
-## 5. Register ownership
+Run `just dev`, sign in and open `/billing`; the heading should work in both languages. Temporarily change the route to Core-reserved `/settings`: assembly must fail explicitly. Restore the route and verify again.
 
-Once wired, register the new files in `examples/<id>/manifest.json`: `ownedPaths` lists the pages, tests and adapter files; `compositionPoints` and `registrationMarkers` record the assembly files and marker names. From then on the [compose-and-remove](23-example-removal.md) flow strips the example in one piece while the remaining groups and Core functionality stay stable.
+## Default Entry and authorization
+
+The first contribution declaring `defaultEntry` selects the post-login/registration destination; assembly may override it explicitly. Appending Billing after an existing default business does not change that destination automatically. Direct `/` remains universal home; valid business deep links take priority, and removal of a selected entry falls back to home.
+
+`assembleApp` rejects duplicate ids, conflicting routes, Core-reserved routes, missing bilingual keys and navigation to uncontributed routes. Hiding navigation grants no protection. Direct pages and APIs still need backend identity, active Membership and resource rules.
+
+## Register ownership and optional contributions
+
+Create `examples/billing/manifest.json` for a removable Reference Domain. Register stable id/markerPrefix, backend/page paths, bilingual tutorials, migrations, tests, exclusive dependencies and assembly markers. Shared capabilities cannot be business-exclusive, and businesses do not import one another. See [removal](23-example-removal.md) for the complete rules.
+
+Add `provide` for page-specific ports, `resolveNotificationTarget` for navigation, `describeNotification` for localized notification titles, `scenes` for demos and `moduleIcons` for business-route icons when needed. Unknown notification targets remain readable and the destination API reauthorizes. Unused fields need no placeholders.
+
+The shipped UI-only notes example can be registered with `node scripts/example-add.mjs --example notes` in a clean copy. It proves composition, not a backend notes product. The tool reads `examples/<id>/registration.mjs`, verifies all anchors before writing and rejects dirty copies, duplicate additions and ambiguous anchors. A new business still requires your implementation and ownership registration; the tool does not generate business rules.
+
+Next: [Reuse language and appearance preferences](28-appearance-language.md), then [register isolated demo scenes](29-design-system.md).

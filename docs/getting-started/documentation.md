@@ -3,7 +3,7 @@
 从 Rust + Axum 后端开始，实现自己的业务模块，接入身份、数据库、审计、文件与后台任务，再交付能够验证和部署的 API。
 
 <div class="docs-paths">
-  <a class="docs-path" href="../guides/new-module"><strong>从头开发一个业务</strong><span>创建自己的模块，从第一条路由开始增加数据、权限和业务规则。</span></a>
+  <a class="docs-path" href="../learn/"><strong>从头开发一个业务</strong><span>开发工单 SaaS 后端，逐步接入数据、权限、文件与后台任务。</span></a>
   <a class="docs-path" href="../architecture/project-structure"><strong>已有后端经验</strong><span>先了解代码归属，再按数据库、接口、用例与测试进入开发指南。</span></a>
   <a class="docs-path" href="../reference/api"><strong>正在使用框架</strong><span>查阅公共 API、配置、模块接入和运行命令。</span></a>
 </div>
@@ -33,7 +33,7 @@ HTTP / 请求 DTO
 
 ## 先运行，再开发
 
-按[快速开始](quickstart.md)启动开发依赖与 API，确认一条请求真实到达 PostgreSQL。之后按[新增业务模块](../guides/develop-module.md)创建 `tickets` 模块，编译并请求自己的接口。
+按[快速开始](quickstart.md)准备工具，再进入[工单 SaaS 课程](../learn/index.md)，在独立副本中逐步实现 `tickets` 模块。四个检查点可以运行完整代码，十课围绕同一业务学习数据库、协议、授权、事务、文件、任务、验证与部署。[新增业务模块](../guides/develop-module.md)提供简明接入指南。
 
 每份指南提供要修改的位置、公开接口、最小代码、可观察结果和失败边界。生成的 [API](site:reference/api.md)与[配置](site:reference/config.md)保持实现为唯一事实来源。
 

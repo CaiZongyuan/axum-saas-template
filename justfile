@@ -136,6 +136,7 @@ perf-trajectory:
 perf-soak:
     node scripts/perf/run-scenario.mjs soak
 
+# example:knowledge:desktop-soak:start
 # Desktop soak (spec §17.3): drives the real Electron shell over the shared
 # knowledge views and samples renderer RSS, heap, DOM nodes and listeners
 # into .scratch/perf/desktop-soak-report.json. Prerequisites: pnpm install
@@ -149,6 +150,7 @@ perf-soak:
 # evidence, not a PR gate.
 perf-desktop-soak:
     node scripts/perf/desktop-soak.mjs
+# example:knowledge:desktop-soak:end
 
 docs:
     pnpm docs:dev

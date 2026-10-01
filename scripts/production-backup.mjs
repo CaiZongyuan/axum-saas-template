@@ -272,6 +272,6 @@ console.log(
     `- archive: ${archive}`,
     `- database.dump (${manifest.database.migration_version}) + ${objectsVerified} verified objects + manifest.json`,
     `- report: ${join(archive, 'backup-report.md')}`,
-    `- the stack is stopped; restart with: just production-up ENV_FILE=${values['env-file']}`,
+    `- the stack is stopped; restart with: just production-up ${values['env-file']}`,
   ].join('\n'),
 );

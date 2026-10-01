@@ -3,7 +3,7 @@
 Start with a Rust + Axum backend. Implement your business module, connect identity, persistence, audit, files and jobs, then deliver an API you can verify and deploy.
 
 <div class="docs-paths">
-  <a class="docs-path" href="../guides/new-module"><strong>Build a new business</strong><span>Create your module and grow from the first route into data, permissions and business rules.</span></a>
+  <a class="docs-path" href="../learn/"><strong>Build a new business</strong><span>Develop a ticket SaaS backend with data, permissions, files and background jobs.</span></a>
   <a class="docs-path" href="../architecture/project-structure"><strong>Experienced developer</strong><span>Find code ownership, then enter the database, endpoint, use case and testing guides.</span></a>
   <a class="docs-path" href="../reference/api"><strong>Using the framework</strong><span>Look up public API, configuration, module integration and commands.</span></a>
 </div>
@@ -33,7 +33,7 @@ The application composes Router and OpenAPI, your module owns rules and tables, 
 
 ## Run, then develop
 
-Complete the [quick start](quickstart.md) and verify a request against PostgreSQL. Then [add a business module](../guides/develop-module.md), compile it and request your endpoint.
+Prepare the tools in the [quick start](quickstart.md), then build `tickets` in an isolated copy with the [ticket SaaS course](../learn/index.en.md). Four checkpoints provide complete runnable code. Ten lessons follow one business through persistence, protocols, authorization, transactions, files, jobs, verification and deployment. [Add a business module](../guides/develop-module.md) is the concise integration guide.
 
 Guides provide locations, public interfaces, minimal code, observable results and failure boundaries. Generated [API](site:reference/api.md) and [configuration](site:reference/config.md) keep the implementation as their source of truth.
 
