@@ -48,10 +48,11 @@ jobs:
       - name: Install k6 (pinned version, checksum-verified)
         run: |
           K6_VERSION=2.3.0
-          curl -sfL "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-linux-amd64.tar.gz" -o /tmp/k6.tgz
+          K6_ARCHIVE="k6-v${K6_VERSION}-linux-amd64.tar.gz"
+          curl -sfL "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/${K6_ARCHIVE}" -o "/tmp/${K6_ARCHIVE}"
           curl -sfL "https://github.com/grafana/k6/releases/download/v${K6_VERSION}/k6-v${K6_VERSION}-checksums.txt" -o /tmp/k6-checksums.txt
-          grep "k6-v${K6_VERSION}-linux-amd64.tar.gz$" /tmp/k6-checksums.txt | (cd /tmp && sha256sum --check -)
-          tar -xzf /tmp/k6.tgz -C /tmp
+          grep " ${K6_ARCHIVE}$" /tmp/k6-checksums.txt | (cd /tmp && sha256sum --check -)
+          tar -xzf "/tmp/${K6_ARCHIVE}" -C /tmp
           sudo install /tmp/k6-v${K6_VERSION}-linux-amd64/k6 /usr/local/bin/k6
           k6 version
       - name: Load (steady read-heavy mix)

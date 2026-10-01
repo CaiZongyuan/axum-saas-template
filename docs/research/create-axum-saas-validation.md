@@ -53,3 +53,9 @@ PR #124 的首轮 CI 通过 backend、frontend、documentation、teaching-backen
 Core 打包现改为通过 YAML API 从 importer 中删除已不再声明的依赖，同时保留自动安装的 peer dependencies，再使用 `pnpm install --frozen-lockfile`。输出确认 `resolution step is skipped`，保留已锁定版本和供应链检查。安装错误不再由 `--silent` 隐藏。定向四项真实产物测试与 lint 刷新通过；最终 CI 结果以 PR checks 为准。
 
 第二轮 CI 完成 Core 打包和其余三项产物测试，发现残留标识检查依赖未安装的 `rg`。改用 Node 文件 API 遍历全部文本产物及路径，保留相同的旧标识断言，不为检查引入额外系统工具。
+
+## 合并后 CI 修复
+
+`f202c60` 的主 CI 在桌面知识库预览测试失败：页面标题与 Markdown 的一级标题同名，正文渲染较快时全页 heading 查询产生 strict-mode 重复匹配。断言改为在公开的“正文” region 内查找标题和正文 marker，不改变应用行为或增加重试。实际 Electron 冒烟四项通过。
+
+nightly 在安装 k6 时失败：下载使用 `/tmp/k6.tgz`，checksum 清单要求 `k6-v2.3.0-linux-amd64.tar.gz`。workflow 统一通过 `K6_ARCHIVE` 命名下载、校验和解压。直接运行该安装片段，下载 SHA-256 校验通过，解压后的二进制报告 k6 v2.3.0。

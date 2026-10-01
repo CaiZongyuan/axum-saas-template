@@ -25,11 +25,12 @@ test('shell shows seeded knowledge documents through the shared views', async ()
 
     await window.goto(`${appOrigin}/documents`);
     await window.getByRole('button', { name: documentTitle }).first().click();
+    const body = window.getByRole('region', { name: '正文', exact: true });
     await expect(
-      window.getByRole('heading', { name: documentTitle }),
+      body.getByRole('heading', { name: documentTitle, exact: true }),
     ).toBeVisible();
     // The Markdown preview renders the API-provided content safely.
-    await expect(window.getByText(documentMarker)).toBeVisible();
+    await expect(body.getByText(documentMarker, { exact: true })).toBeVisible();
   } finally {
     await cleanup();
   }
