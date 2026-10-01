@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
+import { freePorts, launch, root, run, stop, waitFor } from './lib/process.mjs';
 
 // The disposable desktop stack shared by the shell commands (smoke, soak):
 // test-flavored PostgreSQL, RustFS, Redis and Mailpit as one-off containers,
@@ -27,8 +27,7 @@ export async function withDesktopStack(
   run('pnpm', ['--filter', '@saas/desktop', 'build']);
   await withTestServices(
     async ({ postgresName, storageName, env: services }) => {
-      const apiPort = await freePort();
-      const webPort = await freePort();
+      const [apiPort, webPort] = await freePorts(2);
       const downloadsDir = mkdtempSync(join(tmpdir(), 'saas-desktop-dl-'));
       const webOrigin = `http://127.0.0.1:${webPort}`;
       const env = {

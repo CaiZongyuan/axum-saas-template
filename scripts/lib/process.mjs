@@ -93,13 +93,29 @@ export async function stop(child, graceMs = 5_000) {
 }
 
 export async function freePort() {
-  const server = createServer();
-  await new Promise((resolveListen, reject) =>
-    server.listen(0, '127.0.0.1', resolveListen).once('error', reject),
-  );
-  const { port } = server.address();
-  await new Promise((resolveClose) => server.close(resolveClose));
-  return port;
+  return (await freePorts(1))[0];
+}
+
+export async function freePorts(count) {
+  const servers = [];
+  try {
+    // The OS may immediately recycle a closed probe's port. Keep the whole
+    // group bound until every member has its own port.
+    for (let index = 0; index < count; index++) {
+      const server = createServer();
+      servers.push(server);
+      await new Promise((resolveListen, reject) =>
+        server.listen(0, '127.0.0.1', resolveListen).once('error', reject),
+      );
+    }
+    return servers.map((server) => server.address().port);
+  } finally {
+    await Promise.all(
+      servers
+        .filter((server) => server.listening)
+        .map((server) => new Promise((done) => server.close(done))),
+    );
+  }
 }
 
 export async function waitFor(url, child, timeoutMs = 30_000, request = {}) {

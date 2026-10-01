@@ -11,7 +11,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { unzipSync, strFromU8 } from 'fflate';
 import { withTestPostgres } from './lib/postgres.mjs';
 import { withTestRustfs } from './lib/rustfs.mjs';
-import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
+import { freePorts, launch, root, run, stop, waitFor } from './lib/process.mjs';
 import {
   observabilityCompose,
   observabilityEnv,
@@ -54,13 +54,7 @@ async function json(url) {
 try {
   await withTestPostgres(async ({ url }) =>
     withTestRustfs(async ({ env: storage }) => {
-      const ports = await Promise.all(
-        Array.from({ length: 7 }, () => freePort()),
-      );
-      ensure(
-        new Set(ports).size === ports.length,
-        'Could not reserve distinct smoke ports',
-      );
+      const ports = await freePorts(7);
       const [
         apiPort,
         workerPort,

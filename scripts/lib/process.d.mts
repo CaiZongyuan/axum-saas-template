@@ -17,6 +17,7 @@ export function stop(
   graceMs?: number,
 ): Promise<void>;
 export function freePort(): Promise<number>;
+export function freePorts(count: number): Promise<number[]>;
 export function waitFor(
   url: string,
   child?: ChildProcess,

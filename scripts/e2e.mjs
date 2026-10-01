@@ -2,7 +2,7 @@ import { withTestServices } from './lib/test-services.mjs';
 import { resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { freePort, launch, root, run, stop, waitFor } from './lib/process.mjs';
+import { freePorts, launch, root, run, stop, waitFor } from './lib/process.mjs';
 
 // Remove legacy HTML reports that can contain authentication action arguments.
 rmSync(resolve(root, 'playwright-report'), { recursive: true, force: true });
@@ -12,9 +12,7 @@ run('cargo', ['build', '--locked', '--workspace', '--bins'], {
   CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? '4',
 });
 await withTestServices(async ({ postgresName, storageName, env: services }) => {
-  const apiPort = await freePort();
-  const webPort = await freePort();
-  const workerPort = await freePort();
+  const [apiPort, webPort, workerPort] = await freePorts(3);
   const env = {
     ...process.env,
     ...services,
