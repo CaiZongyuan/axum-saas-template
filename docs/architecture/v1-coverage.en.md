@@ -1,13 +1,13 @@
 # v1 capability coverage and acceptance
 
-This page is v1's ledger: every row of the spec's [§8.6 feature coverage matrix](../saas-template-architecture-spec.md) lands here as real links — run entries, source guides, online tutorials and verification map one to one, and the doc build's existence checks guard every link target (a missing source file fails the build), so tutorials and source never drift apart silently. The matrix records only **delivered** capabilities; design notes (such as spec §15.2's Mobile and the Outbox extension chapter) stay out of the matrix and carry no coverage marks — the documentation leaves no blanks to fill. Evidence for Core capabilities is written directly into the matrix and is guaranteed to hold after [removing the examples](../tutorials/23-example-removal.md).
+This page preserves v1 capability coverage and historical acceptance so maintainers can trace the specification, implementation and evidence from those revisions. Ticket states, measurements and acceptance versions below are historical records. Use [Developer documentation](../getting-started/documentation.md) for current learning paths and GitHub Issues for live implementation status. The matrix maps the spec's [§8.6 feature coverage matrix](../saas-template-architecture-spec.md) to actual source and migrated guides.
 
-## Four reading paths
+## Current development entries
 
-1. **Quick start**: [Quick start](../getting-started/quickstart.md) — toolchain, `just dev`, registering the first account, service status and failure scenarios.
-2. **Follow the tutorials**: start from [the first full-stack request](../tutorials/01-full-stack-request.md) and work chapter by chapter; every chapter maps to real commands and tests.
-3. **Build your own business**: [compose and remove reference examples](../tutorials/23-example-removal.md) — delete the knowledge-base example per the ownership manifest and Core keeps running as before.
-4. **Verification and reference manuals**: [running tests and checks](../testing/t01-feedback-loop.md), [Core and example boundaries](./module-boundaries.md), and the generated references ([API contract](site:reference/api.md), [API configuration](site:reference/config.md)).
+1. **Start backend development**: [Quick start](../getting-started/quickstart.md) verifies startup and HTTP; [project structure](project-structure.md) locates source.
+2. **Add your business**: [Add a module](../guides/develop-module.md) connects Router/OpenAPI, followed by capability-specific guides.
+3. **Verify and deliver**: [Feedback loop](../testing/t01-feedback-loop.md), [production deployment](../tutorials/21-single-machine-production.md) and [independent restore](../tutorials/22-backup-restore.md).
+4. **Replace and look up**: [Remove reference business](../tutorials/23-example-removal.md), [Core/business boundaries](module-boundaries.md), [API contract](site:reference/api.md) and [configuration](site:reference/config.md).
 
 ## Core capability matrix
 

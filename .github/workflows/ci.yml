@@ -15,47 +15,100 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 jobs:
-  verify:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      docs: ${{ steps.scope.outputs.docs }}
+      backend: ${{ steps.scope.outputs.backend }}
+      teaching: ${{ steps.scope.outputs.teaching }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+      desktop: ${{ steps.scope.outputs.desktop }}
+      removal: ${{ steps.scope.outputs.removal }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - id: scope
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.sha }}
+        run: node scripts/ci-change-scope.mjs
+  tooling:
+    needs: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-checks
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm test:tooling
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       CARGO_BUILD_JOBS: '4'
-      DOCS_SOURCE_REF: ${{ github.sha }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version-file: .node-version
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        with:
-          version: 11.17.0
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-      - name: Prepare Rust and just
-        run: |
-          rustup show
-          cargo install just --version 1.58.0 --locked
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
-        if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
-      - run: just check
-      - name: Keep the performance report
+      - uses: ./.github/actions/setup-checks
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: pnpm contracts:check
+      - run: pnpm boundaries:check
+      - run: just test-backend
+      - run: node scripts/perf-query-plans.mjs
+      - name: Keep the query-plan report
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: perf-report
-          path: .scratch/perf
+          name: perf-query-report
+          path: .scratch/perf/query-plans.json
           if-no-files-found: ignore
           retention-days: 7
-      - run: just e2e
+  teaching-backend:
+    needs: changes
+    if: needs.changes.outputs.teaching == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_JOBS: '4'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-checks
+      - run: cargo fmt --all -- --check
+      - run: pnpm tutorial:check
+      - run: pnpm tutorial:course:check
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-checks
+        with:
+          rust: ${{ github.event_name == 'workflow_dispatch' && inputs.run_e2e && 'true' || 'false' }}
+      - run: pnpm typecheck
+      - run: pnpm test:frontend
+      - run: pnpm build
+      - run: node scripts/perf-bundle.mjs
+      - run: pnpm exec playwright install --with-deps chromium
         if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
-      - run: just e2e-docs
+      - run: pnpm test:e2e
         if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
+      - name: Keep the bundle report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: perf-bundle-report
+          path: .scratch/perf/bundle-report.json
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Keep browser evidence
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
@@ -66,6 +119,32 @@ jobs:
             test-results/status-ready.png
             test-results/status-*/trace.zip
             test-results/status-*/test-failed-*.png
+          if-no-files-found: ignore
+          retention-days: 7
+  documentation:
+    needs: changes
+    if: needs.changes.outputs.docs == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_JOBS: '4'
+      DOCS_SOURCE_REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: ./.github/actions/setup-checks
+      - run: pnpm docs:check
+      - run: pnpm docs:build
+        if: github.event_name != 'workflow_dispatch' || !inputs.run_e2e
+      - run: pnpm exec playwright install --with-deps chromium
+        if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
+      - run: just e2e-docs
+        if: github.event_name == 'workflow_dispatch' && inputs.run_e2e
+      - name: Keep documentation browser evidence
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: docs-browser-evidence
+          path: |
             test-results/docs/summary.json
             test-results/docs/landing-*.png
           if-no-files-found: ignore
@@ -77,6 +156,8 @@ jobs:
           path: apps/docs/.vitepress/dist
           retention-days: 7
   desktop-smoke:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -85,26 +166,11 @@ jobs:
       DESKTOP_ELECTRON_ARGS: '--no-sandbox --disable-gpu --disable-dev-shm-usage'
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
-        with:
-          node-version-file: .node-version
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        with:
-          version: 11.17.0
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-rust-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-      - name: Prepare Rust, just and the X server for the shell
+      - uses: ./.github/actions/setup-checks
+      - name: Prepare the X server for the shell
         run: |
-          rustup show
-          cargo install just --version 1.58.0 --locked
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends xvfb
-      - run: pnpm install --frozen-lockfile
       - name: Shell smoke (window lifecycle, shared views, IPC, navigation limits)
         run: just desktop-smoke
       - name: Keep shell smoke logs on failure
@@ -116,6 +182,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
   example-removal:
+    needs: changes
+    if: needs.changes.outputs.removal == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -123,25 +191,9 @@ jobs:
       CARGO_TARGET_DIR: /tmp/cargo-target
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+      - uses: ./.github/actions/setup-checks
         with:
-          node-version-file: .node-version
-      - uses: pnpm/action-setup@f40ffcd9367d9f12939873eb1018b921a783ffaa # v4
-        with:
-          version: 11.17.0
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            /tmp/cargo-target
-          key: ${{ runner.os }}-rust-example-removal-${{ github.sha }}
-          restore-keys: ${{ runner.os }}-rust-example-removal-
-      - name: Prepare Rust and just
-        run: |
-          rustup show
-          cargo install just --version 1.58.0 --locked
-      - run: pnpm install --frozen-lockfile
+          target-dir: /tmp/cargo-target
       - name: Copy the template to a disposable working copy
         run: git clone --quiet . /tmp/template-copy
       - name: Protection — a dirty copy is refused without changes
@@ -157,7 +209,7 @@ jobs:
       # its gate before the scenario re-adds the second example (UI-R5:
       # notes ships unregistered; adding it back is the runnable
       # demonstration of onboarding an example). The clone is content-
-      # identical to the tree the verify job gates, so the Rust core and
+      # identical to the tree the backend job gates, so the Rust core and
       # docs builds are not repeated here — the frontend composition gates
       # are, matching the knowledge-only gate below.
       - name: Default assembly passes its gate
@@ -241,9 +293,31 @@ jobs:
       - name: A new business joins through the same public interfaces
         working-directory: /tmp/template-copy
         run: node scripts/example-new-business.mjs --root /tmp/template-copy
+  verify:
+    if: always()
+    needs:
+      [
+        changes,
+        tooling,
+        backend,
+        teaching-backend,
+        frontend,
+        documentation,
+        desktop-smoke,
+        example-removal,
+      ]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+      - env:
+          CI_JOB_RESULTS: ${{ toJSON(needs) }}
+        run: node scripts/ci-change-scope.mjs --verify
   publish-docs:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && needs.documentation.result == 'success'
+    needs: [verify, documentation]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

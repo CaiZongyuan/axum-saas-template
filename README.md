@@ -17,6 +17,8 @@ Start with authentication, permissions, background jobs, file storage, and a sha
 
 Start with [project structure](docs/architecture/project-structure.en.md), then [add a business module](docs/guides/develop-module.en.md). The guides show where code belongs, how to compose routes and OpenAPI, and how to verify the HTTP result. Your module owns its data and rules; it reuses Core identity, membership, audit, idempotency, files and jobs through public interfaces.
 
+For a continuous path, [build a ticket SaaS backend](docs/learn/index.en.md): ten lessons and four runnable checkpoints take one module through persistence, authorization, transactions, attachments, Worker exports, tests and recovery.
+
 Use the knowledge example to inspect a complete implementation. Connect clients after the backend contract works. Documentation and teaching code are maintained together in Chinese and English; see the [author guide](docs/guides/maintain-docs.en.md).
 
 ## Why this template

@@ -1,62 +1,53 @@
-# 跟做：管理成员与保护最后 Owner
+# 当前成员锁与角色生命周期
 
-运行 `just dev`，用首个注册账号登录，在左侧导航的「管理」分组点击「企业成员」进入（旧地址 `/members` 不变，也可以直接访问）。界面文字跟随「外观与语言」设置；英文界面下页面与操作名为 Members、Role、Member is active、Save member、Reload the list。另开一个隐私窗口注册同事账号，再由 Owner 重新读取成员列表，即可修改对方角色或停用对方。所有操作显式点击“保存成员”。
+目标：让自己的业务写入与成员降级、停用有明确提交顺序，并复用现有成员管理。前提是已有 [Session](03-sessions.md)，理解资源授权；一次部署对应一个 Organization。
 
-「管理」分组只对 Owner 和 Admin 显示；普通 Member 既看不到入口，直接访问 `/members` 也会收到无权限提示且看不到成员名单。
+<!-- example:knowledge:reference-01:start -->
 
-Owner 可以任命另一位 Owner；Admin 可以管理非 Owner 成员，但不能任命、降级或停用 Owner。页面的可编辑标记与可选角色由服务端返回，后端在每次保存时重新判断。普通 Member 访问管理入口会看到无权限提示。
+完整参考：[资源授权](07-library-grants.md)。
 
-## 1. 修改是一个有版本的请求
+<!-- example:knowledge:reference-01:end -->
 
-[Organization 管理接口](../../crates/app/src/modules/organization/management.rs)提供分页成员列表和 `PUT /api/v1/organization/members/{user_id}`。请求包含 `role / active / version`；版本过期返回 409，点击“重新读取列表”后再操作。
+## 公共接口与用法
 
-修改失败会保留选择并显示错误与请求编号。列表刷新是显式恢复操作；后台重新查询不会悄悄提高本地表单使用的版本。后端分页默认 50、最多 100 条，游标绑定当前管理员，按成员 ID 稳定排序。
+[Organization](../../crates/app/src/modules/organization/mod.rs)提供 `MemberRole::{Owner, Admin, Member}`、`active_role_in` 和 `lock_memberships`。在业务事务中调用，锁持续到自己 commit/rollback；SQL 摘录：
 
-## 2. 为什么不能先 count 再 update
+```sql
+SELECT role FROM saas_core.memberships
+WHERE user_id = $1::uuid AND active
+FOR SHARE
+```
 
-两位 Owner 都可能在事务外看到“还有两位 Owner”，然后同时把自己降为 Member，企业就没有 Owner 了。
+`None` 表示没有有效成员身份。多个受影响成员通过 `lock_memberships(&mut tx, &ids)` 按 ID 顺序取共享锁，再锁资源；不在已锁资源后补取无序成员锁。详细签名见授权指南。
 
-[纯规则](../../crates/app/src/modules/organization/domain.rs)只负责判断某次变化是否允许；[事务用例](../../crates/app/src/modules/organization/management.rs)保证它读取的事实不会被另一次管理操作抢先改变：
+<!-- example:knowledge:reference-02:start -->
 
-1. 先锁定唯一的 Organization 协调行。
-2. 按成员 ID 的固定顺序锁定操作者和目标 Membership，再检查操作者当前角色。
-3. 在事务内读取启用的 Owner 数量，验证角色边界、版本和最后 Owner 约束。
-4. 更新成员、撤销必要会话、追加 Audit，然后共同提交。
+完整参考：[授权指南](07-library-grants.md)。
 
-首次注册也通过同一 Organization 行协调 Owner 初始化。之后不允许降级或停用最后一位有效 Owner，返回 `422 organization.last_owner`。并发退出时只有一个操作能成功，另一个会看到最新集合并被拒绝。
+<!-- example:knowledge:reference-02:end -->
 
-知识库写入已有 Membership 共享锁，角色修改和停用使用排他锁，因此与业务写入形成提交顺序。未来触及多个成员的操作也必须按 ID 固定排序取锁。
+[Identity](../../crates/app/src/modules/identity/mod.rs)公开 `profiles(connection, ids)` 批量读成员资料，以及 `revoke_user_sessions(connection, user_id)` 同事务撤销会话。自己的模块通过这些能力协作，不跨模块 JOIN 私有凭据表，也不每人一次查资料。
 
-## 3. 停用与会话撤销必须一起提交
+## 使用已有管理 API
 
-只让鉴权检查 `active = false` 还不够：重新启用后，以前的 Cookie 可能重新有效。因此停用通过 Identity 的[公开会话撤销接口](../../crates/app/src/modules/identity/mod.rs)撤销该用户全部 Session，与成员变更、Audit 同事务提交。
+[管理 Handler/用例](../../crates/app/src/modules/organization/management.rs)提供分页成员列表和 `PUT /api/v1/organization/members/{user_id}`，输入 `role / active / version`。列表默认 50、最多 100，游标绑定管理员；旧 version 返回 409。Owner 可管理 Owner，Admin 只管理非 Owner，Member 拒绝。
 
-登录签发会话时也持有 Membership 共享锁。停用会等待已开始的会话签发完成，再撤销它；停用先提交时，签发会重新看到非启用状态并拒绝。重新启用后用户必须用密码重新登录，旧 Cookie 持续无效。
+[纯规则](../../crates/app/src/modules/organization/domain.rs)与事务共同保护最后 Owner：先锁 Organization 唯一行，再按 ID 顺序锁操作者/目标，在事务内检查有效 Owner 集合、角色、版本，更新成员、撤销必要 Session、写 Audit 并提交。不能在事务外 count 后独立 update。
 
-重复注册相同邮箱仍返回冲突，不能恢复成员、修改角色或覆盖原密码。审计失败时，角色、启用状态、版本和会话撤销一起回滚。
+降级或停用最后有效 Owner 返回 `422 organization.last_owner`。两个 Owner 同时退出只能一个成功；首次注册也使用同一协调行。
 
-## 4. Core 与参考业务保持独立
+## 停用不能被重新启用复活
 
-Organization 只操作自己的企业与成员表。成员姓名和邮箱通过 Identity 的批量 profile 接口读取，避免跨模块直接 JOIN 私有表，也避免每名成员一次 SQL。Session 的撤销同样通过 Identity 公开接口完成。
+停用成员与撤销全部旧 Session、密码重置材料、Audit 同事务提交；重新启用后旧 Cookie 仍无效，用户需重新登录。Session 签发也持有成员锁，因此与停用形成一致提交顺序。Audit 失败全部回滚。
 
-[共享成员页面](../../packages/views/src/organization/members-view.tsx)渲染在通用应用壳的管理分组内，复用生成 SDK、Query、通用 Field / Select / Switch，界面文字来自 Core 双语目录 [core-messages.ts](../../packages/views/src/shell/core-messages.ts)。已保存成员资源只存在 Query 中；行表单的角色、启用状态和版本是待提交草稿。修改后重新查询列表与当前会话，自身降级或停用时清理已失去资格的界面缓存。
+业务写入持有 Membership 共享锁，管理变更取排他锁。鉴权时返回的角色、客户端下拉框或之前缓存的资格不能替代当前事务检查。已有独立 API Keys 由每次认证的 active 检查约束，密码重置不自动撤销它们。
 
-这章属于 SaaS Core，移除知识库示例后仍保留成员管理 API、页面、迁移、测试和教程。它没有读取 Document 或 Grant 表。知识库示例可以使用同一成员目录来选择授权对象。
+## 验证自己的接入
 
-## 5. 验证并发与用户体验
+在仓库根目录运行：
 
 ```bash
 node scripts/test-backend.mjs --test members --test membership_policy
-pnpm exec vitest run apps/web/src/members.test.tsx
-just check
 ```
 
-Domain 测试覆盖 Owner 集合与 Admin 边界；HTTP 使用真实多连接 PostgreSQL，验证两位 Owner 同时退出、角色矩阵、版本冲突、审计失败回滚，以及登录签发与停用的受控竞态。View 从公开页面验证保存、拒绝、冲突恢复和服务端返回的操作资格。
-
-关键流程完成时运行一次：
-
-```bash
-node scripts/e2e.mjs tests/e2e/members.spec.ts
-```
-
-测试用普通注册页面建立同事账号，Owner 修改角色并停用；同事浏览器刷新后失去会话，重新启用也不会恢复旧 Cookie。测试入口会预先准备专用 Owner，不依赖测试文件执行顺序。
+[真实 HTTP 检查](../../apps/api/tests/members.rs)覆盖角色矩阵、版本冲突、最后 Owner 并发、Audit 回滚、停用/重启用和登录竞态；[纯规则检查](../../crates/app/tests/membership_policy.rs)覆盖规则集合。自己的业务增加停用与写入受控竞态，证明写入只有合法的提交顺序。之后将锁纪律用于[文件完成](09-attachments.md)和[后台发布](10-document-exports.md)。

@@ -1,55 +1,74 @@
-# Walkthrough: Appearance and language settings
+# Reuse language and appearance preferences in business clients
 
-The interface language and light/dark theme are device-scoped preferences: they switch before sign-in, the choice lives in the current browser or desktop app, it never syncs across devices, and it never enters account data. This chapter walks the full preference behavior — first visit follows the device, an explicit choice wins, refresh restores it, invalid values fall back, storage being unavailable still allows in-session switching — plus the ownership rules for bilingual messages: Core and each example keep their own catalogs, merged at the assembly point, with runtime fallback to an understandable hint rather than a bare key.
+Use the shell's Preferences and Messages instead of adding a second locale state or theme table. These are device-local client choices, not changes to Users, Memberships or backend authorization. Connect these optional interface capabilities after backend behavior works.
 
-## 1. Feel it first: from the login page to settings
+Prerequisites are a page registered through the [contribution guide](27-add-example.md) and Providers mounted by the Web entry. Place code in your business View; run commands from the repository root.
 
-Run `just dev` and open `/login`. The top-right corner carries two controls — "简体中文 / English" and "跟随系统 / 亮色 / 暗色" (System / Light / Dark) — that behave identically before and after sign-in: clicking applies immediately, the page never reloads, and anything typed into the email/password fields stays. The register, forgot-password and reset-password pages use the same controls.
+## Add bilingual content to the same page
 
-After signing in, the sidebar bottom leads to "Settings" (`/settings`): language and theme live in the "Appearance & language" section, still two native radio groups writing the same preference state as the login-page controls. Switch to English and the sidebar, page title and `html.lang` become English together; the address bar is unchanged and no network request is made — switching is pure frontend state.
+Keep Billing's `messages.zh` / `messages.en` complete for every key. Create `packages/views/src/billing/summary.tsx` and resolve messages through a namespace instead of detecting device language inside the component:
 
-Clicking the lower-left user area opens settings directly. Its directory sits immediately beside the main sidebar, with Appearance & language, Profile, API Keys, Design system, System status and Help. Identity-related sections appear after sign-in. `?section=` opens a specific section, such as `/settings?section=api-keys`. The utilities operate inside settings; existing `/api-keys`, `/design-system` and `/system` bookmarks remain usable.
+```tsx
+import { useAppFormat } from '../shell/format';
+import { useAppMessage } from '../shell/messages';
 
-Drag the desktop sidebar's right edge to change its width. With the separator focused, arrow keys adjust it, Home/End reach its bounds, and double-click restores the default. Width is remembered on this device. Profile avatars use DiceBear, defaulting to Lorelei, with selectable designs and backgrounds. Changes stay in a draft until confirmed. Avatar preferences are remembered per user on this device; they do not modify account data or sync across devices.
-
-## 2. How the preference is decided
-
-The [preferences module](../../packages/views/src/shell/preferences.tsx) implements three rules:
-
-1. **First visit follows the device.** `navigator.languages` is scanned in order for the first Chinese or English tag: Chinese (`zh-*`) → Simplified Chinese; English (`en-*`) → English; neither → English. `html.lang` becomes `zh-CN` or `en` accordingly.
-2. **An explicit choice wins and persists.** Choices are written to `saas.locale` and `saas.theme` in `localStorage`; the next visit reads them and never looks at the device language again.
-3. **Invalid values fall back.** A stored value outside the known sets (edited by hand, say) is treated as "nothing saved" and rule 1 applies.
-
-The theme defaults to "follow the system": only that mode listens for OS light/dark changes and switches live; "Light / Dark" stay fixed.
-
-## 3. No first-paint flash: the inline pre-paint script
-
-Before React's first render, an inline script in [index.html](../../apps/web/index.html) reads the same two keys and sets `lang`, the `dark` class and `color-scheme` directly on `<html>`. Refreshing with a dark preference therefore never flashes white first. The script's logic must stay in sync with `PreferencesProvider` — both read the same keys with the same fallback order; change one side, change the other.
-
-When storage is unavailable (private modes that disable it, and similar), both reads fail silently: the app starts normally, preferences last only for the session, and the switch controls keep working.
-
-## 4. Bilingual messages register by ownership
-
-Interface texts live in two places:
-
-- **The Core catalog**: [core-messages.ts](../../packages/views/src/shell/core-messages.ts) holds the zh/en texts for the shell, home, identity flows, settings, errors and common hints. Release completeness is enforced by parity tests — identical zh/en key sets, no empty values, matching placeholders.
-- **Example catalogs**: each example ships bilingual texts in its own `ExampleContribution.messages`, keyed under the example's id namespace (such as `notes.page.title`).
-
-At assembly, Core registers first and examples append; an example claiming a key another owner already registered fails assembly loudly — never a silent overwrite. Pages resolve texts through `useAppMessage()` (or the namespaced `useAppMessage('notes')`): a missing current-locale entry falls back to English, and a still-missing one renders an understandable hint such as "This interface text is unavailable." — never a bare key, never a throw. `{name}`-style parameter interpolation is the shared resolver's job.
-
-Dates and numbers format through the current locale's `Intl.DateTimeFormat` / `Intl.NumberFormat` (`useAppFormat`); the time zone stays the device's. The settings page's tutorial link opens this chapter's locale-correct deep link (zh `/docs/`, en `/en/docs/`, joined against the site base).
-
-## 5. Accessibility and narrow screens
-
-The language and theme controls are real buttons (`aria-pressed` marks the active option); the settings page uses native `fieldset/legend` radios, so keyboard behavior is the platform's. Switching languages updates `html.lang`, the page `<title>` and meta description, and the navigation's accessible name ("主菜单 / Main menu") together. On narrow screens the sidebar folds into a drawer whose toggle announces state through `aria-expanded` / `aria-controls`, and Escape dismisses it; touch targets stay at or above 44px on narrow screens, while desktop rows compact to 36px. Notifications and API keys are signed-in capabilities, so the signed-out sidebar does not advertise them.
-
-## 6. Verify it
-
-```bash
-pnpm exec vitest run packages/views/src/shell/preferences.test.tsx
-pnpm exec vitest run packages/views/src/shell/core-messages.test.ts
-pnpm exec vitest run apps/web/src/settings.test.tsx
-just check
+export function BillingSummary() {
+  const message = useAppMessage('billing');
+  const format = useAppFormat();
+  return (
+    <section>
+      <h1>{message('page.title')}</h1>
+      <output>{format.formatNumber(1200)}</output>
+    </section>
+  );
+}
 ```
 
-The preference tests cover the device-language order, theme resolution, persistence, invalid-value fallback, system-theme reactivity and unavailable storage; the Core catalog tests run the zh/en parity checks; the settings tests drive switching, persistence and kept input through the real Router. Browser verification happens once, concentrated: first-paint theme, refresh restore, OS light/dark reactivity and the narrow-screen drawer. Removing either example leaves this chapter's capabilities untouched — preferences and the Core catalog belong to no example.
+Import it in the previous guide's `billing/example.tsx` and replace the existing `routes` field:
+
+```tsx
+import { BillingSummary } from './summary';
+```
+
+```tsx
+routes: [{ path: '/billing', component: () => <BillingSummary /> }],
+```
+
+Remove the original `BillingPage`. `page.title` is the previous guide's existing key. The sample number demonstrates formatting, not a currency amount. Use `formatDateTime` for dates; its time zone follows the device.
+
+The business declares local keys such as `page.title`, assembled as `billing.page.title`. Core owns [core-messages.ts](../../packages/views/src/shell/core-messages.ts); business contributions must not overwrite it. `assembleApp` checks bilingual keys, navigation and scene labels. Runtime fallback cannot substitute for complete translations.
+
+## Consume preferences without duplicating Providers
+
+[preferences.tsx](../../packages/views/src/shell/preferences.tsx) exposes `usePreferences()`:
+
+| Field/operation        | Contract         |
+| ---------------------- | ---------------- |
+| `locale` / `setLocale` | `zh              | en`; explicit choices take effect immediately |
+| `theme` / `setTheme`   | `system          | light                                         | dark` |
+| `resolvedTheme`        | Effective `light | dark`                                         |
+
+Sign-in and settings already provide shell controls, so business pages usually only consume state. Explicit choices persist under `saas.locale` and `saas.theme` on this device. The first matching Chinese/English tag in `navigator.languages` determines initial locale; no match falls back to English. Theme defaults to system.
+
+Invalid stored values act as absent values. Unavailable storage does not block startup; choices remain for the current session. OS appearance changes affect only `system`. A password-reset link can override the flow locale temporarily; a manual choice ends that override without the link silently rewriting saved choices.
+
+## Keep first paint aligned with production themes
+
+Before React paints, [apps/web/index.html](../../apps/web/index.html) reads the same keys and sets `html.lang`, `dark` and `color-scheme`. Update both the Provider and first-paint script when changing keys or fallback rules to prevent a light flash on a dark refresh.
+
+Use semantic classes from [production tokens](../../packages/ui/src/styles.css), including `text-foreground`, `bg-background` and `text-muted-foreground`. Components follow the shell theme instead of maintaining page-wide color state. Messages, `html.lang`, page titles and accessible names should change with locale while preserving input.
+
+Electron's [platform adapter](../../apps/web/src/desktop-preferences.tsx) mirrors only two preference enums to the local error page; desktop and browser storage remain independent.
+
+## Verify and check failures
+
+```bash
+pnpm exec vitest run packages/views/src/shell/preferences.test.tsx packages/views/src/shell/core-messages.test.ts apps/web/src/settings.test.tsx
+pnpm typecheck
+```
+
+Run `just dev` and switch locale/theme with existing settings controls. Your title, numeric formatting and surfaces should follow, and refresh should retain the choice. Temporarily remove Billing's English `page.title`: assembly must fail. Restore it and rerun. Complex forms also need a check that locale switches preserve drafts.
+
+At runtime, [messages.tsx](../../packages/views/src/shell/messages.tsx) tries the active language, English and an understandable generic hint, never a raw key. This provides failure tolerance while release checks still require complete catalogs. These Core capabilities survive reference business removal.
+
+Next: [Use production components and isolated demo scenes](29-design-system.md).

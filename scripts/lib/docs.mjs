@@ -3,6 +3,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, extname, posix, relative, resolve, sep } from 'node:path';
 import { root } from './process.mjs';
 import { sitePath, validateSiteModel } from './docs-locales.mjs';
+import {
+  expandMarkdownSnippets,
+  transformMarkdownLinks,
+} from './docs-content.mjs';
+import {
+  renderApiReference,
+  renderConfigReference,
+  renderCommandIndex,
+} from './docs-references.mjs';
 
 // Renders the public documentation in both locales from one declaration:
 //
@@ -39,6 +48,12 @@ const SNIPPET_LANGUAGES = {
   '.ts': 'ts',
   '.mjs': 'js',
   '.sql': 'sql',
+  '.json': 'json',
+  '.toml': 'toml',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.sh': 'sh',
+  '.md': 'md',
 };
 
 // The other-locale path of a route, used by the language switcher.
@@ -135,97 +150,33 @@ function transformContent({
   routes,
   sourceRef,
   sourceLink,
+  taskRunner,
 }) {
   let content = readFileSync(sourcePath, 'utf8');
-  content = content.replace(/^<<<\s+(.+)$/gm, (_line, target) => {
+  content = content.replace('<!-- generated:task-runner -->', () =>
+    renderCommandIndex(taskRunner.just, taskRunner.scripts, locale, sourceLink),
+  );
+  content = expandMarkdownSnippets(content, (target) => {
     const snippet = repositoryFile(
       relative(root, resolve(dirname(sourcePath), target.trim())),
     );
     const language = SNIPPET_LANGUAGES[extname(snippet)] ?? 'text';
-    return `\n\`\`\`${language}\n${readFileSync(snippet, 'utf8').trimEnd()}\n\`\`\`\n`;
+    return { source: readFileSync(snippet, 'utf8'), language };
   });
-  content = content.replace(
-    /\]\(([^)]+)\)/g,
-    (_match, target) =>
-      `](${resolveLink({
-        target,
-        sourceDir: dirname(sourcePath),
-        locale,
-        currentRoute: route,
-        routes,
-        sourceLink,
-      })})`,
+  content = transformMarkdownLinks(content, (target) =>
+    resolveLink({
+      target,
+      sourceDir: dirname(sourcePath),
+      locale,
+      currentRoute: route,
+      routes,
+      sourceLink,
+    }),
   );
   const footerLabel = locale === 'en' ? 'Source version' : '源码版本';
   const markdownLabel = locale === 'en' ? 'Page Markdown' : '本页 Markdown';
   content += `\n\n---\n${footerLabel}：\`${sourceRef.slice(0, 12)}\` · [${markdownLabel}](${sourceLink(relative(root, sourcePath))})\n`;
   return content;
-}
-
-function localizedReferenceTexts() {
-  return {
-    zh: {
-      apiIntro: (version) =>
-        `# API 合同\n\n从 Rust OpenAPI 自动生成。当前 API 版本：${version}。`,
-      apiTable:
-        '\n\n| 方法 | 路径 | operationId | 响应 |\n| --- | --- | --- | --- |\n',
-      apiOutro:
-        '\n[下载 OpenAPI JSON](SITE_LINK:public/openapi.json)。开发服务也直接提供 `/api/openapi.json`。响应和 SDK 不维护手写的第二份 DTO。\n',
-      configIntro:
-        '# API 配置\n\n从 Settings 定义自动生成；生产秘密不进入文档。',
-      configTable:
-        '\n\n| 变量 | 默认值 | 敏感值 | 说明 |\n| --- | --- | --- | --- |\n',
-      configDescription: (field) => field.descriptionZh,
-      configOutro:
-        '\n开发脚本额外读取的 PostgreSQL 端口、Web 代理和教程 URL 见 [.env.example]({{envExample}})；它们不是浏览器可读取的 DATABASE_URL。\n',
-      required: '必填',
-      secretYes: '是',
-      secretNo: '否',
-    },
-    en: {
-      apiIntro: (version) =>
-        `# API contract\n\nGenerated from the Rust OpenAPI definition. Current API version: ${version}.`,
-      apiTable:
-        '\n\n| Method | Path | operationId | Responses |\n| --- | --- | --- | --- |\n',
-      apiOutro:
-        '\n[Download the OpenAPI JSON](SITE_LINK:public/openapi.json). The development server also serves `/api/openapi.json` directly. Responses and the SDK never maintain a hand-written second copy of the DTOs.\n',
-      configIntro:
-        '# API configuration\n\nGenerated from the Settings definitions; production secrets never enter the documentation.',
-      configTable:
-        '\n\n| Variable | Default | Secret | Description |\n| --- | --- | --- | --- |\n',
-      configDescription: (field) => field.description,
-      configOutro:
-        '\nThe PostgreSQL port, web proxy and documentation URLs read by the development scripts are listed in [.env.example]({{envExample}}); they are not the browser-readable DATABASE_URL.\n',
-      required: 'required',
-      secretYes: 'yes',
-      secretNo: 'no',
-    },
-  };
-}
-
-function renderApiReference(contract, texts) {
-  let api = texts.apiIntro(contract.info.version);
-  api += texts.apiTable;
-  for (const [path, item] of Object.entries(contract.paths)) {
-    for (const [method, operation] of Object.entries(item)) {
-      api += `| ${method.toUpperCase()} | \`${path}\` | \`${operation.operationId}\` | ${Object.keys(operation.responses).join(', ')} |\n`;
-    }
-  }
-  return api + texts.apiOutro;
-}
-
-function renderConfigReference(fields, exampleText, texts, sourceLink) {
-  let config = texts.configIntro;
-  config += texts.configTable;
-  for (const field of fields) {
-    if (!new RegExp(`^${field.name}=`, 'm').test(exampleText))
-      throw new Error(`.env.example is missing ${field.name}`);
-    config += `| \`${field.name}\` | ${field.default ?? texts.required} | ${field.secret ? texts.secretYes : texts.secretNo} | ${texts.configDescription(field)} |\n`;
-  }
-  return (
-    config +
-    texts.configOutro.replace('{{envExample}}', sourceLink('.env.example'))
-  );
 }
 
 function loadConfigFields() {
@@ -290,8 +241,20 @@ export function renderDocs() {
       cwd: root,
       encoding: 'utf8',
     }).trim();
-  const sourceLink = (source) =>
-    `https://github.com/${repo}/blob/${sourceRef}/${source}`;
+  const sourceLink = (source) => {
+    repositoryFile(source);
+    return `https://github.com/${repo}/blob/${sourceRef}/${source}`;
+  };
+  const taskRunner = {
+    just: JSON.parse(
+      execFileSync('just', ['--dump', '--dump-format', 'json'], {
+        cwd: root,
+        encoding: 'utf8',
+      }),
+    ),
+    scripts: JSON.parse(readFileSync(repositoryFile('package.json'), 'utf8'))
+      .scripts,
+  };
 
   // Route tables for the full published set: `routes` maps a repository
   // source path (and each reference route) to its { zh, en } pair so every
@@ -336,6 +299,7 @@ export function renderDocs() {
           routes,
           sourceRef,
           sourceLink,
+          taskRunner,
         }),
     );
     if (page.bilingual)
@@ -354,6 +318,7 @@ export function renderDocs() {
             routes,
             sourceRef,
             sourceLink,
+            taskRunner,
           }),
       );
   }
@@ -362,27 +327,32 @@ export function renderDocs() {
   const contract = JSON.parse(readFileSync(contractPath, 'utf8'));
   const fields = loadConfigFields();
   const example = readFileSync(repositoryFile('.env.example'), 'utf8');
-  const texts = localizedReferenceTexts();
   const api = site.references.find((r) => r.id === 'api-reference');
   const config = site.references.find((r) => r.id === 'config-reference');
   for (const locale of ['zh', 'en']) {
-    const localized = texts[locale];
     const apiRoute = locale === 'en' ? api.routeEn : api.route;
     const configRoute = locale === 'en' ? config.routeEn : config.route;
     put(
       apiRoute,
-      frontmatter(locale, counterpartPath(apiRoute, locale, routePairs)) +
-        renderApiReference(contract, localized).replaceAll(
-          // VitePress publishes the srcDir public/ dir at the site root, so
-          // the download lives at /openapi.json, not /public/openapi.json.
-          'SITE_LINK:public/openapi.json',
-          posix.relative(posix.dirname(apiRoute), 'openapi.json'),
-        ),
+      frontmatter(
+        locale,
+        counterpartPath(apiRoute, locale, routePairs),
+        api,
+        navigationFor(api, locale),
+      ) +
+        renderApiReference(contract, locale, {
+          downloadHref: posix.relative(posix.dirname(apiRoute), 'openapi.json'),
+          sourceLink,
+        }),
     );
     put(
       configRoute,
-      frontmatter(locale, counterpartPath(configRoute, locale, routePairs)) +
-        renderConfigReference(fields, example, localized, sourceLink),
+      frontmatter(
+        locale,
+        counterpartPath(configRoute, locale, routePairs),
+        config,
+        navigationFor(config, locale),
+      ) + renderConfigReference(fields, example, locale, sourceLink),
     );
   }
   put('public/openapi.json', readFileSync(contractPath, 'utf8'));

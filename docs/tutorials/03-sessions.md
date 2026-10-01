@@ -1,52 +1,57 @@
-# 跟做：登录、退出与会话失效
+# 在业务 Handler 验证 Session
 
-本章复用[注册章节](02-registration.md)的账号、密码散列和 Session 存储。运行 `just dev`，先注册账号，再从首页退出，打开 `/login` 用同一邮箱和密码重新登录。刷新首页仍显示当前身份。
+目标：让自己的读写 API 使用当前登录身份，并处理 Origin、CSRF 与失效。前提是复用[Identity](02-registration.md)，业务 Router 已通过 Core 组装；认证成功仍须资源授权。
 
-## 1. 登录只是核验已有身份
+## 调用公共接口
 
-`POST /api/v1/auth/login` 使用与注册相同的邮箱规范化规则。服务端查到 Credential 后，在线程池验证 Argon2id；邮箱不存在也执行同等级的密码计算，避免走一个明显更快的路径。
+[Identity](../../crates/app/src/modules/identity/mod.rs)的接口摘录如下，类型来自 Identity、Axum、SQLx 与 Platform 配置：
 
-不存在的邮箱、错误密码和停用成员返回相同的 401 提示。错误响应与日志不包含密码或散列。数据库不可用等服务故障返回 503，客户端不会自动重复提交登录请求。
+```rust
+pub async fn require_session(
+    pool: &PgPool,
+    settings: &AuthSettings,
+    headers: &HeaderMap,
+    id: &RequestId,
+    mutation: bool,
+) -> Result<CurrentSession, Response>;
+```
 
-验证成功后创建新的高熵 Session，返回当前身份与 CSRF token，通过 HttpOnly Cookie 交付 session secret。一个账号可以有多个独立浏览器会话；登录不会把所有设备同时踢下线。
+在已有 `pool / auth / headers / id` 的 Handler 中：
 
-前一章中“账号已提交但会话签发失败”的用户走同一个登录流程即可恢复，不需要重新注册或覆盖凭据。[公开 HTTP 测试](../../crates/app/tests/sessions.rs)用真实数据库锁触发该故障并验证恢复。
+```rust
+let session = identity::require_session(&pool, &auth, &headers, &id, true).await?;
+```
 
-## 2. 为什么 Cookie 还需要 CSRF token
+读取传 `false`，修改传 `true`；返回当前 `user.id` 等身份和 `csrf_token`，失败是统一 Response。写用例进入事务后仍须[锁定当前成员](08-members.md)并授权资源，不能只看 Cookie 是否存在。
 
-浏览器会自动携带 Cookie，因此服务端不能只凭“请求带 Cookie”就接受修改。注册与登录首先要求匹配 `APP_ORIGIN`；退出既检查 Origin，又检查 `x-csrf-token` 是否属于当前 Cookie 会话。
+<!-- example:knowledge:reference-01:start -->
 
-CSRF token 从当前会话通过 HMAC-SHA256 派生，用成熟库的恒定时间校验接口比较。另一会话的 token、缺失 token、无效 Origin 都不能撤销当前会话。API 默认同源，不给外部 Origin 开启携带凭据的 CORS。
+完整参考：[知识库 HTTP 层](../../crates/app/src/modules/knowledge/mod.rs)；[授权资源](07-library-grants.md)。
 
-`POST /api/v1/auth/logout` 撤销数据库中的当前会话，再返回清除 Cookie 的响应。旧 Cookie 再调用 `/api/v1/auth/session` 得到 401。重复提交同一个有效的退出证明保持幂等，不撤销其他浏览器的 Session。
+<!-- example:knowledge:reference-01:end -->
 
-## 3. 绝对期限与空闲期限各管什么
+## 修改请求的证明
 
-- 绝对期限从签发时计算，默认 7 天；持续使用也不会无限延长。
-- 空闲期限从上次有效读取计算，默认 24 小时；有效会话查询会更新该时间。
+注册/登录检查受信 Origin；Cookie mutation 同时要求匹配 `APP_ORIGIN` 的 Origin 和当前 Session 的 `x-csrf-token`。token 由 secret 的 HMAC 派生，通过响应正文交给客户端；另一会话的 token 无效。Session 专用入口拒绝显式 Authorization，Bearer 失败不回退 Cookie。
 
-两者均使用数据库时间。当前成员已停用或 Session 已撤销时立即拒绝，不依赖客户端时钟、Redis 或长寿命 JWT。
+`POST /api/v1/auth/logout` 撤销当前会话并清除 Cookie。旧 Cookie 查询 Session 返回 401；重复有效退出证明保持幂等，不撤销其他设备。机器只读凭据另走[API Key](15-api-keys.md)。
 
-测试通过设置过期/空闲时间戳构造边界条件，随后从真实 HTTP 接口检查结果，不等待真实的 24 小时。配置来源见[生成配置参考](site:reference/config.md)。
+默认绝对期限 7 天、空闲期限 24 小时，按数据库时间判断。有效读取刷新 idle 时间，不能延长绝对期限；撤销和成员停用立即生效。配置见[生成参考](site:reference/config.md)。
 
-## 4. 让页面跟随身份变化
+## 故障与恢复
 
-[登录 View](../../packages/views/src/identity/login-view.tsx)展示提交、受控失败和重试；[首页](../../packages/views/src/identity/home-view.tsx)通过 SDK 查询当前会话并执行退出。两个页面的文案都来自 Core 双语目录：登录前即可切换界面语言与明暗主题，登录失败按稳定码（`auth.invalid_credentials`）映射本地文案，并保留 request_id（见[外观与语言](28-appearance-language.md)）。
+错误邮箱、密码和停用成员统一返回 401；不存在邮箱也执行同等级有界密码计算。数据库故障为 503，应保留为可重试故障，不显示成功退出。登录签发新独立 Session，不撤销全部设备。
 
-成功登录或退出时，取消旧的查询并清理 Query 缓存，再写入新的当前会话状态。会话刷新发现身份/角色变化或失效时，同样先清理其他查询；这覆盖另一个标签页切换账号后当前页重新获得焦点的情况。测试特意保存上一身份的查询缓存，验证切换后被移除。密码表单使用短暂的组件/请求内存，mutation 离开后不保留缓存；密码和 session secret 不进入 localStorage 或业务持久状态。
+退出、换账号或会话失效时，客户端取消旧请求并清理身份相关查询；迟到响应不能进入新身份缓存。密码和 Cookie secret 不进入持久状态，后台刷新不替用户提交密码。
 
-会话查询返回 401 时，首页移除已登录身份并提供登录入口；503 等服务故障保留为可重试错误，不伪装成成功退出。
+## 验证自己的 Handler
 
-## 5. 运行本章检查
+在仓库根目录执行：
 
 ```bash
 node scripts/test-backend.mjs --test sessions
-pnpm exec vitest run apps/web/src/sessions.test.tsx
-just check
 ```
 
-重点是无效凭据的一致响应、来源/CSRF 校验、退出后旧 Cookie 拒绝、绝对/空闲过期、停用成员以及会话签发失败后的恢复登录。
+[HTTP 测试](../../crates/app/tests/sessions.rs)检查登录/退出、Origin/CSRF、过期、停用及注册后 Session 故障的恢复。自己的 Handler 至少检查匿名 401、有效 Cookie 读成功、缺 CSRF 写拒绝、有效证明写成功和退出后拒绝；驱动真实 Router/数据库，不替换私有认证函数。
 
-浏览器旅程在本章完成时集中运行 `node scripts/e2e.mjs tests/e2e/registration.spec.ts`：两个独立浏览器注册、刷新、退出、检查旧 Cookie 失效，再重新登录。日常修改使用上面的定向反馈循环。
-
-认证测试默认不录制 trace/截图，也不保留带动作参数的 HTML 报告。`test-results/summary.json` 仅记录测试名称、结果、耗时和源码位置，原始异常与页面快照不保留；结合服务的 request_id 日志定位问题。无凭据的公共状态场景可保留 trace 和截图。
+后台任务捕获凭据引用而非 secret，并在执行/发布时重新验证，继续[后台执行](10-document-exports.md)。

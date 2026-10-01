@@ -1,37 +1,81 @@
-# Core 与参考业务的边界
+# Core、Platform 与自己的业务边界
 
-Core 提供身份、会话、成员、审计、幂等、文件、任务、通知、邮件、API Key 和通用 HTTP 能力。Reference Domain 通过应用入口接入自己的业务；Core 不反向依赖它。
+SaaS Core 提供身份、企业成员和通用能力；自己的业务模块拥有模型、规则、表、HTTP 接口和 Handler。Platform 提供配置与外部系统适配。应用入口把它们显式组装起来，Core 与 Platform 都不反向认识业务类型。
 
-- **platform** 拥有配置、连接池、迁移运行、可选 Redis 文本缓存与日志初始化，不依赖应用或知识库类型。
-- **app** 的各个模块拥有自己的用例和表；纯 `domain.rs` 不依赖 HTTP 或数据库。
-- **API 入口** 在 `apps/api/src/lib.rs` 组装 Router/OpenAPI，通用构建器接收额外路由与合同。
-- **contracts / sdk** 来自 OpenAPI 生成；SDK 的类型使用 contracts。
-- **core** 放平台无关的客户端 helper。
-- **ui / views** 分别提供通用 React DOM 组件与可共享页面。
-- **Web 入口** 拥有浏览器和 Router 接线，shared View 通过回调导航。
+先读[项目结构](project-structure.md)。本页解释新增能力应该放哪里；具体接入从[新增业务模块](../guides/develop-module.md)开始。
 
-[示例所有权清单](../../examples/knowledge-base/manifest.json)记录业务目录、迁移、测试、教程和明确的组装区块。新增功能时同步登记；后续移除工具按登记内容操作，Core 的能力不会随参考业务一起删除。
+## 依赖与请求流
+
+```text
+apps/api/src/lib.rs ──组装──→ Core Router + 自己的业务 Router/OpenAPI
+                                │               │
+                                │公共能力调用 ←─┘
+                                ↓
+                      crates/platform（配置、PG、S3、Redis、SMTP、遥测）
+
+apps/worker/src/main.rs ──组装──→ Handler Registry + Jobs Worker
+apps/web/src/app-examples.tsx ──组装──→ Universal App Shell + 业务 Views
+```
+
+后端各模块位于 `crates/app/src/modules/<name>/`。小模块可先放 `mod.rs`，复杂后再拆 HTTP、Application 和纯 `domain.rs`；纯 Domain 不 import Axum、SQLx 或基础设施。实际边界由职责决定，不要求每个接口创建 Repository/Service 层。
+
+| 所有者     | 负责                                                                                              | 不应持有                      |
+| ---------- | ------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Platform   | Settings、连接池、迁移运行、有限 Redis/S3/SMTP 操作、Telemetry                                    | Organization 策略和某业务 DTO |
+| Core 模块  | Identity、Organization、Audit、Idempotency、Files、Jobs、Notifications、Mail、API Keys、RateLimit | 业务资源规则、业务表          |
+| 自己的业务 | 输入/输出、领域规则、资源授权、事务编排、自有表和任务处理                                         | 其他模块私有 SQL              |
+| 应用组装点 | Router/OpenAPI、scope、Handler 与 UI 贡献                                                         | 被所有模块隐式读取的注册状态  |
+| 客户端包   | contracts → SDK → Views；UI 与平台无关 helper 各司其职                                            | 第二份协议 DTO 和后端权限结论 |
+
+`packages/core` 是平台无关的客户端 helper，不等同于 Rust SaaS Core；`packages/ui` 是通用 React DOM 组件。
+
+## 最小的后端组装接口
+
+[crates/app/src/lib.rs](../../crates/app/src/lib.rs)公开 `compose_routes` 与 `compose_routes_with_options`。以下完整函数只组装 Core，可放在一个应用适配模块中：
+
+```rust
+pub fn core_router(
+    pool: sqlx::PgPool,
+    auth: saas_platform::config::AuthSettings,
+) -> axum::Router {
+    saas_app::compose_routes(
+        pool,
+        auth,
+        axum::Router::new(),
+        saas_app::openapi(),
+    )
+}
+```
+
+加入业务时把自己的 Router 与合并后的 OpenAPI 交给相同接口，不修改 Core 来 import 业务。生产使用 `configured_router`，测试也使用 `router_with_cache`；新增模块需要覆盖这两处实际接入路径。高级组装通过 `CoreOptions` 传 scope、Cache、RateLimiter 和密码重置服务。
+
+## 模块协作与提交责任
+
+业务自己的迁移与 `module.json.tables` 登记表归属。引用 `saas_core.users(id)` 等稳定标识可以建立数据库约束；读取资料、有效成员或跨模块写入仍通过公共能力。
+
+| 能力                  | 调用者责任                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| Identity/Organization | 取当前身份、确认有效 Membership，并执行自己的资源授权；关键写入可用成员锁固定授权依据 |
+| Audit                 | 在自己的事务中 `audit::append`，失败就回滚业务                                        |
+| Idempotency           | claim、业务变更和 complete 共用事务；按规范化输入建立指纹                             |
+| Jobs/Notifications    | 请求事务内入队和登记通知意图；终态由 Jobs 原子发布                                    |
+| Files                 | 业务先授权资源，Files 管状态与对象；对象网络 I/O 不假装属于 PostgreSQL 原子提交       |
+| API Key/Cache         | 注册实际 scope，凭据授权与当前资源权限取交集；缓存命中前重新授权                      |
+| Telemetry             | 使用 tracing 和公开 scope；request/trace id 仅用于关联，不用于授权                    |
+
+Core 的 Organization role 与业务资源资格不同：Owner/Admin/Member 不能自动替代每项业务的权限规则。当前一次部署只有一个 Organization；新增模块不增加租户边界，见[ADR 0001](../adr/0001-single-organization-deployment.md)。
+
+缓存和限流复用 Platform 的有界 Redis 能力，业务不发送任意命令。Identity 管密码重置有效性与短期密文，Jobs 只保存 reset id；凭据和签名 URL 不进入日志、Job 载荷或缓存。Domain 不持有运行时 OTel Context。
+
+## 验证边界并处理失败
 
 ```bash
 pnpm boundaries:check
+cargo check --locked --workspace
 ```
 
-当前检查验证包导入方向、Core 对参考类型的直接引用、纯 Domain 的基础设施导入、模块声明的 SQL 表归属，以及组装清单。每个 Rust 模块的 `module.json` 是表归属入口；跨模块通过公开接口协作，例如让 Audit 在调用者事务中追加记录。
+[检查器](../../scripts/check-boundaries.mjs)验证包导入方向、Core 对业务的反向引用、Domain 基础设施导入、表归属、所有权冲突与注册 marker。临时把一张 Core 私有表登记/读写进业务模块，检查应拒绝；恢复后再运行自己的 HTTP 与事务测试。
 
-SQL 检查基于源码中的字符串和已登记表名，不能证明动态 SQL、引号标识符或符号别名的全部行为；这些仍需 review。Rust 可见性与真实 HTTP/数据库测试共同补充验证。实际删例验收由移除工具对应任务执行。
+SQL 检查基于源码字符串和已登记表名，不能证明全部动态 SQL、带引号标识或别名行为。Rust 可见性、代码评审和真实数据库测试共同补足。自有业务作为可移除参考业务时，同步登记源码、迁移、教程和测试，按[移除指南](../tutorials/23-example-removal.md)在临时副本验证 Core 仍能构建。
 
-引入自己的业务时，使用公开身份、文件和任务能力；不要让 Core 通过私有表或反向 import 依赖示例。进一步决策见[可移除教程 ADR](../adr/0002-executable-removable-reference.md)。
-
-Notifications 拥有任务通知意图和收件箱；业务用公开接口在请求事务中登记意图，Jobs 在终态事务中发布通知。导航目标由应用壳解析，Core View 通过回调打开；目标 API 始终重新授权。未知目标不影响读取与标记已读。
-
-API Keys 管理通用凭据及其 scopes。应用入口注册各模块实际提供的 scope，业务处理器通过公开认证能力取得当前用户，再执行自己的资源授权。Core 的 profile:read 与 Key 管理在示例移除后保留；一次性 secret 不进入重放、查询或 Mutation 缓存。
-
-CoreOptions 在应用组装点传递 scope 注册和共享 Cache。Cache 只处理有预算的 Redis I/O 与进程计量，Knowledge 自己负责数据库授权、正文版本和 key；Core 不保存或复用业务权限结论。
-
-RateLimit 在 Core 中分类请求、维护有界本地回退和固定策略计量；Platform WindowCounter 执行有限 Redis 原子操作。缓存与计数共享私有 transport 实现，各自持有容量和超时预算；业务模块不直接发送任意 Redis 命令。
-
-Identity 拥有重置有效性、hash、短期密文表与邮件 Handler；Mail 提供有界加密/解密与投递能力，Platform 封装 SMTP。Jobs 只保存 reset ID，并负责租约和重试。Core 的密码重置页面、教程与浏览器测试独立于知识库所有权，删例后保留。
-
-Platform Telemetry 封装可选 OTel exporter、W3C 传播、有限计量与有损 JSON 日志出口。Application 使用 tracing 与公开 scope；HTTP 的认证成功点记录 actor，Jobs 在同一事务保存观测 metadata，Worker 从持久 parent 建立新 attempt span，Audit 记录当前有效 trace ID。Domain 不依赖 OTel，业务 payload 不携带运行时 Context。
-
-`just dev-observability` 将通用 Collector/Prometheus/Loki/Tempo/Grafana profile 与正常开发入口一起启动；`just observability-down` 只停止观测服务并保留卷。Core 的配置参考、HTTP/Job/存储计量、审计关联、看板和协议/故障测试在删例后仍保留。trace ID 不用于授权，采样和观测出口失败不改变业务状态。原始请求内容、凭据、签名 URL 与第三方 transport debug 输出不进入观测管线。
+边界取舍与组合责任见 [ADR 0002](../adr/0002-executable-removable-reference.md)和 [ADR 0003](../adr/0003-static-example-composition.md)。下一步：[选择自己业务的公开行为测试](../testing/t01-feedback-loop.md)。

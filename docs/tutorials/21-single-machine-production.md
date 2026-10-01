@@ -1,93 +1,103 @@
-# 跟做：把知识库部署到单机生产并验证启停与降级
+# 部署自己的 SaaS 后端
 
-本章回答“模板如何上单机生产”。一台 Docker 主机、一个 Caddy TLS 入口，静态 Web 由 Caddy 直接服务，API、Worker、PostgreSQL、Redis 与 RustFS 全部留在内部网络、不发布任何端口；数据库迁移与存储初始化永远显式执行。生产组合不是开发 [compose](../../compose.yaml) 的复制品：它有自己的[组合文件](../../compose.production.yaml)、[镜像构建](../../deploy/production/Dockerfile)与[入口配置](../../deploy/production/Caddyfile)，并且用测试锁住这些差异。
+把业务模块、迁移和 Worker Handler 提交到同一个源码版本，再用生产组合发布。当前部署模型是一次部署服务一个 Organization；企业内部资源仍需各自授权，多个业务模块也不构成多个租户。共享部署多家企业需要重新设计数据归属，见[单企业部署 ADR](../adr/0001-single-organization-deployment.md)。
 
-## 1. 准备部署环境与密钥
+本指南需要 Docker Compose、Rust/Node/pnpm 工具链、可访问的 TLS 域名，以及已通过 HTTP 检查的业务代码。以下命令都在仓库根目录运行，会创建或更新生产数据库与对象卷。
 
-复制模板并填写部署环境文件：
+## 配置与构建
 
 ```bash
 cp deploy/production/env.production.example .env.production
 $EDITOR .env.production
+just production-build
 ```
 
-需要修改的最小集合：`DOMAIN`（TLS 域名，Caddy 据此自动签发证书——公网域名走 ACME，localhost 走本地 CA）、`POSTGRES_PASSWORD`、`S3_ACCESS_KEY`/`S3_SECRET_KEY`。`MAIL_SMTP_HOST` 留空表示邮件关闭（注册与写作不受影响，只有重置邮件不发）；启用 SMTP 时必须同时设置 `MAIL_ENCRYPTION_KEY`（32 字节 hex，api 与 worker 一致），之后即使 SMTP 失联，注册与写作也不受影响，投递任务留在队列按租约重试。`TELEMETRY_ENDPOINT` 留空表示不上报 OTLP；采集器不可达也不阻塞业务。
+填写 [环境模板](../../deploy/production/env.production.example)中的 `DOMAIN`、`POSTGRES_PASSWORD`、`S3_ACCESS_KEY`、`S3_SECRET_KEY`，确认 `APP_ORIGIN` 与 `S3_PUBLIC_ENDPOINT` 都指向公开 HTTPS 入口。密码和密钥由部署方生成，环境文件不提交到 Git，也不进入镜像。完整类型、默认值与校验见[配置参考](site:reference/config.md)。
 
-这个文件装着生产密钥，已被 `.gitignore` 与 `.dockerignore` 排除，永远不进入镜像或仓库。组合文件里的服务 `env_file` 走的是 `ENV_FILE` 环境变量，而 `--env-file` 只喂给插值——[justfile](../../justfile) 的 `production-*` 配方已代为传递 `ENV_FILE`，手动调用 docker compose 时必须带上它。所有键的语义与校验规则见[生成配置参考](site:reference/config.md)或 `deploy/production/env.production.example` 内注释。
+启用邮件时，API 和 Worker 必须使用相同的 `MAIL_ENCRYPTION_KEY`（32 字节 hex）；未配置 SMTP 时邮件关闭。遥测端点可以留空。配置邮件或遥测后，其出口失联也不会阻塞普通业务请求。
 
-## 2. 构建、启动与显式迁移
+[Dockerfile](../../deploy/production/Dockerfile)构建 API/Worker 并嵌入迁移；Web 产物由 Caddy 服务。自己的迁移必须在构建上下文的 `migrations/` 内，Handler 必须在 [Worker 组装点](../../apps/worker/src/main.rs)注册。容器使用非 root 用户、只读根文件系统和临时目录。
+
+## 显式迁移，再启动进程
 
 ```bash
-just production-build                       # 构建 Web 产物与应用镜像（不需要环境文件）
-just production-up ENV_FILE=.env.production # 依赖 → 显式迁移 → 应用
+just production-up .env.production
 ```
 
-`production-up` 的顺序是有意的：先 `--wait` 等 PostgreSQL/Redis/RustFS 健康，再以一次性容器跑 `migrate` 与 `storage-init`（compose 的 `ops` profile，普通 `up` 看不见它们），最后才启动 api、worker、caddy 并等待健康。API 与 Worker 从不偷偷迁移：行为测试让二进制对着空数据库启动，断言 `/health/ready` 持续 503（`database.unavailable`/`worker.unavailable`）、五秒内 `public` schema 仍然零表、进程保持存活（[API 侧](../../apps/api/tests/migration.rs)、[Worker 侧](../../apps/worker/tests/no_implicit_migration.rs)）。
+`just` 的环境文件是位置参数；省略时默认使用 `.env.production`。配方按以下顺序执行：
 
-镜像构建是多阶段：Rust 构建阶段带 registry/target 缓存挂载，运行时是 slim Debian + 非 root 用户 + 只读根文件系统（`read_only: true`、tmpfs `/tmp`），基础镜像按 digest 固定。`migrations/` 会被 `sqlx::migrate!` 在编译期嵌入，因此必须留在构建上下文里。
+```text
+PostgreSQL / Redis / RustFS 健康
+  → migrate 一次性容器
+  → storage-init 一次性容器
+  → API / Worker / Caddy 健康
+```
 
-## 3. 验证入口与主旅程
+迁移和建桶在 `ops` profile 中显式运行。API 与 Worker 启动不会修改 schema；未迁移或迁移集合/checksum 与源码不一致时，readiness 失败。迁移失败会让配方在启动应用前退出，修复原因后重跑：
 
 ```bash
+just production-migrate .env.production
+just production-up .env.production
+```
+
+[生产组合](../../compose.production.yaml)只发布 Caddy 的 80/443；API、Worker、数据库、Redis 与 RustFS 留在内部网络。手动调用 Compose 时，`--env-file` 负责插值，服务的 `env_file` 还需要 `ENV_FILE`：
+
+```bash
+ENV_FILE=.env.production docker compose -f compose.production.yaml --env-file .env.production ps
+```
+
+## 验证自己的公开合同
+
+在 shell 中将 `DOMAIN` 设为环境文件里的域名，再检查：
+
+```bash
+curl --fail "https://$DOMAIN/health/live"
+curl --fail "https://$DOMAIN/health/ready"
+curl -I "http://$DOMAIN/"
+```
+
+预期两个健康接口返回 200，明文入口重定向到 HTTPS。随后用自己的 API 完成“创建 → 读取 → 更新”，检查重启后数据和 Session 仍有效，并执行一个 Worker 任务直到终态。资源拒绝与版本冲突也应通过同一 HTTPS 入口验证；健康接口不能证明业务授权正确。
+
+对象 URL 使用公开入口签名。[Caddyfile](../../deploy/production/Caddyfile)把桶路径原样转发给 RustFS，不能在反向代理中改写签名的 Host 或路径。新增业务应通过 Files 使用这条通道。
+
+## 故障与进程生命周期
+
+| 故障               | 需要保持的合同                                                          |
+| ------------------ | ----------------------------------------------------------------------- |
+| PostgreSQL 不可达  | readiness 和依赖数据库的业务返回受控 503，带 request_id；恢复后无需重启 |
+| Redis 不可达       | 缓存回源数据库，限流使用有界保守回退；readiness 不因此失败              |
+| RustFS 不可达      | 数据库内容仍可读；对象上传/完成返回受控失败，恢复后可重试               |
+| 邮件或遥测出口失联 | 业务继续；邮件由 Job 重试，遥测导出与停止刷新有截止时间                 |
+| Worker 停止        | 请求可入队，任务保存在 PostgreSQL，Worker 恢复后继续认领                |
+
+停止 API 先 drain HTTP 请求；停止 Worker 先停止认领并排空在手工作。
+
+| 进程   | 内部停止期限                                                                          | Compose 宽限期 |
+| ------ | ------------------------------------------------------------------------------------- | -------------- |
+| API    | HTTP 排空 3 秒、连接池关闭 1 秒，再有界刷新遥测                                       | 30 秒          |
+| Worker | 在手任务 `JOB_SHUTDOWN_SECS`（默认 10 秒），健康 HTTP 与连接池各 1 秒，再有界刷新遥测 | 45 秒          |
+
+遥测 trace 刷新最多 2 秒，metrics reader 使用 SDK 的 5 秒停止等待。生产 smoke 和备份要求 API 在 25 秒前、Worker 在 40 秒前退出并具有 drain 日志，以避开强杀宽限期。调大任务收尾期限时同步检查总预算与 Compose 宽限期；自己的 Handler 也要尊重取消、租约和退出期限，不能用无限等待阻塞维护窗口。
+
+## 升级与失败恢复
+
+先按[备份指南](22-backup-restore.md)生成并核对归档，再停止旧应用、构建已审阅版本并迁移：
+
+```bash
+just production-down .env.production
+just production-build
+just production-up .env.production
+```
+
+`production-down` 保留数据卷。迁移失败时保留失败日志与数据库，排除问题后重试；新迁移可能已提交，不能假定换回旧镜像就能回滚 schema。恢复应进入独立环境，并使用归档对应的应用版本。
+
+框架的可重复验证入口是：
+
+```bash
+node --test tests/tooling/production-compose.test.mjs
 just production-smoke
 ```
 
-[冒烟脚本](../../scripts/production-smoke.mjs)随机生成一套密钥、启动完整生产组合，然后经真实 Caddy TLS 链完成：入口检查（`/health/live` 200、首页带 HSTS 与 CSP、明文 HTTP 重定向）、主旅程（注册成 owner、写文档、传附件并回读）、重启持久性、Redis/RustFS/PostgreSQL 三种故障的降级行为、Worker 停机后排队的导出恢复，以及 API 与 Worker 的优雅停止。整个旅程刻意在“邮件已配置但 SMTP 失联、遥测采集器不可达”的环境里跑——注册与写作全程可用，正是降级矩阵承诺的行为。每个阶段失败都会以 `[阶段名]` 前缀抛出，脚本结束时自动 `down -v` 清理。
+`production-smoke` 创建测试密钥和临时生产组合，经真实 TLS 验证参考应用、依赖故障、持久性和 drain，结束删除其测试卷。它需要空闲的 80/443，不能与现有生产入口共用端口；它不验证读者新增的业务，应补自己的 HTTPS 旅程。
 
-手工抽查入口也可以：
-
-```bash
-curl https://$DOMAIN/health/live
-curl -I http://$DOMAIN/   # 期待 308 → https
-```
-
-预签名对象 URL 之所以能经入口工作，是因为应用以 `S3_PUBLIC_ENDPOINT`（即 `APP_ORIGIN`）签名，而 [Caddyfile](../../deploy/production/Caddyfile) 把 `/<bucket>/*` 原样转发给 rustfs:9000，路径与 Host 都不改动，v4 签名保持有效。
-
-## 4. 停止、重启与降级规则
-
-`docker compose restart api worker`（或 stop/start）验证的是同一件事：会话 Cookie 与数据都活过容器替换，因为状态只落在 PostgreSQL 与对象卷里。停止超时由组合文件的 `stop_grace_period` 与进程内预算匹配：
-
-| 容器   | 进程内停止预算                                                      | stop_grace_period |
-| ------ | ------------------------------------------------------------------- | ----------------- |
-| api    | 3s HTTP drain + 1s 连接池 + 有界遥测刷新（合计 ≤15s）               | 30s               |
-| worker | api 预算 + `JOB_SHUTDOWN_SECS`（默认 10s）在手任务收尾（合计 ≤25s） | 45s               |
-| 其余   | 无自定义逻辑，默认停止即可                                          | 10–30s            |
-
-冒烟脚本会掐表验证这一点：api 的停止耗时必须明显低于 30s 宽限期（证明是自行退出而不是被强杀），日志里出现 `draining HTTP requests`；Worker 停止同理，日志里出现 `stopping worker claims and draining current work`。
-
-非核心依赖故障按规格矩阵降级，每种行为都被冒烟覆盖：
-
-| 故障             | 行为                                                                                    |
-| ---------------- | --------------------------------------------------------------------------------------- |
-| PostgreSQL 停止  | `/health/ready` 变 503，业务读返回受控 503（带 `request_id`），恢复后无需重启即恢复 200 |
-| Redis 停止       | 缓存回退数据库，注册与写作继续；就绪探针只看数据库，容器不会被误判为不健康              |
-| RustFS 停止      | Markdown 仍在 PostgreSQL 可读；新上传的 PUT 失败、完成返回受控 503；恢复后重试成功      |
-| 邮件已配置但失联 | 注册与写作不受影响；重置/验证邮件任务留在队列按租约重试                                 |
-| 遥测采集器不可达 | 业务不受影响；批量导出有界，进程停止时按截止时间刷新                                    |
-
-Worker 停机时不丢工作：导出请求照常 202 受理，Worker 回来后从数据库任务表认领并完成（租约由 `JOB_LEASE_SECS` 保护）。
-
-## 5. 升级与维护窗口
-
-升级 = 换镜像 + 显式迁移，顺序固定：
-
-```bash
-just production-down ENV_FILE=.env.production    # 或只 stop api worker 做滚动窗口
-git pull && just production-build
-just production-migrate ENV_FILE=.env.production # 显式执行新迁移
-just production-up ENV_FILE=.env.production
-```
-
-失败处理是同一条命令的自然结果：`migrate` 一次性容器以非零退出时，`production-up` 在启动应用之前中止，数据库停留在上一个成功迁移，旧容器停止、新容器尚未接管——排除问题（最常见是环境文件缺键或数据库不可达）后重跑 `production-migrate` 即可，已成功的迁移不会重复执行。
-
-`docker compose up -d` 只重建镜像或配置变化的服务；数据卷（PostgreSQL 数据、对象存储、Caddy 证书）在升级之间持久。任何时刻不要手工进入容器改数据——恢复路径见[备份与独立环境恢复演练](22-backup-restore.md)。
-
-## 6. 运行本章检查
-
-```bash
-node --test tests/tooling/production-compose.test.mjs   # 组合文件与安全属性
-just production-smoke                                    # 真实组合全旅程
-just check
-```
-
-[组合测试](../../tests/tooling/production-compose.test.mjs)在每次 `just check` 里校验生产组合的结构属性：只有 Caddy 发布端口、长驻服务都有健康检查与资源上限、迁移服务藏在 `ops` profile 且不被依赖、API/Worker 命令里没有 migrate、只读根文件系统、env 模板不含真实密钥、`.dockerignore` 排除 `.secrets` 与 `.env*`。重点是：迁移显式、入口唯一、故障按矩阵降级、宽限期匹配停止预算。
+下一步：[保护业务数据并验证独立恢复](22-backup-restore.md)。

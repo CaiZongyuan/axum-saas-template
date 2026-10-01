@@ -1,37 +1,85 @@
-# 跟做：选用生产组件与注册演示场景
+# 使用生产组件并注册业务演示场景
 
-设计系统展厅（`/design-system`）是给"替换模板做自己的产品"这一步用的参考间：所有已登录用户都能从左下角用户区打开设置，再选择「设计系统」，里面看到的颜色、字体、间距、组件和图标就是业务页面正在用的那一份——展厅不维护第二份颜色表或展示组件副本，所以这里看到什么，产品就是什么。本章走一遍四类展厅（基础 / 组件 / 场景 / 图标）、示例如何注册自己的演示场景、以及示例移除后展厅如何变化。
+Web 客户端通过 `@saas/ui` 复用组件与语义 tokens，自己的业务通过 ExampleContribution.scenes 提供隔离演示。设计系统页面读取同一份生产组件，不额外维护一套颜色表或组件副本。
 
-## 1. 先体验：从设置到展厅
+前提是自己的页面已完成[应用壳接入](27-add-example.md)与[双语文案](28-appearance-language.md)。后端合同不依赖设计系统，场景也不调用生产 API。
 
-运行 `just dev`，登录后点击左下角用户区域进入设置，再从设置目录选择「设计系统」。旧 `/design-system` 书签同样进入设置中的展厅，路径共用同一个懒加载块。页面分四个标签：**基础**列出颜色令牌、字体和间距圆角；**组件**可以实际操作按钮、表单控件、弹层和反馈组件；**场景**包含核心场景和示例注册的场景；**图标**是按需加载、可按名称查找的目录。切到 English 和暗色再看一遍，各语言与主题组合共用生产组件。
+## 在业务中选择组件
 
-## 2. 基础与组件：直接读生产 tokens
+从 [UI 组件目录](../../packages/ui/src/components/)按公开出口引入，例如：
 
-基础标签里的令牌值不是写死的色卡，而是渲染时用 `getComputedStyle` 从当前文档实时读取的计算值：切到暗色主题后重新进入页面，列表里的值就是暗色令牌的当前值。点击「复制」拿到的是此刻的取值——模板换肤时这里自动跟随。字体与间距圆角直接用生产工具类渲染（`text-sm`、`p-4`、`rounded-lg`…）。
-
-组件标签操作的是 `@saas/ui` 的真实组件：按钮的六种变体、加载（`aria-busy` + 旋转图标）、禁用状态；输入框、文本域、下拉、开关；「模拟校验错误」会同时给出 `aria-invalid` 标记、错误文案和 destructive 告警——错误状态不靠颜色单独传达。弹层演示用的是与业务删除确认相同的 AlertDialog：打开后焦点移入对话框，Esc 或「取消」关闭，「确认删除」只在局部状态里打一条演示提示，不发起任何请求。
-
-## 3. 场景：隔离 fixtures 与示例注册
-
-场景标签里的通用表单、列表、空态使用隔离的 fixtures 和组件局部状态：保存不发起请求，选择只影响本页，空态用「填充 / 清空」在两种状态间切换——它们演示的是形态，不是某个业务功能。
-
-示例可以通过组装点注册自己的场景（`ExampleContribution.scenes`，声明 `id`、双语文案 key 与可选的交互渲染体）：便签示例（默认不注册；经 `scripts/example-add.mjs` 装回后）注册了一个「便签示例」场景，场景标题用示例自己的命名空间解析（`notes.nav.notes`），卡片上标注来源示例。删例工具移除示例后，这些场景随示例一起消失——Core-only 组合里场景标签只剩通用场景，并显示一条"当前组合没有示例场景"的说明，基础展厅保持完整。知识库的保存冲突场景（UI07）、附件图标和上传状态场景（UI08）与导出状态和通知显示场景（UI09）都由这条注册通道交付，渲染体用生产组件演示保存反馈、附件上传生命周期，以及状态徽标到通知标题的显示映射，只用演示数据。
-
-## 4. 图标：按需加载的目录
-
-图标标签分三部分。上半部分是 **ModuleIcon 矩阵**：10 组分类色 × 裸色/平色/柔和/高光四种外观，在亮、暗两张 scoped 预览表里各渲染一遍——分类色只做小面积模块标识（侧栏、模块入口），取色独立于语义状态色；Core 模块的颜色登记在 `packages/views/src/shell/module-registry.ts`，示例模块通过 `ExampleContribution.moduleIcons` 声明自己路由的颜色并随示例一起移除。中间是**文件图标样例**：附件与文件列表按「文件名 → 后缀（最长匹配）→ MIME」解析为 Material Icon Theme 5.38.1 的 vendored 子集（32 枚，MIT 许可，署名见仓库根 `THIRD-PARTY-NOTICES.md`）；导出行只展示版本、状态与过期时间、不含文件名，因此暂不使用文件图标。下半部分才是精选的 Lucide 图标目录，按「操作 / 导航 / 状态 / 对象」四类组织，类别色来自生产令牌（`text-primary`、`text-link`、`text-success`、`text-warning`）。整个图标标签在自己的异步分块里，只有第一次打开才会下载——首包永远不包含它，性能预算（`scripts/perf/baselines.json`）不因此调整。每个图标按钮的可访问名称是本地化的「复制图标名称 X」，点击复制图标名，复制结果用文字反馈而不是颜色。Lucide 图标来自 [lucide.dev](https://lucide.dev)，ISC 许可，可以替换为任何兼容许可的图标库；想扩充目录就在 `icon-catalog.tsx` 的分类表里加一行。
-
-## 5. 可访问交互
-
-展厅没有为演示降低无障碍标准：标签页是真实的 `tablist/tab`，弹层焦点由对话框原语管理，图标按钮有本地化名称，复制反馈走 `role="status"` 文字区域，焦点环统一使用 `ring` token。搜索框、单选、开关都是原生控件或带完整 ARIA 状态的组件，键盘可完整操作。演示数据与当前用户的业务数据完全隔离：场景不查询、不写入任何真实资源，这也是展厅可以向所有已登录用户开放的原因。
-
-## 6. 验证
-
-```bash
-pnpm exec vitest run apps/web/src/design-system.test.tsx
-pnpm exec vitest run apps/web/src/app-shell.test.tsx
-just check
+```tsx
+import { Button } from '@saas/ui/components/button';
 ```
 
-design-system 测试在真实 Router 里走设置目录入口可见性、令牌搜索与复制反馈、组件状态操作、弹层焦点、场景隔离、图标查找与复制，以及四种「语言 × 主题」组合；app-shell 测试保证设置目录中的展厅入口在登录后出现、未登录隐藏。场景断言写成组合无关——删例组合跑同一份文件会验证"示例场景消失、基础展厅保留"。`just check` 里的 bundle 预算计量确认展厅与图标目录只在异步分块中——`scripts/perf/baselines.json` 的 `lazyPatterns` 把这条懒加载边界固化为门槛，展厅分块若回流首包会直接失败。注册新示例时，在 `ExampleContribution` 里声明 `scenes` 即可加入场景标签，无需改动展厅代码。
+使用 [styles.css](../../packages/ui/src/styles.css) 的 `primary`、`destructive`、`success`、`warning`、`ring` 等语义 tokens。按钮、输入、对话框与状态组件保持相同的焦点、禁用、错误和加载语义；错误还要给文字和 `aria-invalid`，不能只改变颜色。
+
+运行 `just dev`，登录后访问 `/design-system` 或设置中的设计系统。基础展示实时读取 `getComputedStyle`；组件展示可操作真实按钮、输入与对话框。它用于开发者选择和核对组件，不向用户授予任何业务权限。
+
+## 给 Billing 添加一个完整场景
+
+在 `packages/views/src/billing/example.tsx` 添加组件：
+
+```tsx
+import { useState } from 'react';
+import { Button } from '@saas/ui/components/button';
+
+function BillingDemo() {
+  const message = useAppMessage('billing');
+  const [saved, setSaved] = useState(false);
+  return (
+    <div>
+      <Button onClick={() => setSaved(true)}>{message('demo.save')}</Button>
+      <p role="status">{saved ? message('demo.saved') : ''}</p>
+    </div>
+  );
+}
+```
+
+`useAppMessage` 沿用上一章该文件中的导入。在已有贡献的双语 `messages` 添加：
+
+```ts
+// messages.zh
+'demo.title': '账务保存反馈',
+'demo.save': '保存',
+'demo.saved': '已保存',
+
+// messages.en
+'demo.title': 'Billing save feedback',
+'demo.save': 'Save',
+'demo.saved': 'Saved',
+```
+
+在 `createBillingExample()` 返回的贡献对象添加：
+
+```tsx
+scenes: [
+  {
+    id: 'save-feedback',
+    titleKey: 'demo.title',
+    render: () => <BillingDemo />,
+  },
+],
+```
+
+场景只用 React 局部状态和演示数据。点击保存只更新反馈，不查询或修改真实资源。完整合同与组装验证见 [AppScene](../../packages/views/src/shell/app-contract.ts)；[场景渲染器](../../packages/views/src/design-system/scenes-section.tsx)统一添加来源和本地化标题。
+
+## 保持加载与所有权边界
+
+设计系统是独立异步块，图标目录在其内部再次懒加载。不要从正常业务入口同步 import [icon-catalog.tsx](../../packages/views/src/design-system/icon-catalog.tsx)来取得某个图标；需要操作图标时直接按需引入 Lucide。业务路由的 ModuleIcon 通过 `moduleIcons` 贡献，文件图标来自已署名的 Material Icon Theme 子集，许可证见[第三方声明](../../THIRD-PARTY-NOTICES.md)。
+
+把演示组件和测试登记为自己的业务所有权。移除贡献时场景与路由图标一起消失；Core-only 组合仍保留基础、组件和通用场景，不能让展厅反向 import 某个业务。
+
+## 验证与失败检查
+
+```bash
+pnpm exec vitest run apps/web/src/design-system.test.tsx apps/web/src/app-shell.test.tsx
+pnpm typecheck
+node scripts/perf-bundle.mjs
+```
+
+在两种语言、两种主题下打开 Billing 场景，点击保存确认 `role="status"` 反馈；检查真实业务数据没有变化。临时移除 `demo.title` 的英文翻译，组装必须失败；恢复后复查。对话框等交互场景还需要用键盘检查焦点和 Esc。
+
+包体检查确认设计系统和图标目录不进入首包。[懒加载基线](../../scripts/perf/baselines.json)有现成约束，注册一个新场景不应通过放宽阈值解决静态导入回归。
+
+下一步：自己的产品文档按[维护开发者文档](../guides/maintain-docs.md)编写；公开站维护见[站点指南](30-public-site.md)。

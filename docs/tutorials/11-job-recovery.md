@@ -1,72 +1,55 @@
-# 跟做：任务恢复、尝试预算与管理员重试
+# Worker 租约、失败分类与恢复
 
-从文档申请一次导出，然后以 Owner 或 Admin 登录，在左侧导航的「管理」分组点击「后台任务」（Background jobs）进入。默认列出失败任务，可以切换到等待、执行中、已完成或全部状态；筛选条件保存在地址栏，切换语言或主题不会丢失。打开一条记录，查看当前批次、尝试历史和安全错误摘要。
+目标：让自己的后台任务在进程崩溃、外部服务故障和管理员重试后仍遵守有限预算。前提是实现了[Handler 与发布事务](10-document-exports.md)；Jobs 提供可靠执行协调，外部副作用仍需业务幂等。
 
-失败任务提供「重试失败任务」（Retry failed job）。这个操作保留原 Job ID 和业务请求，开启有限的新批次。旧记录继续可查；成功任务没有这个入口。业务 Handler 仍检查原请求者、凭据和源资源，因此重新执行不会恢复已经撤销的访问权。
+## 领取也消耗一次尝试
 
-## 1. 为什么领取本身也消耗次数
+[Core Jobs](../../crates/app/src/modules/jobs/mod.rs)在领取事务增加 attempts、生成独立 lease_token 并记录 attempt。领取后立刻崩溃也消耗预算；租约到期后，其他 Worker 只能在剩余预算内重新领取。预算耗尽转 failed，不无限重领。
 
-[Core Jobs](../../crates/app/src/modules/jobs/mod.rs)在领取事务中增加 attempts，生成新的 lease_token，并记录这次尝试。随后即使进程立刻退出，次数也已经消耗。
-
-租约过期后，下一个 Worker 可以重新领取尚有预算的任务。先前的尝试被记为 lease_expired；达到预算时，任务进入 failed，不再无限重领。临时错误进入 retry_wait，使用指数退避与 full jitter；永久错误直接失败。每个入队调用都明确给出有限的 `max_attempts`，数据库限制为 1–20。
-
-知识库导出的 `EXPORT_JOB_MAX_ATTEMPTS` 默认是 5。它属于示例配置；替换业务时，新 Handler 使用自己的合理预算。详细设置见[生成配置参考](site:reference/config.md)。
-
-## 2. 旧 Worker 不能提交新结果
-
-每次领取都有独立的 token，续租、失败和成功都要求匹配当前 token 且仍在有效期内。成功在调用者事务中提交，业务结果、Job 和尝试历史共同完成。
-
-例如，第一个 Worker 在上传后暂停，租约到期；第二个 Worker 接手并完成。第一个 Worker 即使继续运行，也不能凭旧 token 覆盖结果。Handler 可能重复执行，外部副作用需要自己的幂等策略；本示例使用不可覆盖的候选对象与唯一数据库发布来保护导出。
-
-[Worker 循环](../../crates/app/src/modules/jobs/worker.rs)独立推进 Handler 和续租。如果续租 SQL 等待发布事务的行锁，Handler 仍能完成事务。续租失败时，先取消底层 Handler future、释放其事务，再写入失败状态；失败写入也有截止时间。两个真实 PostgreSQL 锁等待回归测试保护这个顺序。
-
-关停先停止领取，给当前执行有限的完成时间。超时取消后保留 running 租约，等待自然过期恢复，不能提前把仍产生副作用的任务交给其他 Worker。已经开始的阻塞 ZIP 工作继续遵循上一章的协作取消与资源所有权规则。
-
-## 3. 新批次保留旧历史
-
-[migration 0010](../../migrations/0010_job_history.sql)记录 JobBatch 与 JobAttempt。Job 指向当前批次，尝试记录保存编号、执行者、起止时间、租约截止时间及安全错误代码。领取、续租和终态变化在同一数据库事务更新相关记录。
-
-从此前版本升级时，旧任务只保留当时可得的汇总；仍在运行的当前尝试会被记录，不伪造已经缺失的历史时间线。新产生的尝试则逐条记录。
-
-[管理员用例](../../crates/app/src/modules/jobs/administration.rs)按当前有效成员角色授权，只有 Owner/Admin 可以读取或重试。重试事务锁住失败 Job，建立下一批、重置有限预算，并一起写 Audit 和幂等记录；审计失败全部回滚。相同命令重复提交不会再开一批，并发请求也不能绕过状态约束。
-
-[HTTP 入口](../../crates/app/src/modules/jobs/management.rs)提供列表、详情及重试。列表使用与身份、状态过滤绑定的倒序游标；详情每页最多十批，支持读取更早记录。返回内容不包含 payload 或 lease_token，供管理员查看的是状态、错误摘要和关联请求。
-
-## 4. 前端如何接入恢复操作
-
-[共享任务 Views](../../packages/views/src/jobs/jobs-view.tsx)通过生成 SDK 调用 Core API，并渲染在通用外壳中，界面文字跟随「外观与语言」设置；英文界面下页面与操作名为 Background jobs、Job status、All statuses、View record、Retry failed job、Job details、Execution history。Web 负责路由，View 用回调导航，知识库示例移除后这组管理页面仍保留。
-
-正在运行的记录会刷新进度。请求失败时可重试同一命令；成功提交后回到最新历史，任务状态变化或权限被撤销后会刷新相关查询和 Session。普通成员看不到侧边栏的「管理」分组，直接访问也会被后端拒绝，页面提示「仅企业所有者或管理员可以管理后台任务。」。
-
-错误摘要用于定位问题；原请求的关联 ID 可以继续用于后续审计和观测章节。管理员重试不会修改导出快照。原 Session 已失效或快照已经过期时，应由有权限的用户重新申请导出。
-
-## 5. 用可控故障验证
-
-```bash
-node scripts/test-backend.mjs --test jobs --test exports
-pnpm exec vitest run apps/web/src/jobs.test.tsx
-just check
+```mermaid
+stateDiagram-v2
+  queued --> running: claim / attempts + 1
+  running --> succeeded: fenced commit
+  running --> retry_wait: transient / budget remains
+  retry_wait --> running: scheduled claim
+  running --> failed: permanent or exhausted
+  failed --> queued: explicit admin batch
 ```
 
-公开 Job/HTTP 测试使用真实 PostgreSQL 和同步点，覆盖：
+`JobError::Transient("static.code")` 有界退避重试，采用指数退避/full jitter；`Permanent` 进入失败终态；`LostLease` 不允许旧执行者写终态。只保存静态安全码，不格式化存储错误、payload 或秘密到摘要。
 
-- 领取后崩溃也消耗预算，达到上限转 failed；
-- 两个 Worker 接续执行，晚到的旧结果不发布；
-- 临时重试按 scheduled_at 调度，业务参数保持不变；
-- 关停有限等待且不提前释放租约；
-- 管理员权限、有限新批次、历史、幂等及审计回滚；
-- 发布遇到续租，以及续租超时后的事务释放。
+## fence 保护结果
 
-时限测试显式推进数据库中的租约/调度时间；竞态由 Notify 和真实锁等待组织，不用任意 sleep 碰时序。
+`Lease::lock_current(connection)` 要求当前 token、running、期限有效并取行锁；`succeed(connection)` 在调用者事务更新 Job、attempt/batch 和通知。业务结果、Audit、succeed 同事务提交。签名见[源码](../../crates/app/src/modules/jobs/mod.rs)。
 
-关键旅程完成时运行一次真实浏览器：
+第二个 Worker 接手后，第一个即使完成 I/O 也不能用旧 token 覆盖结果。fence 不能撤销已经发送的邮件或远端动作；使用不可覆盖候选、业务唯一约束或服务端幂等键控制副作用。
+
+[Worker 循环](../../crates/app/src/modules/jobs/worker.rs)独立驱动 Handler 和 heartbeat；续租 SQL 等待发布锁时 Handler 仍推进。续租失败先取消 Handler future、释放事务，再有界写失败。关停停止新领取并有限 drain，超时保留 running 租约等待到期，不提前释放仍执行副作用的任务。
+
+默认 lease/heartbeat/drain 为 60/20/10 秒，配置见[参考](site:reference/config.md)。阻塞工作仍需协作取消，`spawn_blocking` 开始后不能强制中止。
+
+## 复用管理员恢复
+
+[管理 API](../../crates/app/src/modules/jobs/management.rs)和[用例](../../crates/app/src/modules/jobs/administration.rs)只允许当前 Owner/Admin 查询或重试。失败重试保留 Job ID、业务 payload/快照，显式开启新的有限 batch，旧历史不删除；幂等命令和 Audit 同事务，成功任务不能重开。
+
+管理响应不返回 payload 或 lease_token。列表 cursor 绑定身份/状态，详情有界加载历史。恢复外部服务后可以重试临时失败；原凭据撤销、资源失权或快照过期不会因管理员重试恢复，应由合法用户新申请。
+
+## 可控故障验证
+
+仓库根目录执行：
 
 ```bash
-node scripts/e2e.mjs tests/e2e/job-recovery.spec.ts
+node scripts/test-backend.mjs --test jobs
 ```
 
-隔离运行器使用较短但有限的测试预算。测试先暂停自己创建的 RustFS，观察导出正在运行，再强制终止本次运行器的 Worker；恢复存储，由运行器监督进程启动替代 Worker，验证导出接续完成。随后再次让存储不可用，等预算耗尽，通过实际管理员页面重试并观察成功与旧历史。
+<!-- example:knowledge:reference-01:start -->
 
-测试只操作自己的容器和进程，在 finally 中恢复存储并确认 Worker 健康。替代 Worker 由运行器统一管理，保持服务供同轮后续测试使用，整轮结束再统一关停。Worker 的临时根目录也按运行器隔离并清理；生产进程遭遇 SIGKILL 时，本地临时目录仍遵循上一章声明的清理边界。浏览器报告继续关闭敏感 trace/截图，只保留安全摘要。
+```bash
+node scripts/test-backend.mjs --test exports
+```
 
-默认 `just check` 不重复浏览器故障旅程。下一章会复用这些可靠任务来清理被删除的文档、附件和过期对象。
+<!-- example:knowledge:reference-01:end -->
+
+[公开 Jobs 测试](../../crates/app/tests/jobs.rs)验证崩溃次数、租约接替、旧结果拒绝、有限关停和退避；[管理测试](../../apps/api/tests/jobs.rs)验证权限、新 batch、历史、幂等和审计回滚。竞态用真实锁与同步点，时间边界推进数据库时间戳，不靠随机 sleep。
+
+自己的 Handler 增加“领取后失去租约仍不能发布”的检查，再定义永久/临时错误分类。下一步接入[业务删除与清理](12-deletion-cleanup.md)；已登记的通知由[终态事务](13-export-notifications.md)发布。

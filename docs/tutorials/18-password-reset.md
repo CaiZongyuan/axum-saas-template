@@ -1,72 +1,57 @@
-# 跟做：从真实邮件重置密码
+# 复用密码恢复与事务邮件
 
-本章在已有注册、登录和 PostgreSQL Jobs 上增加找回密码。用户不必等待邮件才能注册或写作；只有找回密码需要邮件投递。这是 Core 功能，移除知识库示例后仍保留页面、任务、测试和本章。
+目标：为自己的 SaaS 启用 Core 密码恢复，并理解怎样复用 Mail/Jobs 实现其他事务邮件。前提是已有 [Identity](02-registration.md) 和 [Worker](10-document-exports.md)；普通注册和业务使用不依赖邮件成功投递。
 
-## 1. 完成一次真实重置
+## 配置并取得一次结果
 
-运行 `just dev`，打开注册页创建自己的测试账号。在另一个浏览器窗口打开登录页，点击“忘记密码？”，填写邮箱并提交。页面统一提示“如果该账号可用，你会收到重置邮件”，不确认该邮箱是否已注册。
+`just dev` 启动本地 Mailpit；[收件箱](http://127.0.0.1:8025)只捕获开发邮件。开发入口生成权限 0600 的 `.secrets/development-mail-key`，API/Worker 共用且重启保留；不要提交或公开复制，格式/权限错误不会自动覆盖。
 
-打开 [Mailpit 本地收件箱](http://127.0.0.1:8025)，找到这封重置邮件，打开其中链接。邮件由真实 Worker 经 SMTP 投递；Mailpit 只捕获邮件，不向外转发。设置 12–128 字符的新密码并确认，成功后返回登录页使用新密码登录。
+Core 已组装两个 API，输入/响应以[合同](site:reference/api.md)为准：
 
-原来窗口的登录会话此时已经失效，刷新或调用 `/api/v1/auth/session` 会得到未登录结果。再次打开同一链接并提交会失败；密码重置不会自动登录，也不会撤销独立管理的 API Keys。
+| 入口                                        | 输入                         | 结果                               |
+| ------------------------------------------- | ---------------------------- | ---------------------------------- |
+| `POST /api/v1/auth/password-reset`          | email，可选 locale `zh / en` | 格式有效统一 202，不暴露账号存在性 |
+| `POST /api/v1/auth/password-reset/complete` | token，12–128 字符 password  | 消费成功后要求重新登录             |
 
-开发入口自动启动 Mailpit，并首次生成随机的 `.secrets/development-mail-key`，权限为 `0600`。API 与 Worker 使用同一个持久 key，重启不会让未发送邮件无法解密。该目录已忽略，不要提交或复制到公开文档。已有但格式或权限不正确的 key 文件会明确报错，不会偷偷覆盖。
+申请检查受信 Origin 和认证类限流。存在、不存在、停用、冷却合并都使用同一 202；未配置邮件统一 503。默认冷却 60 秒、token 30 分钟；跨语言重复保留第一次邮件语言。Locale 缺省中文，非法值拒绝。
 
-## 2. 一次请求如何变成可靠邮件
-
-`POST /api/v1/auth/password-reset` 接受 `{email}`，校验受信 Origin。有效格式的存在、不存在、停用账号和冷却期内重复申请都得到相同的 202 与响应体。请求可用 `locale: "zh" | "en"` 指定邮件语言；省略时保持默认中文投递，其他值得到稳定的校验错误。未配置邮件时所有邮箱得到相同的 503；普通注册和登录仍可用。请求沿用[认证限流](17-rate-limits.md)，同一可用账号默认 60 秒内的重复申请合并，不再创建新 Job。
-
-[Identity 请求用例](../../crates/app/src/modules/identity/password_reset/requests.rs)在同一事务中保存重置 hash、短期加密材料并登记 `identity.password_reset` Job。Job payload 只有 `reset_id`；明文 token、邮箱和完整链接不会进入任务状态、Audit 或日志。申请语言作为投递语言的快照密封进材料，冷却期内的跨语言重复申请合并并保留首个语言。新申请不会使此前有效的链接立即作废，避免别人反复请求导致用户手头链接失效。
-
-链接只由受信 `APP_ORIGIN` 构造，形如 `https://your-app.example/reset-password#token=…`，不采用请求 Host。fragment 不随 HTTP 请求路径或 Referer 发送；Web 页面读取并立即替换 URL，token 只用于本次提交，不写入浏览器存储或 Query/Mutation 缓存。申请指定了语言时，fragment 追加非敏感的 `&lang=<locale>` 提示，重置页据此只把当前流程渲染为该语言，不写入已保存偏好；未指定语言的链接与既有格式字节一致。刷新已清理 URL 的重置页需要重新打开邮件链接。
-
-[重置邮件 Handler](../../crates/app/src/modules/identity/password_reset/worker.rs)领取持久任务后，验证当前成员有效、凭据存在、重置未过期/使用/撤销、Job 绑定和租约有效，再解密并发送。邮件主题与正文使用材料密封时记录的语言，因此每次尝试——包括重试——说同一种语言；早于该字段密封的材料保持默认中文。数据库事务在网络发送前结束；发送期间 Worker 继续续租，失去租约会取消正在等待的发送。到期时间也限制发送预算。已经发出的邮件无法撤回，消费时仍要再次验证链接。
-
-## 3. Hash 与密文分别解决什么
-
-[Identity 迁移](../../migrations/0016_password_reset.sql)有两张表：`password_resets` 存 256-bit 随机 token 的 SHA-256 hash 和有效性；`password_reset_mail` 暂存收件地址及链接的密文。验证 token 不需要解密，但 Worker 重启后必须能恢复邮件内容，因此短期密文不能被 hash 替代。
-
-[Mail 能力](../../crates/app/src/modules/mail/mod.rs)使用 XChaCha20Poly1305，每份材料独立生成 24-byte 随机 nonce。认证附加数据绑定用途、schema、重置 ID、Job ID、User ID、key version 和准确到期时间；交换记录或篡改内容会使解密失败。key 是独立的 32-byte 随机值，不复用数据库密码或 API Key。
-
-成功投递在 Job 成功事务中删除密文；成功重置或停用成员也原子撤销其他链接并删除该用户材料。维护入口每轮最多清理 100 份过期/已使用/撤销材料，即使 SMTP 当前未配置也继续清理。Worker 或数据库停机期间物理清理会延迟，但过期材料不能用于重置，恢复后继续清理。有效期默认 30 分钟，范围 1–60 分钟。
-
-密文保护数据库中的待发送内容；运行时为组装与发送必然会有短期明文。不要把密文保护解释为所有内存 buffer 都已安全擦除。
-
-## 4. 成功消费、并发与撤销
-
-`POST /api/v1/auth/password-reset/complete` 接受 `{token,password}`。在计算 Argon2 前先检查链接有效性，复用有界的密码计算容量。提交时按成员 → 凭据 → 重置记录顺序锁定，重新判断有效性，在一个事务内更新密码、消费 token、撤销全部旧 Session、撤销其他有效链接、清除材料并追加 `identity.password.reset` 审计。
-
-任何一步失败都会回滚；两个请求同时消费只有一个成功。登录发放 Session 时还会在事务内比较刚验证的密码 hash 与当前凭据，避免旧密码验证与重置交错后发出新会话。返回成功时清除当前 Cookie，前端清理原会话查询数据并要求重新登录。
-
-过期、已使用或撤销 token 统一返回 `auth.reset_invalid`，不暴露账户信息。UI 提供重新申请入口；网络结果不明时可以先尝试新密码登录，避免盲目重发。
-
-## 5. SMTP 故障、重试与密钥恢复
-
-[SMTP adapter](../../crates/platform/src/mail.rs)一次 attempt 只发送一次，最多四个并发发送。整体超时覆盖 DNS、TLS、DATA 和 QUIT；不启用额外连接池自动重试。4xx、已识别的临时网络错误和超时交给 Jobs 有界退避，最多五次尝试；5xx、无效配置、密文篡改或未知 key version 直接失败。Owner/Admin 可在后台任务页查看静态错误码，修复后明确重试。
-
-SMTP 接受邮件只表示服务器接下投递责任，不代表收件人已收到。接受后进程崩溃、应答丢失或数据库提交失败，可能重发同一链接；固定 Message-ID 也不保证去重。单次消费由数据库事务保证。过期或被消费的任务即使再次执行也不会启动新投递。
-
-生产通过 `MAIL_SMTP_TLS=wrapper` 或 `starttls` 使用证书校验，配置正确端口、发件邮箱和成对 SMTP 凭据。`local` 明文模式只接受 loopback、localhost 或开发服务名 mailpit。不要把本地收件箱开放到公共网络。详细变量由[配置参考](site:reference/config.md)生成。
-
-API 与 Worker 必须使用相同的 `MAIL_ENCRYPTION_KEY` 和正整数 `MAIL_ENCRYPTION_KEY_VERSION`。v1 只支持一个当前版本：轮换前先停止新申请，等待旧材料投递完成或过期清理，再一起更换两端 key/version。不要用新 key 冒充旧版本。误换版本会让任务以 `mail.key_unavailable` 失败；在 TTL 内恢复原 key/version 后可从任务页重试。已过期链接应重新申请。恢复备份时也要恢复匹配的受保护 key，不能只恢复数据库。
-
-## 6. 验证与复用
+在仓库根目录执行完整的公开请求/真实投递检查：
 
 ```bash
 node scripts/test-backend.mjs --test password_reset --test mail_materials
-pnpm exec vitest run apps/web/src/password-reset.test.tsx
 node --test tests/tooling/development-mail-key.test.mjs
-just check
 ```
 
-真实 HTTP/PostgreSQL/Job/Mailpit 测试覆盖投递、重启后重新领取、旧租约拒绝、重复消费、并发、过期、停用后重新启用、审计失败回滚以及 SMTP 451/550。申请语言决定投递语言与链接提示并在重试后保持，跨语言冷却合并保留首个语言，不支持的语言返回稳定校验错误。密码重置与登录的竞态用真实数据库行锁组织，不靠任意等待猜测顺序。View 测试覆盖中性提示、手动重试、确认密码、成功、无效链接与 URL fragment 清除；链接语言提示只覆盖当前流程，用户在流程内选择的语言按正常偏好规则持久化。
+[HTTP/Job/Mailpit 测试](../../crates/app/tests/password_reset.rs)取得真实邮件链接、重置，再验证旧密码/全部旧 Session 拒绝和新密码登录。API Keys 独立管理，密码重置不自动撤销它们。
 
-新关键旅程完成时运行一次：
+## 请求保存 hash 与短期密文
 
-```bash
-node scripts/e2e.mjs tests/e2e/password-reset.spec.ts
+[请求用例](../../crates/app/src/modules/identity/password_reset/requests.rs)在同一事务保存 token hash、短期邮件材料并 enqueue `identity.password_reset`。payload 只有 reset_id；明文邮箱/token/完整链接不进入 Job、Audit 或日志。新申请不立即作废之前的有效链接。
+
+[迁移](../../migrations/0016_password_reset.sql)将验证用 SHA-256 hash 与待发送密文分开：hash 用于一次消费，密文供 Worker 重启后恢复发送，不能相互替代。[MailService](../../crates/app/src/modules/mail/mod.rs)公开接口包括：
+
+```rust
+pub fn seal(&self, binding: &Binding<'_>, plaintext: &[u8]) -> Result<Sealed, MaterialError>;
+pub fn open(&self, binding: &Binding<'_>, sealed: &Sealed) -> Result<Vec<u8>, MaterialError>;
+pub async fn send_plain_text(&self, to: &str, subject: &str, body: String,
+    message_id: &str, expires: tokio::time::Instant)
+    -> Result<(), saas_platform::mail::DeliveryFailure>;
 ```
 
-浏览器从真实捕获邮件取得链接，重置后验证另一个浏览器的 Session 失效并使用新密码登录；语言旅程验证申请语言驱动邮件与链接提示，且只覆盖重置流程本身。认证旅程关闭 trace/截图，报告不保存邮件、token、密码或原始异常。
+这是方法签名摘录。XChaCha20Poly1305 使用每份材料独立 nonce；Binding 把用途、schema、业务/Job/User ID、key version 和准确到期时间绑定到认证附加数据。自己的业务定义有效性/材料表，用独立 32-byte key，不复用数据库密码；运行时仍有短暂明文，不保证所有 buffer 安全擦除。
 
-扩展其他事务邮件时，业务模块拥有自己的有效性与短期材料表，通过公开 Mail 加密/发送能力和 Jobs 事务接口接入。让自己的 Handler 重新验证当前业务状态，失败使用静态码；不要把明文秘密直接放进普通 Job payload。
+## Worker 和一次性消费
+
+[重置 Handler](../../crates/app/src/modules/identity/password_reset/worker.rs)执行前检查当前成员、凭据、期限、消费/撤销、Job 绑定和租约，再解密，结束数据库事务后发送；重试保留密封的邮件语言。失租约取消等待发送，但已发送无法撤回，消费时仍检查。
+
+[消费事务](../../crates/app/src/modules/identity/password_reset/consume.rs)按成员 → 凭据 → 重置记录取锁，再次验证，在一个事务更新密码、消费 token、撤销全部旧 Session/其他链接、清材料、Audit。并发消费只有一个成功，审计失败全回滚。Session 签发对比当前密码 hash，避免旧密码核验与重置交错产生新会话。
+
+无效/过期/已用/撤销统一 `auth.reset_invalid`；未知网络结果先尝试新密码登录，不盲重发。链接由受信 APP_ORIGIN 构造，token 在 fragment，页面读后立即清 URL，不放存储/缓存；`lang` 提示只作用当前流程。
+
+## SMTP 故障与密钥恢复
+
+[SMTP](../../crates/platform/src/mail.rs)每次尝试只发送一次，最多 4 并发，deadline 覆盖 DNS/TLS/DATA/QUIT。4xx/识别的临时网络/超时由 Jobs 有界重试最多五次；5xx/篡改/未知 key version 永久失败。SMTP 接受不等于用户收到，丢应答或提交失败可能重发；固定 Message-ID 不保证去重，一次消费由数据库保证。
+
+成功发送在 fenced 成功事务清密文，消费/停用原子清用户材料，维护每轮最多 100 份；物理清理延迟不使过期链接有效。生产用 starttls/wrapper 与证书校验，local 明文仅限开发 loopback/服务名，配置见[参考](site:reference/config.md)。
+
+API/Worker 共用 `MAIL_ENCRYPTION_KEY / MAIL_ENCRYPTION_KEY_VERSION`，只支持一个当前版本。轮换先停新申请、排空或等旧材料过期，再同时更换；误换可在 TTL 内恢复原 key/version 后明确重试。恢复数据库也需要受保护的匹配 key。其他事务邮件照此定义自己的有效性、材料生命周期和 Handler，不将秘密塞入普通 payload。接着添加[观测](19-observability.md)。

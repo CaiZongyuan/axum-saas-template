@@ -1,95 +1,49 @@
-# 跟做：共享知识库与权限继承
+# 为自己的资源定义授权
 
-个人写作仍然是注册后从侧栏进入“我的文档”，直接保存第一篇正文。本章增加共享空间：Owner/Admin 从侧栏“知识库”创建共享库、修改库名，并选择已经注册的成员授予只读或编辑权限。
+目标：复用 Core 的当前成员资格，同时把资源访问规则留在自己的业务。前提是已有 [Session](03-sessions.md) 与[业务用例](04-personal-documents.md)。认证、企业角色和具体资源授权是三个不同判断。
 
-库与授权管理页面的操作名称中英文一致：
+## Core 提供身份，业务提供规则
 
-| 页面元素   | 中文               | English                 |
-| ---------- | ------------------ | ----------------------- |
-| 业务导航   | 知识库             | Knowledge bases         |
-| 库名字段   | 知识库名称         | Knowledge base name     |
-| 保存库名   | 保存库名           | Save name               |
-| 新建按钮   | 新建文档           | New document            |
-| 所在知识库 | 所在知识库         | Open the knowledge base |
-| 授权区块   | 知识库授权         | Knowledge base access   |
-| 成员选择   | 选择成员           | Select member           |
-| 权限选择   | 访问权限           | Access                  |
-| 只读       | 只读               | Read-only               |
-| 可编辑     | 可编辑             | Editable                |
-| 保存授权   | 保存授权           | Save grant              |
-| 撤销授权   | 撤销 {邮箱} 的授权 | Revoke {email}’s access |
-| 删除知识库 | 删除知识库         | Delete knowledge base   |
+Knowledge Base Grant 是参考业务策略，不是通用租户或 ACL 服务。完整实现见[库用例](../../crates/app/src/modules/knowledge/bases.rs)、[Grant](../../crates/app/src/modules/knowledge/grants.rs)和[文档授权](../../crates/app/src/modules/knowledge/application.rs)：
 
-## 1. 用两个账号跟做
+| 当前资格         | 读取/搜索 | 写入     | 管理库和 Grant |
+| ---------------- | --------- | -------- | -------------- |
+| 有效 Owner/Admin | 所有库    | 所有库   | 允许           |
+| Member + Reader  | 已授权库  | 拒绝     | 拒绝           |
+| Member + Editor  | 已授权库  | 已授权库 | 拒绝           |
+| Member 无 Grant  | 不可见    | 不可见   | 拒绝           |
 
-1. 用 Owner 登录，进入“知识库”，创建“团队手册”。点击库内“新建文档”，保存一篇 Markdown。
-2. 用另一个浏览器注册同事账号。此时不能直接读取刚才的文档，也看不到对应共享库。
-3. Owner 从文档点击“所在知识库”，在“知识库授权”选择同事，保存“只读”。
-4. 同事从侧栏“知识库”打开共享库，能搜索和阅读文档，无法新建或编辑。
-5. Owner 把同事改为“可编辑”。同事刷新后可以新建或显式修改文档。
-6. Owner 撤销授权。同事后续查询库、搜索、读取或保存都会被拒绝；刷新页面可看到拒绝结果。
+个人库沿用同一策略，Owner/Admin 可以访问。自己的工单、项目或账单需明确不同的规则，例如作者或管理员可访问，不能把 Knowledge 的全库管理规则直接宣称为 Core 默认。
 
-角色变更由服务端判定，不需要退出再登录。已打开的内容不会被远程擦除；后续 API 请求按当前授权执行，页面在重新查询或恢复焦点时取得新状态。本章不引入实时权限推送。
+## 在事务里检查当前资格
 
-## 2. 谁可以做什么
+[Organization](../../crates/app/src/modules/organization/mod.rs)公开接口摘录：
 
-| 资格            | 库内阅读/搜索 | 文档写入   | 创建共享库、改名、授权 |
-| --------------- | ------------- | ---------- | ---------------------- |
-| Owner / Admin   | 全部知识库    | 全部知识库 | 允许                   |
-| Member + Reader | 已授权库      | 拒绝       | 拒绝                   |
-| Member + Editor | 已授权库      | 已授权库   | 拒绝                   |
-| Member 无 Grant | 不可见        | 不可见     | 拒绝                   |
+```rust
+pub async fn active_role_in(connection: &mut PgConnection, user_id: &str)
+    -> Result<Option<MemberRole>, sqlx::Error>;
+pub async fn lock_memberships(connection: &mut PgConnection, user_ids: &[String])
+    -> Result<Vec<MembershipAccess>, sqlx::Error>;
+```
 
-个人库也使用同一套 Grant，第一次保存时自动准备 Editor，不会因为新功能自动公开给其他普通用户。Owner/Admin 按已确认模型仍可管理和读取所有个人库。给管理员分配 Reader 不会降低其企业角色已有的权限。
+单人写入先取 Membership 共享锁，再锁业务资源、读取自己的授权关系。多成员授权先按 ID 顺序锁定操作者/受影响成员，再取资源锁；返回行需检查 active、role 和是否包含全部目标。`active_role` 无锁，不能代替写事务内的检查。
 
-知识库删除与文件清理由后续删除章节实现；本章管理名称、访问范围与授权。
+参考写入持有知识库共享锁，Grant 变更持有库排他锁：保存先取得锁，则撤权等待保存完成；撤权先提交，则后续保存被拒绝。授权与 Audit 共同提交，幂等重放、缓存和后台发布也不能跳过重新授权。
 
-## 3. 授权决定数据查询与写入
+## 让所有入口遵守同一规则
 
-[知识库接口与用例](../../crates/app/src/modules/knowledge/bases.rs)提供可见列表、创建、详情和改名。[Grant 用例](../../crates/app/src/modules/knowledge/grants.rs)负责授权列表、授予和撤销。授予与撤销都和 Audit 同事务提交；没有实际变化的重复操作不会重复追加授权事件。
+列表和搜索在 SQL 内过滤当前可见性；详情、修改、删除、附件、导出各自检查资源关联和删除状态。无权看资源返回 404，可看但不能修改返回 403。`can_edit / can_manage / can_create` 仅改善客户端反馈，执行请求仍检查。
 
-文档列表 API 增加可选 `knowledge_base_id`；不传时仍是个人空间。创建文档也可指定目标库。列表仅返回摘要，标题搜索仍转义 `%`、`_` 与反斜杠。游标绑定账号、库范围、筛选和排序，换库必须重新查询。
+Core 不读取自己的业务表。Knowledge 的 `lock_document` 等是私有参考实现，不能从新模块当公共 API 调用；自己的模块写少量资源查询，复用上述成员能力。
 
-不可见文档或库返回 404；可读但不允许写入返回 403。Read / List / Search / Create / Update 都在后端验证，不能通过隐藏按钮、直接输入 URL 或复用 cursor 绕过。
+## 验证和后续接入
 
-每次响应中的 `can_edit / can_manage / can_create` 是服务端当前判断。个人文档列表也返回当前 `can_create`，无个人库时允许首次写作，已有库撤权后则禁止重新初始化绕过。前端只用这些标记改善体验；真正执行 mutation 时仍重新验证。GrantAccess 与相关 SDK 类型由 Rust 合同生成，前端不维护另一套角色推导规则。
-
-## 4. 撤权与正在执行的保存如何排序
-
-普通文档写入先持有当前 Membership 的共享锁，再持有 Knowledge Base 的共享锁，检查权限并保存。库授权变更通过 Organization 的[有序成员锁接口](../../crates/app/src/modules/organization/mod.rs)同时锁定操作者和目标成员，再取库的排他锁。
-
-如果保存已经取得库锁，撤权会等这次保存完成，再提交撤销；撤权提交后开始的请求不能继续写入。反过来，撤权先取得锁时，后续保存读取到无 Grant 并被拒绝。授权缓存或幂等结果不能跳过这一步。
-
-涉及多个成员时按成员 ID 顺序取锁，和企业成员管理保持一致；新增附件或任务授权也要遵守这个提交顺序。Core 不读取 Knowledge 表，参考业务通过公开 Core 接口协作。
-
-## 5. 页面与缓存
-
-知识库列表中的图标可以点击更换：默认 Glass，也可以选择图标图案和分类色。选择先保留在草稿中，确认后同步显示在列表、阅读页和编辑上下文。该外观选择按用户与知识库在本机记忆，不修改知识库数据，不影响 Grant，也不会改变其他成员看到的外观。
-
-[知识库 Views](../../packages/views/src/knowledge/knowledge-bases-view.tsx)复用 Core 成员目录选择已注册用户，无邀请步骤。个人文档与库内文档使用同一个[列表/编辑 View](../../packages/views/src/knowledge/documents-view.tsx)；库范围进入 Query key 与 API 参数，未保存草稿也按账号和库分开。
-
-授权控件的名称随界面语言解析，撤销按钮的可访问名称携带目标邮箱（“撤销 {邮箱} 的授权” / “Revoke {email}’s access”），屏幕阅读器在两种语言下都能明确目标；双语 View 测试覆盖代表页面。
-
-Reader 看到只读页面，即使直接打开编辑 URL，保存控件也不可用。保存收到 403/404 后立即禁用再次提交并重新读取权限，未保存文本保持原样；只有显式点击“重新查询权限”且服务器确认恢复写入资格后，才重新允许保存。权限重新读取失败时也不能据旧的界面权限继续提交。所有已保存资源仍由 Query 管理，不复制到第二份业务 store。
-
-库、授权和成员列表默认每页 50、最大 100 条。页面提供“加载更多”和失败重读，浏览器每组列表最多保留十页，避免无限增长。后台系统不会向普通用户先返回全部库，再让前端过滤。
-
-## 6. 从公开入口验证
+在仓库根目录运行：
 
 ```bash
 node scripts/test-backend.mjs --test knowledge
-pnpm exec vitest run apps/web/src/knowledge.test.tsx apps/web/src/knowledge-bases.test.tsx apps/web/src/knowledge-bilingual.test.tsx
-just check
 ```
 
-真实 PostgreSQL 测试覆盖角色/Grant 矩阵、不可见搜索、改名、范围绑定、授权审计回滚与撤权/写入锁竞争。View 验证创建共享库→库内保存、授权/撤销、改名，以及 Reader 的页面和直接编辑入口。
+[真实 HTTP 检查](../../apps/api/tests/knowledge.rs)验证角色/Grant 矩阵、隐私搜索、撤权后分页/重放、Audit 回滚和撤权与保存的锁顺序。自己的资源应覆盖读/写/列表及撤权后拒绝，避免只检查隐藏按钮。
 
-关键流程完成时集中运行一次：
-
-```bash
-node scripts/e2e.mjs tests/e2e/knowledge-grants.spec.ts
-```
-
-两个真实浏览器经历不可见→Reader→Editor→撤权，既验证页面，也验证 Cookie、生成 SDK、服务端授权与实际数据库。
-
-本章只扩展知识库参考业务；库模型、API、Views、契约符号、测试与教程均登记在[所有权清单](../../examples/knowledge-base/manifest.json)。Core 的有序成员锁和成员目录会保留。后续附件使用同一库级授权边界，不增加逐文件 ACL。
+撤权不能抹去已下载或已显示内容，也不是实时推送。短期下载能力另有[TTL 边界](09-attachments.md)。继续[成员生命周期](08-members.md)，再将同一授权策略接入 Files 和 Jobs。

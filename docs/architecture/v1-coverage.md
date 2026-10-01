@@ -1,13 +1,13 @@
 # v1 能力覆盖与验收
 
-本页是 v1 的总账：规范 [§8.6 特性覆盖矩阵](../saas-template-architecture-spec.md)的每一行在这里落成真实链接——运行入口、源码导读、在线教程与验证一一对应，链接目标由文档构建的存在性检查守护（源文件不存在构建即失败），教程与源码不会悄悄失配。矩阵只收**已交付**的能力；设计说明（如规范 §15.2 的 Mobile、Outbox 扩展章）不进矩阵、不标覆盖，文档不留填空。Core 能力的证据直接写在矩阵里，并保证在《移除示例》之后仍然成立。
+本页保留 v1 的能力覆盖与历史验收记录，供维护者追溯规范、实现和当时的验证。正文中的票状态、测量和验收版本属于历史证据；当前开发入口见[开发者文档](../getting-started/documentation.md)，实时实施状态见 GitHub Issues。矩阵对应规范 [§8.6 特性覆盖矩阵](../saas-template-architecture-spec.md)，链接保留到实际源码与已迁移指南。
 
-## 四条阅读路径
+## 当前开发入口
 
-1. **快速开始**：[快速开始](../getting-started/quickstart.md)——工具链、`just dev`、注册首个账号、服务状态与失败场景。
-2. **跟做教程**：从[第一条全栈请求](../tutorials/01-full-stack-request.md)起步逐章跟做，每章对应真实命令与测试。
-3. **实现自己的业务**：[组合与移除参考业务](../tutorials/23-example-removal.md)——按所有权清单删掉知识库示例，Core 照常运行。
-4. **验证与参考手册**：[运行测试与检查](../testing/t01-feedback-loop.md)、[Core 与示例边界](./module-boundaries.md)与生成参考（[API 合同](site:reference/api.md)、[API 配置](site:reference/config.md)）。
+1. **开始后端开发**：[快速开始](../getting-started/quickstart.md)完成启动与 HTTP 验证，[项目结构](project-structure.md)定位源码。
+2. **新增自己的业务**：[新增模块](../guides/develop-module.md)接入 Router/OpenAPI，再使用按能力组织的指南。
+3. **验证与交付**：[测试反馈循环](../testing/t01-feedback-loop.md)、[生产部署](../tutorials/21-single-machine-production.md)与[独立恢复](../tutorials/22-backup-restore.md)。
+4. **替换与查阅**：[移除参考业务](../tutorials/23-example-removal.md)、[Core 与业务边界](module-boundaries.md)、[API 合同](site:reference/api.md)与[配置参考](site:reference/config.md)。
 
 ## Core 能力矩阵
 

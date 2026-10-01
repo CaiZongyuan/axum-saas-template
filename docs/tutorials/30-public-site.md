@@ -1,66 +1,82 @@
-# 跟做：双语公开站点
+# 维护自己的双语文档站点
 
-公开站点由 Landing、Documentation、Blog、Downloads 四部分组成：未登录的访客从简洁的品牌首页理解模板，从顶栏进入对应语言的文档，Blog 与 Downloads 保留稳定入口并如实显示"即将推出"。本章先从访客视角走一遍四类入口，再从维护者视角说明页面如何声明、文案如何保持真实、示例展示如何随示例移除，以及语言、主题与部署 base 的规则。
+模板提供 Landing、Documentation、Blog、Downloads 四类静态入口。开发者主要维护仓库 Markdown 和站点声明；生成目录与 VitePress 产物由工具产生。自己的 SaaS 后端教程应从开发任务、文件、代码和 HTTP 结果展开，见[文档维护指南](../guides/maintain-docs.md)。
 
-## 1. 先体验：四类入口与公开路径
+前提是安装 pnpm 依赖、完成中英正文，并了解[作者规则](../agents/documentation.md)。命令在仓库根目录运行。
 
-构建并浏览站点：
-
-```bash
-pnpm docs:build   # 渲染双语站点并验证内置导航
-just docs         # 本地开发服务器，边改边看
-```
-
-中文入口在根路径：`/`（Landing）、`/docs/`（文档教程）、`/blog/`、`/downloads/`；英文一一对应到 `/en/` 下。语言由路径决定：访问 `/en/blog/` 得到英文页，站点不做设备语言重定向；顶栏右侧的语言药丸只显示另一语言的名称（中文页显示 English，英文页显示 中文），按 frontmatter 里的对应页切换，永远落在已存在的页面上。旧章节深链（如 `/getting-started/quickstart`）不受改版影响。
-
-## 2. 信息结构：借鉴 Expo 的版面
-
-Landing 遵循 Expo 首页的信息结构（2026-09-29 用户确认的展示级视觉方向），但只陈述真实交付的能力：
-
-1. **Hero 双栏**：左侧 mono eyebrow + 一句话价值主张（README 同款）+ 药丸双 CTA（主按钮进入当前语言的 Documentation，附 GitHub 仓库入口，链接名与目标不变）；右侧细线示意插画（`LandingHeroArt`，无文字，<960px 隐藏）。
-2. **mono 事实条**：`开源 · MIT 许可证`、`Rust · Axum · React · PostgreSQL · Redis`、`教程可跟做`、`测试入口齐备`——全部是可点开验证的事实，故意不写数字。
-3. **使用流程**：启动全栈 → 跟做教程 → 组合/移除示例 → 部署备份，每步链接到真实章节。
-4. **真实能力**：bento 卡呈现，每张能力卡都链接到已有教程章节或 v1 覆盖页并带品牌色「了解更多 →」小链接；没有"规划中/即将支持"的能力卡。
-5. **结束 CTA**：带径向微光的大圆角容器，回到文档入口。
-
-写新卡片或新事实时的纪律：先确认能力在 [v1 覆盖与验收](../architecture/v1-coverage.md) 里有对应行，再决定卡片与链接；描述措辞与对应章节保持一致，**事实条与能力卡不写营销数字**（性能、规模、用户量、章节数、star 数；示例段的内容按 ownership 标记逐字保留，不受此条约束），措辞要能被仓库内容直接验证。
-
-## 3. 页面如何声明：site.json 与渲染器
-
-[site.json](../../docs/site.json) 是唯一声明处。Landing 与两张占位页是带 `layout: "page"` 的普通页面条目：双语成对（`sourceEn`/`titleEn`），并携带成对的 `pageTitle`/`pageTitleEn` 与 `pageDescription`/`pageDescriptionEn`——渲染器把它们写进页面 frontmatter，页面 `<title>` 与 meta description 因此如实反映"即将推出"。校验在 [docs-locales.mjs](../../scripts/lib/docs-locales.mjs)：meta 必须成对、只能出现在 layout 页上，漏一半直接构建失败。
-
-layout 页不进侧栏（渲染器同时写入 `sidebar: false`），只出现在顶栏；四类页面共用同一导航、页脚、视觉 tokens 与明暗规则。Landing 源文件是普通 Markdown 加受限 HTML（`docs/index.md` 与相邻的 `docs/index.en.md`），样式在 [custom.css](../../apps/docs/.vitepress/theme/custom.css) 里使用与文档一致的 `--vp-*` tokens。
-
-## 4. Coming soon 的边界
-
-Blog 与 Downloads 本轮只是占位：没有文章列表或发布管理，没有下载目录、版本/平台选择、安装包服务、订阅表单或进度承诺。占位页的义务是诚实——说明现在能做什么（回首页、看文档、关注仓库），不虚构文章、日期或发布资产；页面标题与 meta 如实标注状态。后续实现博客或下载时替换占位内容即可，入口路径与导航保持稳定。
-
-占位页与 Landing 共用 `page` 布局，而该布局不提供任何默认样式：页面内容包在 `.placeholder` 容器里，全部排版由 [custom.css](../../apps/docs/.vitepress/theme/custom.css) 提供——mono 徽章（「即将推出」）→ 原文一级标题 → 诚实文案 → 药丸动作行（复用 Landing 的 `.landing-actions`/`.landing-button`：回首页、看文档/快速开始、GitHub 仓库）。容器在任意宽度自带水平内边距；占位页不引入 `article`、`table`、下载按钮或日期元素，e2e 逐页清点这些元素为零。
-
-## 5. 示例展示的归属
-
-Landing 里"参考示例：个人知识库"整段位于 `example:knowledge:landing:start/end` 标记之间，属于知识库示例的展示内容。标记之外的 Landing 文字只允许链接 Core 章节——删例演练后的 [docs:build](../../scripts/check-docs-build.mjs) 会对每一处链接做存在性检查，示例专属卡片随标记整块消失，不会留下失效入口。亲手演练一遍：
+## 修改来源并看到结果
 
 ```bash
-git clone . /tmp/ui16-drill && node scripts/example-remove.mjs --root /tmp/ui16-drill
-cd /tmp/ui16-drill && pnpm docs:build   # 展示段已裁剪，剩余链接全部可解析
+pnpm docs:check
+just docs
 ```
 
-CI 的示例移除任务在每个 PR 上做同样的事，Core-only 站点必须照常构建发布。
+`just docs` 启动本地文档开发服务器，地址以终端输出为准。编辑 `docs/` 下的源文件，不能编辑 `apps/docs/.generated`。生成关系是：
 
-## 6. 语言、主题与部署
+```text
+docs/site.json + 双语 Markdown + 受检查源码/生成参考
+  → scripts/project-docs.mjs
+  → apps/docs/.generated
+  → VitePress
+  → apps/docs/.vitepress/dist
+```
 
-主题偏好保存在浏览器本机（`localStorage` 键 `vitepress-theme-appearance`），不跨设备同步。顶栏的三态控件（跟随系统 / 浅色 / 深色）写 VitePress 原生的 `auto | light | dark` 取值：`auto` 在每次加载时跟随系统偏好（VitePress 的首绘脚本在渲染前解析它），选择跨刷新持久；VitePress 默认的双态太阳/月亮切换被隐藏（`.VPNavBarAppearance`/`.VPNavScreenAppearance`）。960px 以上顶栏右簇展示语言药丸与三态控件（纯 CSS `order` 调整，DOM 与键盘顺序不变）；窄屏上两者由汉堡菜单内 NavScreen 版本承担，且保持在菜单之前的 DOM 位，并带 44px 触控目标下限。顶栏重塑本身也是纯 CSS，升级 VitePress 时要一并核对：`.VPNavBar` 的背景经 `--vp-nav-bg-color` 压平为页面底色，菜单链接以 `.VPNavBarMenuLink` 药丸化（hover/active 软灰底），GitHub 入口是 `.VPNavBarSocialLink` 描边胶囊，右簇排列只动 `custom.css` 里的 `order`——这些类名或 `content-body` 结构若有上游变化，需同步调整。页脚有一行双语版权（MIT 许可证与仓库链接，无年份、无徽章）。语言只看路径，不承诺跨站自动跟随。部署沿用既有静态链路：GitHub Pages 在 `main` 上发布（见[发布教程站点](../getting-started/publish-docs.md)），仓库子路径由 base 承担；自定义 base 用 `DOCS_BASE=/your-base/ pnpm docs:build` 构建并经内置检查验证——公开站的浏览器旅程（`just e2e-docs`）包含一次自定义 base 冒烟。
+[site.json](../site.json)是页面、稳定 id、分组与发布路径的唯一声明。[渲染器](../../scripts/lib/docs.mjs)解析当前语言的文档链接，写语言对应页和源码版本；源文件移动时保留原来的 `route`，旧书签仍可用。
 
-## 7. 验证
+## 登记自己的指南
+
+先创建 `docs/guides/billing.md` 与 `billing.en.md`，再在 `pages` 中添加完整条目：
+
+```json
+{
+  "id": "billing-guide",
+  "source": "docs/guides/billing.md",
+  "sourceEn": "docs/guides/billing.en.md",
+  "route": "guides/billing.md",
+  "title": "开发账务模块",
+  "titleEn": "Build a billing module",
+  "group": "开发指南",
+  "type": "guide"
+}
+```
+
+这是读者新增的页面示例，默认仓库尚未包含 Billing 正文。使用已存在的双语分组；新分组还要在 `groupLabels` 声明两种语言。需要连续学习关系时显式写 `previous` / `next` 的 id，没有关系时保持为空缺，避免跳到无关内容。
+
+中文路径保持原路由，英文镜像在 `/en/`。语言切换根据对应页定位同一章，搜索索引包含双语正文与生成参考。文档站语言由路径决定，与应用的设备级语言偏好不同。
+
+## 公开入口、主题与版面
+
+中文四类入口是 `/`、`/docs/`、`/blog/`、`/downloads/`，英文对应 `/en/`。Blog 与 Downloads 当前是“即将推出”占位；增加文章或下载前，需要实际内容与产物，不能用文案假装已交付。
+
+公开 layout 页使用 `layout: "page"`，不进入文档侧栏；`pageTitle` / `pageTitleEn` 和 `pageDescription` / `pageDescriptionEn` 必须成对。[双语声明校验](../../scripts/lib/docs-locales.mjs)在缺失、冲突或悬空章节关系时失败。
+
+文档阅读沿用已接受体验：侧栏贴视口左侧，正文独立限宽，窄屏目录折叠。主题偏好用 VitePress 的 `auto | light | dark`，保存在 `vitepress-theme-appearance`，不跨设备同步。主题与导航实现位于 [theme 目录](../../apps/docs/.vitepress/theme/)，生产颜色由共享 tokens 派生；修改主题才需要实际浏览器的宽屏/窄屏、焦点和溢出检查，正文改写先验证链接与构建。
+
+## 示例归属与验证
+
+共享公开页中的业务专有展示/链接应放在已登记的 `example:<prefix>:<marker>:start/end` 区块；业务独占教程登记到自己的清单。移除业务时对应正文与导航一起裁剪，Core 页面继续构建。不要在共享页 marker 外增加指向独占源码的链接。
 
 ```bash
-pnpm docs:check     # 双语契约、成对 meta、链接与片段
-pnpm docs:build     # 渲染 + 构建后导航检查（含 base 解析）
-just e2e-docs       # 公开站浏览器旅程：四类入口、CTA、事实条与 hero 插画、占位页与容器、切换、三态主题、内边距、窄屏、明暗证据、自定义 base
-just check          # 主门禁
+pnpm docs:check
+pnpm docs:build
 ```
 
-对比度沿用文档站点的既定 tokens：正文文字在明暗两种表面都远超 WCAG AA；Landing 自绘的只有卡片旁的小圆点，明暗两种模式下都对背景保持 ≥3:1（非文字元素阈值），深色下的紫色点用更亮的 violet-500 补足。
+第一条校验双语登记、链接、片段和生成参考；第二条投影、构建并校验产物中的导航/链接。新增自己的页面后，打开中英两页并确认语言切换、来源链接和前后章目标。
 
-公开站的页面类别、导航与渲染器都在 Core：占位页、顶栏与整个渲染链路不出现在任何所有权清单里，删例后照常构建发布。Landing 源文件本身也是 Core 页面，但它在示例所有权清单的 registrationMarkers 里登记了 `example:knowledge:landing` 标记——示例拥有的不是这个页面，而是标记之间的展示段，删例时随标记整块裁剪；浏览器旅程里与示例相关的只有这一段。
+更改导航、主题、搜索或部署 base 后运行：
+
+```bash
+just e2e-docs
+```
+
+它只测试静态站点，不启动应用数据库或 Electron。构建成功不能证明 Rust 示例可运行；示例还要有对应编译、HTTP 或公开能力验证。
+
+自定义子路径部署使用：
+
+```bash
+DOCS_BASE=/my-saas/ pnpm docs:build
+```
+
+若页面/片段来源不存在、metadata 少一半或导航指向已删章节，检查会失败；修复源声明后重建，不手工修 dist。
+
+下一步：[发布自己的文档站点](../getting-started/publish-docs.md)。

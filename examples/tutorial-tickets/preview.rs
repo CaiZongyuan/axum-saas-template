@@ -1,3 +1,4 @@
+// region:preview
 use axum::{Json, Router, routing::get};
 use serde::Serialize;
 use utoipa::{OpenApi, ToSchema};
@@ -33,3 +34,4 @@ pub fn router() -> Router {
 pub fn openapi() -> utoipa::openapi::OpenApi {
     TicketApi::openapi()
 }
+// endregion:preview

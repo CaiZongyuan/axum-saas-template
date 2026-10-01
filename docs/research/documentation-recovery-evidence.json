@@ -1,0 +1,35 @@
+{
+  "status": "pass",
+  "stage": "complete",
+  "verifiedAt": "2026-10-01T11:49:49.058Z",
+  "scope": "Disposable local production composition with Caddy local CA; no public domain or online deployment.",
+  "sourceRevision": "e2df5399c4b9da982ab8e043578a50a75c40f885",
+  "courseReceiptSha256": "c6585a492cdb4cfb9b539e2d5b886673d3a9c9319d9850ddd3a3f47ea7a734aa",
+  "image": "dougong-course-recovery:drill-f4bafbc4-faa",
+  "imageDigest": "dougong-course-recovery@sha256:2bd13b2f3b1273c7134bac47d135a44bf53737d020bbe2c4ffbfed47d453325a",
+  "projects": {
+    "production": "dougong-course-recovery-f4bafbc4-faa",
+    "restore": "dougong-course-restored-f4bafbc4-faa"
+  },
+  "checks": {
+    "localTlsReadiness": "pass",
+    "ticketMutation": "pass",
+    "attachmentUpload": "pass",
+    "queuedExport": "pass",
+    "publicBackup": "pass",
+    "publicIndependentRestore": "pass",
+    "restoredTicketFieldsAndVersion": "pass",
+    "restoredAttachmentBytesAndDigest": "pass",
+    "restoredQueuedWorkerJson": "pass",
+    "restoredSuccessNotice": "pass"
+  },
+  "ids": {
+    "user": "01a0f74c-3c35-7711-9af0-99ef4dd1fed6",
+    "ticket": "01a0f74c-3c55-7525-b080-8e4e45349d9c",
+    "file": "01a0f74c-3c6f-765f-bc3a-5911139aa006",
+    "export": "01a0f74c-3e35-7090-9f6f-6687c91cee2a",
+    "job": "01a0f74c-3e35-7090-9f6f-6688a74438de",
+    "notice": "01a0f74c-8836-761b-8892-86bded3ec240"
+  },
+  "cleanup": "pass"
+}

@@ -1,0 +1,32 @@
+{
+  "id": "tutorial-tickets",
+  "kind": "teaching-fixture",
+  "registeredByDefault": false,
+  "ownedPaths": [
+    "examples/tutorial-tickets",
+    "docs/learn",
+    "crates/app/tests/tutorial_course.rs",
+    "apps/api/tests/tutorial_module.rs",
+    "scripts/tutorial-course.mjs",
+    "scripts/check-tutorial-course.mjs",
+    "scripts/check-tutorial-recovery.mjs",
+    "scripts/check-tutorial-module.mjs",
+    "tests/tooling/tutorial-course.test.mjs"
+  ],
+  "sharedReferences": [
+    "docs/guides/develop-module.md",
+    "docs/guides/develop-module.en.md",
+    "docs/getting-started/documentation.md",
+    "docs/getting-started/documentation.en.md",
+    "docs/reference/rust.md",
+    "docs/reference/rust.en.md",
+    "docs/testing/t01-feedback-loop.md",
+    "docs/testing/t01-feedback-loop.en.md",
+    "docs/tutorials/01-full-stack-request.md",
+    "docs/tutorials/01-full-stack-request.en.md",
+    "docs/site.json",
+    "package.json",
+    ".github/workflows/ci.yml"
+  ],
+  "note": "Installed only into isolated course copies, independent of the removable knowledge-base application. Trimming the course requires updating shared references. example-remove manages registered application examples, not teaching fixtures."
+}

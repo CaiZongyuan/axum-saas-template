@@ -1,42 +1,63 @@
-# Publish the documentation site
+# Publish your documentation site
 
-The repository Markdown is the only editable source. The [site manifest](../site.json) decides the published pages; source snippets and the API/configuration references are generated from the implementation. `apps/docs/.generated` and build output are never committed to source branches.
+Publish a checked bilingual static build to your own GitHub Pages. Repository Markdown, [site.json](../site.json) and real code are canonical; generated sources and dist do not belong in the source branch. See [Maintain documentation](../guides/maintain-docs.md) for authoring and registration.
 
-## Registering bilingual chapters
+You need push access, plus repository administration access for initial setup. Requesting Pages builds requires an installed, authenticated GitHub CLI. Run commands from the repository root. Publishing writes static artifacts to remote `gh-pages`.
 
-The site publishes Simplified Chinese and English side by side: Chinese keeps its existing paths and English lives under the fixed `en/` prefix, one-to-one with the Chinese chapters. New pages must be delivered as a pair:
+## Prepare public source and build
 
-1. Create a same-named `.en.md` file next to the Chinese source (for example `docs/getting-started/quickstart.md` and `docs/getting-started/quickstart.en.md`). Both files use the same relative links and `<<<` snippet references; links land on the right language automatically depending on whether the target chapter has an English translation.
-2. Register one stable `id` for the page in the `pages` array of `docs/site.json`, providing `title`/`titleEn` and `source`/`sourceEn` together; group names get labels for both languages through the top-level `groupLabels`.
-3. Run `pnpm docs:check`. It validates chapter pairing, duplicate ids/routes, dangling links and the generated references, and fails when an English translation is missing.
-
-Existing chapters without a translation are explicit migration items: `translation: { "status": "pending", "owner": "<ticket>" }` declares which implementation ticket will deliver the English page; validation only accepts ticket ids from the published plan. The site keeps building during the migration; these chapters stay out of the English navigation and never generate links to pages that do not exist. Placeholder text must not pretend an English translation exists.
-
-The language switcher always targets the same chapter; when the target chapter has no English translation it falls back to the English documentation entry. Search covers every published documentation page and generated reference on this site. The whole site shares one top bar, font stack, light/dark theme and language rules; the upcoming Landing, Blog and Downloads pages reuse the same conventions.
-
-## First-time GitHub Pages setup
-
-These steps are for maintainers with repository administration rights. First commit and push the sources to your own GitHub repository, confirm `origin` points there, and change `repository` in `docs/site.json` to your own `owner/repository`. Source links embed the current commit SHA, so you must rebuild after committing.
+Confirm `origin` points to your GitHub repository and change `docs/site.json.repository` to `owner/repository`. Register bilingual pages, commit/push the source, then build:
 
 ```bash
+git remote -v
+pnpm docs:check
 pnpm docs:build
+```
+
+The footer SHA identifies the source revision referenced by the build; it does not establish that every example command passed on that revision. Published content must exist in the corresponding commit. Rebuild after committing so source links resolve on GitHub.
+
+The repository name determines the default Pages prefix. Set a custom path at build time:
+
+```bash
+DOCS_BASE=/my-saas/ pnpm docs:build
+```
+
+Base must match the actual deployment path. Chapters, language switching, assets and search share it; do not repair paths by editing dist.
+
+## Publish and configure Pages once
+
+```bash
 node scripts/publish-docs.mjs
 ```
 
-The publish script commits the static files to a separate `gh-pages` branch without switching your current source branch or touching the staging area. Then in GitHub's **Settings → Pages → Build and deployment**, choose **Deploy from a branch**, pick the `gh-pages` branch with `/ (root)`, and save. This works for public repositories; other visibility levels depend on your GitHub plan.
+The [publish script](../../scripts/publish-docs.mjs) verifies the artifact repository/source revision against publish inputs, commits and pushes artifacts to independent `gh-pages`, and leaves the source branch and index unchanged. Identical artifacts do not create unnecessary commits.
 
-With the GitHub CLI installed and signed in locally, request a build and verify the online result:
+In GitHub **Settings → Pages → Build and deployment**, choose **Deploy from a branch**, branch `gh-pages`, directory `/ (root)`, and save. Whether Pages supports the repository's visibility depends on the account plan.
+
+Then request and verify the online build:
 
 ```bash
 node scripts/publish-docs.mjs --request-build
 ```
 
-The command checks the Pages configuration, explicitly requests a build, confirms the build corresponds to the static artifact commit that was just published, and reads the online home page to verify the source version. It fails after five minutes; a successful push by itself does not mean the pages are reachable.
+The command checks Pages configuration, explicitly requests a build, confirms its artifact commit and reads the live homepage's source SHA. It fails if this does not succeed within five minutes. A pushed branch does not establish that the page is live.
 
-## Continuous publishing
+## Subsequent automatic publication
 
-The [CI workflow](../../.github/workflows/ci.yml) runs `just check` on PRs and stores the documentation artifact. Once sources merge to `main` and checks pass, the publish job pushes the same artifact to `gh-pages` and explicitly requests a Pages build using `contents: write` and `pages: write` permissions.
+[CI](../../.github/workflows/ci.yml) selects checks by changed paths: tooling and documentation for docs, the backend course for teaching sources, and relevant client checks for client changes. `verify` aggregates all selected jobs; failures and unexpected skips prevent success. The documentation job preserves the checked website artifact. On `main`, publication requires both successful `verify` and documentation jobs, pushes that same artifact to `gh-pages`, then requests a Pages build with `contents: write` and `pages: write`. Commits without a website artifact do not publish documentation.
 
-Pushing a branch with the `GITHUB_TOKEN` in GitHub Actions does not trigger a Pages build, so `--request-build` cannot be skipped. The first Pages setup still needs an administrator; CI never tries to change repository administration settings.
+An Actions `GITHUB_TOKEN` push does not automatically trigger a Pages build, so keep `--request-build`. The publishing job does not implicitly change the administrator's one-time Pages settings.
 
-The default address is `https://<owner>.github.io/<repository>/`. The site path is derived from the repository name; custom domains or non-default paths can adjust the build base through `DOCS_BASE`. Under a subpath deployment, chapter switching, language switching, source links and search are all based on relative paths and the build-time base — no extra configuration required.
+## Verify and recover from failures
+
+Open `https://<owner>.github.io/<repository>/` and verify bilingual counterparts, search, your chapter, source revision and links. Run `just e2e-docs` against static artifacts before navigation/base changes; API, databases and Electron are unnecessary.
+
+| Failure                               | Recovery                                                                              |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| Artifact repository/revision mismatch | Confirm repository/origin and intended commit, then rebuild                           |
+| Pages configuration mismatch          | Select branch publishing from `gh-pages:/`, then request again                        |
+| Permission or build failure           | Check CLI/CI permissions and Pages errors; preserve failure output                    |
+| Page/asset 404                        | Align actual path and DOCS_BASE, fix source and rebuild/publish                       |
+| Return to older content               | Check out a reviewed old revision and rebuild/publish instead of editing static pages |
+
+Use [static-site maintenance](../tutorials/30-public-site.md) to add links for delivered product capabilities. Backend deployment and recovery are separate tasks in the [production guide](../tutorials/21-single-machine-production.md).

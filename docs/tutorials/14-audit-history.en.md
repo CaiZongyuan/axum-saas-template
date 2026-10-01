@@ -1,63 +1,89 @@
-# Walkthrough: Tracing business operations through the audit trail
+# Append Audit in Your Business Transaction
 
-Start the app with `just dev` and sign in as an Owner or Admin. Create or edit a document, open "Audit trail" from the "Administration" group in the left navigation, type the ID from the document address into "Resource ID", type `knowledge.document.create` or `knowledge.document.update` into "Action", and click "Filter records". The page shows the actor, resource type, resource ID, request ID and correlation ID; you can load further records or refresh to the newest page. Filter conditions are written into the URL and survive a language or theme switch when you re-enter the page. The interface follows the "Appearance & language" setting; the page and its operations read Audit trail, Action, Resource ID, Filter records and Refresh audit.
+Goal: commit mutations with successful audit and correlate HTTP/background work. Start with transactional use cases. Audit is durable fact; logs/traces are potentially lossy telemetry.
 
-Document bodies, document titles and attachment contents never appear in the audit trail. An administrator can find the write response's `x-request-id` in the browser network panel, enter it under "Request ID" for an exact match, and search the API's structured logs with the same value. Trace propagation arrives with the later observability chapter; without a real trace ID the field keeps its empty value.
+<!-- example:knowledge:reference-01:start -->
 
-A plain member has no global access when opening `/audit` or calling the audit API directly. An administrator degraded while the page is open receives the denial again on the next filter, pagination or refresh, and the old rows disappear.
+Complete reference: [transactional use cases](04-personal-documents.en.md).
 
-## 1. Business and success audit commit together
+<!-- example:knowledge:reference-01:end -->
 
-[Core Audit](../../crates/app/src/modules/audit/mod.rs) exposes `Event` and `Source`; business modules pass an explicit action, resource type, resource ID and actor, then call `audit::append` inside their own transaction.
+## Minimal Public Call
 
-[Document creation and editing](../../crates/app/src/modules/knowledge/application.rs), [library grants](../../crates/app/src/modules/knowledge/grants.rs) and member management all follow the same pattern: verify current permissions, run the mutation, append the success audit, then commit. If the audit database operation fails, the business mutation never commits alone. Writes rejected by permissions, version conflicts or other rules must not leave a success audit behind either.
+[Audit](../../crates/app/src/modules/audit/mod.rs) exposes `append(connection, Event)`. Put this complete small function in your module. Call it after updating a ticket in the same transaction and before commit; propagate errors to roll the business back:
 
-This is not serializing a whole request body into a log field. `Event` takes no arbitrary JSON or body input; metadata currently allows only `subject_user_id`, marking the user affected by a shared-resource operation. For example, a grant's resource is the library grant itself, the resource ID is the library ID, and the affected user is the member granted or revoked. The initial grant of a default personal library also records its target user.
+```rust
+use crate::modules::audit;
+use sqlx::PgConnection;
 
-Registration, member changes, library create/rename/delete, document changes, attachment completion/deletion, export request/completion and administrator job retries are all wired through the public audit capability. Registration passwords, sessions, signed links and business content never reach the audit.
-
-## 2. HTTP and background jobs carry different sources
-
-Ordinary HTTP writes use `Source::Request`: `request_id` and `correlation_id` both refer to this real request, and the user identity is stored in `actor_id`.
-
-The [export worker](../../crates/app/src/modules/knowledge/exports/worker.rs) uses `Source::Job`: `job_id` is the job ID from the actual lease, `correlation_id` keeps the original export request's ID, and `request_id` is empty. The actor remains the user who requested the export — the job ID is never dressed up as a user ID, and the original request is never disguised as a fresh HTTP request from the worker.
-
-You can first locate the export request and completion record by correlation ID, then query the concrete background operation by job ID and open "Background jobs" from the "Administration" group for batches, retries and error history. Until real tracing lands, `trace_id` stays empty; request_id is never renamed into a trace ID.
-
-[Migration 0014](../../migrations/0014_audit_context.sql) completed derivable resource types and request correlations for historical records while preserving the original facts; old records without a reliable job/trace identity stay empty rather than being backfilled by guesswork.
-
-## 3. Protected queries and pagination
-
-`GET /api/v1/audit-events` first validates the current session, then locks and checks the effective Owner/Admin role through the organization's public capability. The role share lock is held until the query finishes, giving confirmed queries a defined ordering against concurrent degradations.
-
-Exact filters are supported for `action / resource_type / resource_id / actor_id / request_id / correlation_id / job_id`. The default is 50 records, at most 100, newest first by audit UUIDv7; the API returns only the current page and the next cursor, never the whole table.
-
-A cursor is bound to the current administrator and the full filter set — a cursor from another user or another filter set cannot slip into the current request. Invalid UUIDs, out-of-range limits, overlong values or filters containing NUL all return one uniform 400 error. The commonly filtered resource, action, actor and correlation fields have matching indexes.
-
-[AuditView](../../packages/views/src/audit/audit-view.tsx) queries through the generated SDK and provides loading, empty results, error retries and pagination. Filters apply once the form is submitted and are written into the URL; refiltering or refreshing starts from the newest page again. When fetching fails or the permission is gone, stale cached rows are no longer shown.
-
-## 4. Verify the real results
-
-```bash
-node scripts/test-backend.mjs --test audit --test audit_knowledge --test exports
-pnpm exec vitest run apps/web/src/audit.test.tsx
-just check
+pub async fn record_ticket_update(
+    connection: &mut PgConnection,
+    actor_id: &str,
+    ticket_id: &str,
+    request_id: &str,
+) -> Result<(), sqlx::Error> {
+    audit::append(connection, audit::Event {
+        actor_id,
+        action: "tickets.update",
+        resource_type: "tickets.ticket",
+        resource_id: ticket_id,
+        source: audit::Source::Request(request_id),
+        subject_user_id: None,
+    }).await
+}
 ```
 
-Core HTTP tests verify real registration audits, member denials, administrator filtering and pagination, and degraded-role rejections. Knowledge-base HTTP tests verify that document/grant responses carry matching request IDs, that metadata never copies content, and that an audit failure rolls back the document write and leaves no queryable success record; the real worker test cross-checks the export completion record against the job query result.
+Your business defines action/resource names. Permission/version rejection cannot emit success Audit. Event has no arbitrary metadata map, only optional `subject_user_id`. Never copy titles, bodies, passwords, secrets, signed URLs or requests.
 
-View tests operate the filter form, load further pages and simulate permission loss; after the full key journey run once:
+<!-- example:knowledge:reference-02:start -->
+
+Complete reference: [Knowledge use cases](../../crates/app/src/modules/knowledge/application.rs).
+
+<!-- example:knowledge:reference-02:end -->
+
+## Record the Actual Source
+
+| Source | Usage                                | Durable association                                               |
+| ------ | ------------------------------------ | ----------------------------------------------------------------- |
+| HTTP   | `Source::Request(request_id)`        | request_id/correlation_id identify the actual request             |
+| Worker | `Source::Job { id, correlation_id }` | Actual Job and original business correlation; request_id is empty |
+
+actor_id is the initiating User ID, never the Job ID. With real tracing, current span supplies trace_id; otherwise leave it empty instead of renaming request_id. See the Worker and [telemetry guide](19-observability.en.md).
+
+<!-- example:knowledge:reference-03:start -->
+
+Complete reference: [Worker](../../crates/app/src/modules/knowledge/exports/worker.rs).
+
+<!-- example:knowledge:reference-03:end -->
+
+## Use Protected Queries
+
+`GET /api/v1/audit-events` requires current Owner/Admin and holds the membership shared lock through the query. Exact filters are `action / resource_type / resource_id / actor_id / request_id / correlation_id / job_id`. Defaults are 50, maximum 100, UUIDv7 descending; cursors bind administrator and all filters.
+
+Invalid IDs, long/NUL filters, invalid limits and mixed cursors return common 400. New requests fail after demotion and clients clear old rows. The API contains no business content and does not define perpetual retention; deployment owners choose backup/retention policy.
+
+## Verify and Adapt
+
+Run from the repository root:
 
 ```bash
-node scripts/e2e.mjs tests/e2e/audit.spec.ts
+node scripts/test-backend.mjs --test audit
 ```
 
-The real browser creates a document, obtains actual resource and request IDs, then queries the matching record in the audit page; day-to-day development keeps using the faster HTTP/view checks.
+<!-- example:knowledge:reference-04:start -->
 
-## 5. Model your own business on this
+```bash
+node scripts/test-backend.mjs --test audit_knowledge --test exports
+```
 
-Choose stable action names and resource types for your mutations and call `audit::append` in the same transaction. Foreground requests pass `Source::Request`, background completions pass a real `Source::Job`; avoid querying business tables inside Core or guessing resources by business name.
+<!-- example:knowledge:reference-04:end -->
 
-Record only the identifiers troubleshooting needs. When metadata must grow, define explicit, safe fields first and adjust the migration allowlist and the contract together; never open up the whole request, the body or an arbitrary metadata map.
+[Core HTTP checks](../../crates/app/tests/audit.rs) cover administrator filters/pagination/demotion. Business checks match response request_id to Audit, reject copied content and force Audit failure to observe rollback. Read your business result and corresponding action instead of only checking that append was called.
 
-The audit API, the shared view, Core migrations and the registration/member tests are not part of the knowledge-base example. This chapter, the knowledge-base business tests and the browser journey are registered in the [example ownership manifest](../../examples/knowledge-base/manifest.json); adjust them together when replacing the business, and the Core audit entry points keep working.
+<!-- example:knowledge:reference-05:start -->
+
+Complete reference: [Business checks](../../apps/api/tests/audit_knowledge.rs).
+
+<!-- example:knowledge:reference-05:end -->
+
+Choose stable actions/safe identifiers and append in the caller's transaction. Additional metadata needs defined fields, allowlists, migration and contract. Core owns audit/task management; your module owns business events/checks. Continue with [read-only API Keys](15-api-keys.en.md) or [telemetry correlation](19-observability.en.md).
