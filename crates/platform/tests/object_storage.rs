@@ -26,7 +26,7 @@ async fn concurrent_bucket_bootstrap_is_ready_for_every_caller() {
                 secret_key: std::env::var("S3_SECRET_KEY").unwrap(),
             };
             S3ObjectStorage::new(&settings)
-                .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+                .bootstrap(&settings.bucket, "http://127.0.0.1:15400")
                 .await
         });
     }
@@ -54,7 +54,7 @@ async fn presigned_upload_is_copied_without_overwriting_an_existing_final_object
     };
     let storage = S3ObjectStorage::new(&settings);
     storage
-        .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+        .bootstrap(&settings.bucket, "http://127.0.0.1:15400")
         .await
         .unwrap();
     let source = ObjectLocation {
@@ -195,7 +195,7 @@ async fn generated_files_stream_without_overwriting_an_existing_candidate() {
     };
     let storage = S3ObjectStorage::new(&settings);
     storage
-        .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+        .bootstrap(&settings.bucket, "http://127.0.0.1:15400")
         .await
         .unwrap();
     let directory = tempfile::tempdir().unwrap();

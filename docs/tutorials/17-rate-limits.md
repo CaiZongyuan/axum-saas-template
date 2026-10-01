@@ -42,9 +42,9 @@ RATE_LIMIT_WINDOW_SECS=3
 ```
 
 ```bash
-curl -i http://127.0.0.1:3000/api/v1/system/status
-curl -i http://127.0.0.1:3000/api/v1/system/status
-curl -i http://127.0.0.1:3000/api/v1/system/status
+curl -i http://127.0.0.1:18000/api/v1/system/status
+curl -i http://127.0.0.1:18000/api/v1/system/status
+curl -i http://127.0.0.1:18000/api/v1/system/status
 ```
 
 同窗口第三次得到 `429 rate_limit.exceeded`、整数秒 Retry-After、`error.details.retry_after_seconds` 与 request_id；其他并发请求也会消耗预算。等待窗口后用户明确重试，不自动重复 POST。配置/范围由[参考](site:reference/config.md)生成，fallback 必须大于零且不超过正常上限。

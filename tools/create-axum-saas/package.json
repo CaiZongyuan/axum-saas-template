@@ -1,0 +1,28 @@
+{
+  "name": "create-axum-saas",
+  "version": "0.1.0",
+  "description": "Create an isolated Rust + Axum SaaS project from Dougong",
+  "type": "module",
+  "bin": {
+    "create-axum-saas": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "project.mjs",
+    "template.tgz",
+    "core.tgz",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CaiZongyuan/axum-saas-template.git",
+    "directory": "tools/create-axum-saas"
+  },
+  "scripts": {
+    "prepack": "node ../../scripts/build-create-package.mjs"
+  }
+}

@@ -8,11 +8,14 @@ default:
 dev:
     node scripts/dev.mjs
 
+services-up *ARGS:
+    node scripts/services.mjs up {{ARGS}}
+
 services-down:
-    docker compose stop postgres rustfs redis mailpit
+    node scripts/services.mjs stop
 
 db-down:
-    docker compose stop postgres
+    node scripts/services.mjs stop postgres
 
 migrate:
     node scripts/migrate.mjs

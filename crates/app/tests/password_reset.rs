@@ -22,7 +22,7 @@ async fn register(app: &Router, email: &str) -> Browser {
         .clone()
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":email,"password":"a-long-test-password"}).to_string(),
@@ -70,7 +70,7 @@ async fn request_key(
             Request::builder()
                 .method(method)
                 .uri(path)
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .header("cookie", &actor.cookie)
                 .header("x-csrf-token", &actor.csrf)
@@ -205,7 +205,7 @@ async fn known_and_missing_emails_have_identical_feedback_and_a_real_worker_deli
         .expect("mail capture response failed");
     let text = message["Text"].as_str().unwrap();
     assert!(
-        text.contains("http://127.0.0.1:5173/reset-password#token="),
+        text.contains("http://127.0.0.1:15400/reset-password#token="),
         "reset link must use the configured origin and keep token out of HTTP paths"
     );
 }
@@ -274,7 +274,7 @@ async fn login(app: &Router, email: &str, password: &str) -> Response {
     app.clone()
         .oneshot(
             Request::post("/api/v1/auth/login")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":email,"password":password}).to_string(),

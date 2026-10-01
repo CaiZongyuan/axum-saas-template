@@ -23,7 +23,7 @@ const DATABASE: Setting = Setting {
 };
 const LISTENER: Setting = Setting {
     name: "APP_BIND",
-    default: Some("127.0.0.1:3000"),
+    default: Some("127.0.0.1:18000"),
     secret: false,
     description: "API listener IP address and port.",
     description_zh: "API 监听 IP 地址和端口。",
@@ -44,7 +44,7 @@ const MIGRATION_TIMEOUT: Setting = Setting {
 };
 const APP_ORIGIN: Setting = Setting {
     name: "APP_ORIGIN",
-    default: Some("http://127.0.0.1:5173"),
+    default: Some("http://127.0.0.1:15400"),
     secret: false,
     description: "Trusted browser origin. HTTPS required except loopback development.",
     description_zh: "受信任的浏览器来源。除本机回环开发外必须为 HTTPS。",
@@ -156,7 +156,7 @@ pub struct AuthSettings {
 impl Default for AuthSettings {
     fn default() -> Self {
         Self {
-            origin: "http://127.0.0.1:5173".into(),
+            origin: "http://127.0.0.1:15400".into(),
             secure_cookie: false,
             absolute_secs: 604800,
             idle_secs: 86400,

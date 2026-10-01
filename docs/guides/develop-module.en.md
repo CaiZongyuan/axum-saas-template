@@ -64,7 +64,7 @@ Run from the repository root:
 ```bash
 cargo check --locked -p saas-api
 pnpm boundaries:check
-curl -i http://127.0.0.1:3000/api/v1/tickets/preview
+curl -i http://127.0.0.1:18000/api/v1/tickets/preview
 ```
 
 `just dev` restarts the API when Rust files change. Expect HTTP 200, an `x-request-id` header and this body:

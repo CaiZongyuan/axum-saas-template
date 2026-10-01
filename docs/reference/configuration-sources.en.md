@@ -28,6 +28,10 @@ The knowledge reference domain owns `EXPORT_*`, read by [ExportPolicy](../../cra
 
 `developmentEnv()` uses Node's dotenv parser and merges `.env.example` → untracked `.env` → process environment, with later values winning. When local mail capture is configured without an encryption key, the [development key helper](../../scripts/lib/development-mail-key.mjs) creates a protected machine-local file. Documentation builds never read it. Direct `cargo run` does not apply this merge; use the task runner.
 
+Change only the corresponding `*_PORT` in `.env`. The development environment reader derives `DATABASE_URL` from `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` and its port, and also derives Redis/S3 endpoints, `APP_BIND`, `WORKER_BIND`, `APP_ORIGIN`, `VITE_API_PROXY`, the desktop origin and SMTP port. Explicit derived variables remain supported for external services; remove obsolete explicit endpoints from an older `.env` before expecting port changes to propagate. Host defaults use higher ports; container-internal ports retain their native values.
+
+Both `just services-up` and `just dev` check host listeners and Docker published ports before startup, then verify actual bindings. `compose.yaml` has no fixed project name: the development entry derives the container, volume and network namespace from the directory name and a digest of its full path. After copying an existing project, allocate new `.env` ports; copies created by the scaffold already have independent ports.
+
 ## Browser and Desktop
 
 | Variables                                                                         | Source                                                      | Scope                                                                                 |

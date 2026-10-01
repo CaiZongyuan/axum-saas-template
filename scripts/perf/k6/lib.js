@@ -14,7 +14,7 @@ import crypto from 'k6/crypto';
 // material, never a gate — spec §17.
 
 export const BASE_URL = __ENV.PERF_BASE_URL;
-export const ORIGIN = __ENV.PERF_ORIGIN ?? 'http://127.0.0.1:5173';
+export const ORIGIN = __ENV.PERF_ORIGIN ?? 'http://127.0.0.1:15400';
 // The trajectory registers its own users and runs without a fixtures file,
 // so the seeded-user list is optional at init time.
 export const USERS = __ENV.PERF_USERS_FILE

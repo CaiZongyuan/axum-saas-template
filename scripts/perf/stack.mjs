@@ -199,7 +199,7 @@ export async function startStack() {
     S3_PUBLIC_ENDPOINT: `http://127.0.0.1:${ports.RUSTFS_PORT}`,
     S3_BUCKET: 'perf-files',
     APP_BIND: `127.0.0.1:${apiPort}`,
-    APP_ORIGIN: 'http://127.0.0.1:5173',
+    APP_ORIGIN: 'http://127.0.0.1:15400',
     WORKER_BIND: `127.0.0.1:${workerPort}`,
     MAIL_SMTP_PORT: String(ports.MAILPIT_SMTP_PORT),
     RATE_LIMIT_ENABLED: 'true',

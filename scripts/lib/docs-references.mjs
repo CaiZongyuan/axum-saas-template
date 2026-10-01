@@ -1,3 +1,6 @@
+import { developmentEndpoints } from './development-env.mjs';
+import { parseEnv } from 'node:util';
+
 const METHODS = new Set([
   'get',
   'put',
@@ -425,10 +428,14 @@ export function renderApiReference(
 
 export function renderConfigReference(fields, exampleText, locale, sourceLink) {
   const texts = TEXTS[locale];
+  const available = new Set(
+    Object.keys({
+      ...parseEnv(exampleText),
+      ...developmentEndpoints(parseEnv(exampleText)),
+    }),
+  );
   for (const field of fields)
-    if (
-      !exampleText.split('\n').some((line) => line.startsWith(`${field.name}=`))
-    )
+    if (!available.has(field.name))
       throw new Error(`.env.example is missing ${field.name}`);
   return (
     `# ${texts.config}\n\n${texts.configIntro}\n\n[Settings/FIELDS](${sourceLink('apps/api/src/bin/config-reference.rs')}) · [.env.example](${sourceLink('.env.example')})\n` +

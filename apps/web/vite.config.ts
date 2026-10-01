@@ -2,19 +2,20 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
+import { readDevelopmentEnv } from '../../scripts/lib/development-env.mjs';
 
 const workspaceRoot = fileURLToPath(new URL('../../', import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, workspaceRoot, '');
-  const target =
-    process.env.VITE_API_PROXY ?? env.VITE_API_PROXY ?? 'http://127.0.0.1:3000';
+  const local = readDevelopmentEnv(workspaceRoot, { ...env, ...process.env });
+  const target = local.VITE_API_PROXY;
   return {
     envDir: workspaceRoot,
     plugins: [react(), tailwindcss()],
     server: {
       host: '127.0.0.1',
-      port: Number(process.env.WEB_PORT ?? 5173),
+      port: Number(local.WEB_PORT),
       strictPort: true,
       // Proxy the backend namespaces only, not the `/api` prefix: the SPA
       // owns sibling routes like /api-keys, and a prefix proxy turns a

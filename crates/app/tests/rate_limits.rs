@@ -27,7 +27,7 @@ async fn data(response: Response) -> Value {
 }
 async fn register(app: &Router, ip: &str, email: &str) -> Response {
     let mut request = Request::post("/api/v1/auth/register")
-        .header("origin", "http://127.0.0.1:5173")
+        .header("origin", "http://127.0.0.1:15400")
         .header("content-type", "application/json")
         .body(Body::from(
             json!({"email":email,"password":"a-long-test-password"}).to_string(),
@@ -253,7 +253,7 @@ async fn policy_classes_are_independent_do_not_trust_forwarded_headers_and_never
         let mut request = Request::builder()
             .method(method)
             .uri(path)
-            .header("origin", "http://127.0.0.1:5173")
+            .header("origin", "http://127.0.0.1:15400")
             .header("content-type", "application/json")
             .header("x-forwarded-for", "203.0.113.250")
             .body(Body::from(body.to_string()))

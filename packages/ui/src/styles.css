@@ -276,6 +276,10 @@
 .app-brand {
   min-height: 68px;
 }
+.app-brand > span:not(.app-brand-mark) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .app-brand-mark {
   display: grid;
   place-items: center;

@@ -22,7 +22,7 @@ async fn register(app: &Router, email: &str) -> Actor {
         .clone()
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":email,"password":"tutorial-test-password"}).to_string(),
@@ -59,7 +59,7 @@ async fn request(
             Request::builder()
                 .method(method)
                 .uri(path)
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .header("cookie", &actor.cookie)
                 .header("x-csrf-token", &actor.csrf)
@@ -362,7 +362,7 @@ async fn storage_application(pool: PgPool) -> (Router, modules::files::FileServi
     };
     let storage = std::sync::Arc::new(S3ObjectStorage::new(&settings));
     storage
-        .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+        .bootstrap(&settings.bucket, "http://127.0.0.1:15400")
         .await
         .unwrap();
     let files = modules::files::FileService::new(storage, settings.bucket, Default::default());
@@ -647,7 +647,7 @@ async fn ticket_exports_reject_the_revoked_original_session(pool: PgPool) {
         204
     );
     assert!(export_worker(pool.clone(), files).run_once().await.unwrap());
-    let login = app.clone().oneshot(Request::post("/api/v1/auth/login").header("origin", "http://127.0.0.1:5173").header("content-type", "application/json").body(Body::from(json!({"email":"revoked-export@example.test","password":"tutorial-test-password"}).to_string())).unwrap()).await.unwrap();
+    let login = app.clone().oneshot(Request::post("/api/v1/auth/login").header("origin", "http://127.0.0.1:15400").header("content-type", "application/json").body(Body::from(json!({"email":"revoked-export@example.test","password":"tutorial-test-password"}).to_string())).unwrap()).await.unwrap();
     assert_eq!(login.status(), 200);
     let cookie = login.headers()["set-cookie"]
         .to_str()

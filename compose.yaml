@@ -1,10 +1,9 @@
-name: axum-saas-template
 services:
   mailpit:
     image: axllent/mailpit:v1.31.2@sha256:74d609a42ec279aa63c6b4622a6fa9b5408d1ad5b1d76a1c4be40a265ce0863d
     ports:
-      - '127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025'
-      - '127.0.0.1:${MAILPIT_HTTP_PORT:-8025}:8025'
+      - '127.0.0.1:${MAILPIT_SMTP_PORT:-11025}:1025'
+      - '127.0.0.1:${MAILPIT_HTTP_PORT:-18025}:8025'
     healthcheck:
       test: ['CMD', '/mailpit', 'readyz']
       interval: 2s
@@ -25,7 +24,7 @@ services:
         'noeviction',
       ]
     ports:
-      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
+      - '127.0.0.1:${REDIS_PORT:-16379}:6379'
     healthcheck:
       test: ['CMD', 'redis-cli', '-e', 'PING']
       interval: 2s
@@ -42,7 +41,7 @@ services:
       RUSTFS_REGION: ${S3_REGION:-us-east-1}
       RUSTFS_CONSOLE_ENABLE: 'false'
     ports:
-      - '127.0.0.1:${RUSTFS_PORT:-9000}:9000'
+      - '127.0.0.1:${RUSTFS_PORT:-19000}:9000'
     volumes:
       - rustfs-data:/data
       - rustfs-logs:/logs
@@ -63,15 +62,19 @@ services:
   postgres:
     image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     environment:
-      POSTGRES_USER: saas
+      POSTGRES_USER: ${POSTGRES_USER:-saas}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-saas-local}
-      POSTGRES_DB: saas
+      POSTGRES_DB: ${POSTGRES_DB:-saas}
     ports:
-      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+      - '127.0.0.1:${POSTGRES_PORT:-15432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U saas -d saas']
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"',
+        ]
       interval: 2s
       timeout: 3s
       retries: 20

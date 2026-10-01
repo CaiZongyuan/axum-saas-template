@@ -235,12 +235,30 @@ export function renderDocs() {
   const repo = process.env.GITHUB_REPOSITORY ?? site.repository;
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo))
     throw new Error('Invalid documentation repository');
-  const sourceRef =
-    process.env.DOCS_SOURCE_REF ??
-    execFileSync('git', ['rev-parse', 'HEAD'], {
-      cwd: root,
-      encoding: 'utf8',
-    }).trim();
+  let sourceRef = process.env.DOCS_SOURCE_REF;
+  if (!sourceRef) {
+    try {
+      const repositoryRoot = execFileSync(
+        'git',
+        ['rev-parse', '--show-toplevel'],
+        {
+          cwd: root,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        },
+      ).trim();
+      sourceRef =
+        resolve(repositoryRoot) === root
+          ? execFileSync('git', ['rev-parse', 'HEAD'], {
+              cwd: root,
+              encoding: 'utf8',
+              stdio: ['ignore', 'pipe', 'ignore'],
+            }).trim()
+          : 'main';
+    } catch {
+      sourceRef = 'main';
+    }
+  }
   const sourceLink = (source) => {
     repositoryFile(source);
     return `https://github.com/${repo}/blob/${sourceRef}/${source}`;

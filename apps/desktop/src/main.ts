@@ -53,7 +53,7 @@ function readPreferences(): DesktopPreferences | null {
 }
 
 function readOrigin(): URL {
-  const raw = process.env.SAAS_DESKTOP_ORIGIN ?? 'http://127.0.0.1:5173';
+  const raw = process.env.SAAS_DESKTOP_ORIGIN ?? 'http://127.0.0.1:15400';
   let origin: URL;
   try {
     origin = new URL(raw);

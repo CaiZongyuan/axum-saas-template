@@ -28,6 +28,10 @@
 
 `developmentEnv()` 使用 Node 的 dotenv parser，合并顺序为 `.env.example` → 未跟踪的 `.env` → 进程环境；后者覆盖前者。开发捕获邮件启用且未提供加密 key 时，由 [开发密钥工具](../../scripts/lib/development-mail-key.mjs)创建本机受保护文件，文档构建不读取该文件。直接 `cargo run` 不会自动套用这套合并，优先使用 task runner。
 
+在 `.env` 中只改对应的 `*_PORT`。开发环境读取器从 `POSTGRES_USER`、`POSTGRES_PASSWORD`、`POSTGRES_DB` 和端口派生 `DATABASE_URL`；同时派生 Redis/S3 地址、`APP_BIND`、`WORKER_BIND`、`APP_ORIGIN`、`VITE_API_PROXY`、桌面入口和 SMTP 端口。显式填写这些派生变量仍可连接外部服务；沿用旧 `.env` 时移除不再需要的显式地址，才能让端口修改自动生效。默认宿主端口采用高位段，容器内部端口保持服务原生值。
+
+`just services-up` 和 `just dev` 都先检查宿主监听与 Docker 已发布端口，再启动并核对真实端口映射。`compose.yaml` 无固定项目名，开发入口按目录名称和完整路径摘要派生容器、卷和网络 namespace。复制已创建的项目后应重新分配 `.env` 端口；通过脚手架创建的各副本已经分配独立端口。
+
 ## 浏览器与桌面
 
 | 变量                                                                              | 来源                                            | 作用域                                             |

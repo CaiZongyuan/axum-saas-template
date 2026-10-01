@@ -331,6 +331,17 @@ export function removeExample(
         .join('\n')}`,
     );
 
+  applyExampleRemoval(root, plan);
+  const regenerated = [];
+  for (const [command, args] of plan.regenerate) {
+    run(command, args);
+    regenerated.push([command, args]);
+  }
+  return { plan, summary: { regenerated } };
+}
+
+// Fresh scaffold snapshots have no user edits or Git history to protect.
+export function applyExampleRemoval(root, plan) {
   for (const path of plan.delete)
     rmSync(join(root, path), { recursive: true, force: true });
   for (const path of plan.migrations.trim)
@@ -379,11 +390,4 @@ export function removeExample(
     // from table ownership) after the example's code is gone.
     retainedMigrations: plan.migrations.kept,
   });
-
-  const regenerated = [];
-  for (const [command, args] of plan.regenerate) {
-    run(command, args);
-    regenerated.push([command, args]);
-  }
-  return { plan, summary: { regenerated } };
 }

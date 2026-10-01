@@ -40,7 +40,7 @@ export function scale() {
 // to the default; other stacks (the desktop soak) override it. Read
 // lazily: callers that override PERF_ORIGIN do so after this module is
 // imported (ESM evaluates module state first).
-const origin = () => process.env.PERF_ORIGIN ?? 'http://127.0.0.1:5173';
+const origin = () => process.env.PERF_ORIGIN ?? 'http://127.0.0.1:15400';
 
 function markdown(index) {
   // Realistic reading weight: headings, paragraphs, lists — a few KiB each,

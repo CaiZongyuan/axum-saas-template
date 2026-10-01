@@ -3,6 +3,8 @@ pub use authentication::{ReadActor, require_read};
 mod management;
 pub use management::{openapi, router};
 
+const KEY_PREFIX: &str = "saas_key_";
+
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use utoipa::ToSchema;

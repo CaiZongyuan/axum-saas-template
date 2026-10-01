@@ -16,7 +16,7 @@ just dev
 just desktop
 ```
 
-默认 Web 地址是 `http://127.0.0.1:5173`，通过 `.env` 的 `SAAS_DESKTOP_ORIGIN` 或 `WEB_PORT` 调整。[主进程](../../apps/desktop/src/main.ts)加载这个同源入口；[Web Router](../../apps/web/src/router.tsx)和共享页面负责业务。先验证登录、自己的资源读取和一个写入请求，重启壳后再读同一资源。
+默认 Web 地址是 `http://127.0.0.1:15400`，通过 `.env` 的 `SAAS_DESKTOP_ORIGIN` 或 `WEB_PORT` 调整。[主进程](../../apps/desktop/src/main.ts)加载这个同源入口；[Web Router](../../apps/web/src/router.tsx)和共享页面负责业务。先验证登录、自己的资源读取和一个写入请求，重启壳后再读同一资源。
 
 Cookie 保存在独立持久分区 `persist:saas-desktop`，不与系统浏览器共享登录。退出登录撤销当前服务端 Session；只有使用同一 Session 的客户端会一起失效，另一个独立登录的浏览器 Session 不会因此被撤销。
 

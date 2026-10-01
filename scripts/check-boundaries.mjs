@@ -1,13 +1,18 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+// scaffold:examples:imports:start
+import { existsSync, statSync } from 'node:fs';
+// scaffold:examples:imports:end
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import ts from 'typescript';
+// scaffold:examples:manifest-imports:start
 import {
   listExampleIds,
   loadExampleManifest,
   retainedHistoryPaths,
   verifyExampleManifests,
 } from './lib/example-remove.mjs';
+// scaffold:examples:manifest-imports:end
 import { root } from './lib/process.mjs';
 
 const metadata = JSON.parse(
@@ -37,6 +42,8 @@ function files(directory, extension = /\.(ts|tsx)$/) {
         : [];
   });
 }
+let composition = new Set();
+// scaffold:examples:composition:start
 // Every registered example contributes its composition points and owned
 // paths; only active ones still own code. The union drives the checks that
 // follow, so a second example tightens the rules instead of loosening them.
@@ -47,13 +54,14 @@ const examples = listExampleIds(root).map((exampleId) => ({
 const activeExamples = examples.filter(
   ({ manifest }) => manifest.status === 'active',
 );
-const composition = new Set(
+composition = new Set(
   activeExamples.flatMap(({ manifest }) =>
     Object.values(manifest.compositionPoints ?? {}).map((path) =>
       resolve(root, path),
     ),
   ),
 );
+// scaffold:examples:composition:end
 const modulesRoot = join(root, 'crates/app/src/modules');
 const modules = readdirSync(modulesRoot, { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
@@ -77,8 +85,10 @@ for (const module of modules) {
 // retainedMigrations); its tables outlive the code there, so exactly those
 // files are exempt from ownership. Everything else still needs an owner.
 const retainedHistory = new Set();
+// scaffold:examples:history:start
 for (const { manifest } of examples)
   for (const path of retainedHistoryPaths(manifest)) retainedHistory.add(path);
+// scaffold:examples:history:end
 for (const path of files(join(root, 'migrations'), /\.sql$/)) {
   if (retainedHistory.has(relative(root, path))) continue;
   const source = readFileSync(path, 'utf8');
@@ -207,6 +217,7 @@ for (const [name, dependencies] of Object.entries(allowed)) {
     visit(source);
   }
 }
+// scaffold:examples:isolation:start
 verifyExampleManifests(root);
 
 // Example isolation inside the frontend composition (docs/ui/design.md
@@ -330,6 +341,7 @@ for (const frontendRoot of frontendRoots) {
     visit(source);
   }
 }
+// scaffold:examples:isolation:end
 console.log(
-  `Package imports, ${modules.length} Rust module ownership declarations and example composition points verified. Dynamic SQL still requires review.`,
+  `Package imports and ${modules.length} Rust module ownership declarations verified. Dynamic SQL still requires review.`,
 );

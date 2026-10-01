@@ -9,7 +9,7 @@ Core [request_context](../../crates/app/src/http.rs)为每个请求生成新 `Re
 在运行本地 API 后观察一个安全的失败请求：
 
 ```sh
-curl -i http://127.0.0.1:3000/api/v1/does-not-exist
+curl -i http://127.0.0.1:18000/api/v1/does-not-exist
 ```
 
 结果应为 `404`、`http.not_found`，带 `x-request-id` 和匹配的 JSON request_id。如果收到 HTML 或代理错误，先检查代理目标和路径；该响应尚未经过 Core 错误边界。
