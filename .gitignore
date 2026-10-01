@@ -1,4 +1,6 @@
 node_modules/
+tools/create-axum-saas/*.tgz
+tools/create-axum-saas/LICENSE
 /target/
 .scratch/
 backups/

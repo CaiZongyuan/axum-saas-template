@@ -7,9 +7,9 @@
 运行 `just dev` 后，在另一个终端请求 API：
 
 ```bash
-curl --fail-with-body http://127.0.0.1:3000/health/live
-curl --fail-with-body http://127.0.0.1:3000/health/ready
-curl --fail-with-body http://127.0.0.1:3000/api/v1/system/status
+curl --fail-with-body http://127.0.0.1:18000/health/live
+curl --fail-with-body http://127.0.0.1:18000/health/ready
+curl --fail-with-body http://127.0.0.1:18000/api/v1/system/status
 ```
 
 健康接口返回 `{"status":"ok"}`；状态接口读取真实 PostgreSQL 迁移版本。只启动 API 时，空数据库的 live 可以成功，ready 必须返回 503。运行 `just migrate` 显式应用迁移，再检查 ready；API 启动不会修改表结构。`just dev` 会编排开发依赖与迁移。
@@ -48,7 +48,7 @@ pub fn compose_routes(
 ```bash
 just generate
 pnpm contracts:check
-curl --fail-with-body http://127.0.0.1:3000/api/openapi.json
+curl --fail-with-body http://127.0.0.1:18000/api/openapi.json
 node scripts/test-backend.mjs --test health --test tutorial_module
 pnpm tutorial:check
 ```

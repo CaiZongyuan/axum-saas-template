@@ -48,6 +48,12 @@ Built with **Rust, Axum, Tokio, Tower, SQLx, PostgreSQL, Redis, RustFS, React, T
 
 ## Quick start
 
+<!-- scaffold:creator:start -->
+
+Create a renamed, isolated project with `create-axum-saas`; `--no-examples` produces a Core-only starting point. Before the first npm release, build the package with `pnpm scaffold:pack` and run its local tarball with `npx`. See [Create your project](docs/getting-started/create-project.en.md) for the complete command and multiple-copy workflow.
+
+<!-- scaffold:creator:end -->
+
 Install Docker with Compose and the pinned toolchain: **Rust 1.96.0, Node 24.18.0, pnpm 11.17.0, and just 1.58.0**. Versions are recorded in [rust-toolchain.toml](rust-toolchain.toml), [.node-version](.node-version), and [.tool-versions](.tool-versions).
 
 ```bash
@@ -60,22 +66,22 @@ just dev
 Verify the backend in another terminal:
 
 ```bash
-curl -i http://127.0.0.1:3000/health/ready
-curl -i http://127.0.0.1:3000/api/v1/system/status
+curl -i http://127.0.0.1:18000/health/ready
+curl -i http://127.0.0.1:18000/api/v1/system/status
 ```
 
-Expect HTTP 200 and an `x-request-id`. Open **[http://127.0.0.1:5173/register](http://127.0.0.1:5173/register)** for a development account. The first successful account is Owner, later accounts are Members, and passwords use 12–128 characters.
+Expect HTTP 200 and an `x-request-id`. Open **[http://127.0.0.1:15400/register](http://127.0.0.1:15400/register)** for a development account. The first successful account is Owner, later accounts are Members, and passwords use 12–128 characters.
 
 `just dev` starts PostgreSQL, Redis, RustFS, and Mailpit in Docker, applies migrations, initializes storage, then starts the API, Worker, and Web app on the host. Rust changes restart the API/Worker; the Web app supports hot reload.
 
 Development defaults come from [.env.example](.env.example). Copy it to an untracked `.env` to customize your setup.
 
-| Local service     | Address                                |
-| ----------------- | -------------------------------------- |
-| Web app           | http://127.0.0.1:5173                  |
-| API readiness     | http://127.0.0.1:3000/health/ready     |
-| OpenAPI schema    | http://127.0.0.1:3000/api/openapi.json |
-| Development email | http://127.0.0.1:8025                  |
+| Local service     | Address                                 |
+| ----------------- | --------------------------------------- |
+| Web app           | http://127.0.0.1:15400                  |
+| API readiness     | http://127.0.0.1:18000/health/ready     |
+| OpenAPI schema    | http://127.0.0.1:18000/api/openapi.json |
+| Development email | http://127.0.0.1:18025                  |
 
 With `just dev` running, use `just desktop` to open the same application in Electron. `Ctrl+C` stops the host processes; `just services-down` stops the Docker services while preserving their data volumes.
 

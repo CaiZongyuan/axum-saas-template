@@ -9,7 +9,7 @@ Core [request_context](../../crates/app/src/http.rs) generates a new `RequestId`
 With the local API running, observe a safe failed request:
 
 ```sh
-curl -i http://127.0.0.1:3000/api/v1/does-not-exist
+curl -i http://127.0.0.1:18000/api/v1/does-not-exist
 ```
 
 Expect `404`, `http.not_found`, `x-request-id` and a matching JSON request_id. HTML or a proxy error means the response has not reached Core's error boundary; check proxy targets and paths first.

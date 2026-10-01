@@ -64,7 +64,7 @@ document.merge(saas_app::modules::tickets::openapi());
 ```bash
 cargo check --locked -p saas-api
 pnpm boundaries:check
-curl -i http://127.0.0.1:3000/api/v1/tickets/preview
+curl -i http://127.0.0.1:18000/api/v1/tickets/preview
 ```
 
 `just dev` 在 Rust 文件变更后重启 API。预期得到 HTTP 200 和 `x-request-id`，正文为：

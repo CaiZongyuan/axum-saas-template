@@ -42,9 +42,9 @@ RATE_LIMIT_WINDOW_SECS=3
 ```
 
 ```bash
-curl -i http://127.0.0.1:3000/api/v1/system/status
-curl -i http://127.0.0.1:3000/api/v1/system/status
-curl -i http://127.0.0.1:3000/api/v1/system/status
+curl -i http://127.0.0.1:18000/api/v1/system/status
+curl -i http://127.0.0.1:18000/api/v1/system/status
+curl -i http://127.0.0.1:18000/api/v1/system/status
 ```
 
 The third same-window request returns `429 rate_limit.exceeded`, integer Retry-After, `error.details.retry_after_seconds` and request_id. Other concurrent requests also consume budget. Users explicitly retry after the window; never automatically resubmit POST. [Generated configuration](site:reference/config.md) defines limits; fallback is positive and cannot exceed the normal ceiling.

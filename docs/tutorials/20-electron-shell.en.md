@@ -16,7 +16,7 @@ just dev
 just desktop
 ```
 
-The default Web address is `http://127.0.0.1:5173`; change it through `.env` values `SAAS_DESKTOP_ORIGIN` or `WEB_PORT`. The [main process](../../apps/desktop/src/main.ts) loads that same-origin entrance, while the [Web Router](../../apps/web/src/router.tsx) and shared pages implement business. Verify sign-in, a resource read and a write, then restart the shell and read the resource again.
+The default Web address is `http://127.0.0.1:15400`; change it through `.env` values `SAAS_DESKTOP_ORIGIN` or `WEB_PORT`. The [main process](../../apps/desktop/src/main.ts) loads that same-origin entrance, while the [Web Router](../../apps/web/src/router.tsx) and shared pages implement business. Verify sign-in, a resource read and a write, then restart the shell and read the resource again.
 
 Cookies live in persistent partition `persist:saas-desktop`, separate from the system browser. Sign-out revokes the current server Session; only clients using that same Session lose access. An independently signed-in browser Session is not revoked by it.
 

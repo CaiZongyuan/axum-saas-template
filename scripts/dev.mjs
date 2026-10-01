@@ -2,15 +2,12 @@ import { observabilityEnv, startObservability } from './lib/observability.mjs';
 import { watch } from 'node:fs';
 import { join } from 'node:path';
 import { developmentEnv, launch, root, run, stop } from './lib/process.mjs';
+import { startDevelopmentServices } from './lib/development-services.mjs';
 
 const observing = process.argv.includes('--observability');
 const env = observing ? observabilityEnv(developmentEnv()) : developmentEnv();
 if (observing) await startObservability(env);
-run(
-  'docker',
-  ['compose', 'up', '-d', '--wait', 'postgres', 'rustfs', 'redis', 'mailpit'],
-  env,
-);
+await startDevelopmentServices(env, { hostProcesses: true });
 run('cargo', ['run', '--locked', '-p', 'saas-api', '--bin', 'migrate'], env);
 run(
   'cargo',
@@ -85,5 +82,5 @@ web.once('exit', () => {
   if (!closing) void close();
 });
 console.log(
-  `Web: http://127.0.0.1:${env.WEB_PORT ?? 5173} | API: http://${env.APP_BIND} | Worker: http://${env.WORKER_BIND} | mail: http://127.0.0.1:${env.MAILPIT_HTTP_PORT ?? 8025} | docs: just docs`,
+  `Web: http://127.0.0.1:${env.WEB_PORT} | API: http://${env.APP_BIND} | Worker: http://${env.WORKER_BIND} | mail: http://127.0.0.1:${env.MAILPIT_HTTP_PORT} | docs: just docs`,
 );

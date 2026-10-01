@@ -33,7 +33,7 @@ async fn register(app: &Router, email: &str) -> Browser {
         .clone()
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":email,"password":"a-long-test-password"}).to_string(),
@@ -81,7 +81,7 @@ async fn request_key(
             Request::builder()
                 .method(method)
                 .uri(path)
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .header("cookie", &actor.cookie)
                 .header("x-csrf-token", &actor.csrf)
@@ -106,7 +106,7 @@ async fn application_with_gate(pool: PgPool, gate: Option<Arc<CopyGate>>) -> Rou
     };
     let storage = Arc::new(S3ObjectStorage::new(&settings));
     storage
-        .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+        .bootstrap(&settings.bucket, "http://127.0.0.1:15400")
         .await
         .unwrap();
     let storage: Arc<dyn ObjectStorage> = match gate {

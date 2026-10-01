@@ -1,6 +1,7 @@
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { root, run, waitFor } from './process.mjs';
+import { startDevelopmentServices } from './development-services.mjs';
 export const observabilityServices = [
   'collector',
   'prometheus',
@@ -12,8 +13,7 @@ export function observabilityEnv(env) {
   const next = {
     ...env,
     TELEMETRY_ENDPOINT:
-      env.TELEMETRY_ENDPOINT ||
-      `http://127.0.0.1:${env.TELEMETRY_HTTP_PORT || 4318}`,
+      env.TELEMETRY_ENDPOINT || `http://127.0.0.1:${env.TELEMETRY_HTTP_PORT}`,
     TELEMETRY_LOG_DIRECTORY: resolve(
       root,
       env.TELEMETRY_LOG_DIRECTORY || '.runtime/telemetry',
@@ -39,7 +39,10 @@ export function observabilityCompose(args, env) {
   );
 }
 export async function startObservability(env) {
-  observabilityCompose(['up', '-d', ...observabilityServices], env);
+  await startDevelopmentServices(env, {
+    services: observabilityServices,
+    files: ['compose.yaml', 'compose.observability.yaml'],
+  });
   await Promise.all([
     waitFor(
       `${env.TELEMETRY_ENDPOINT.replace(/\/$/, '')}/v1/traces`,
@@ -51,28 +54,20 @@ export async function startObservability(env) {
         body: new Uint8Array(),
       },
     ),
+    waitFor(`http://127.0.0.1:${env.TEMPO_PORT}/ready`, undefined, 60_000),
+    waitFor(`http://127.0.0.1:${env.LOKI_PORT}/ready`, undefined, 60_000),
     waitFor(
-      `http://127.0.0.1:${env.TEMPO_PORT || 3200}/ready`,
+      `http://127.0.0.1:${env.PROMETHEUS_PORT}/-/ready`,
       undefined,
       60_000,
     ),
     waitFor(
-      `http://127.0.0.1:${env.LOKI_PORT || 3100}/ready`,
-      undefined,
-      60_000,
-    ),
-    waitFor(
-      `http://127.0.0.1:${env.PROMETHEUS_PORT || 9090}/-/ready`,
-      undefined,
-      60_000,
-    ),
-    waitFor(
-      `http://127.0.0.1:${env.GRAFANA_PORT || 3300}/api/health`,
+      `http://127.0.0.1:${env.GRAFANA_PORT}/api/health`,
       undefined,
       60_000,
     ),
   ]);
   console.log(
-    `Observability ready: Grafana http://127.0.0.1:${env.GRAFANA_PORT || 3300}`,
+    `Observability ready: Grafana http://127.0.0.1:${env.GRAFANA_PORT}`,
   );
 }

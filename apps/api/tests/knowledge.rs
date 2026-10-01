@@ -16,7 +16,7 @@ async fn document_writes_require_a_session_trusted_origin_and_csrf(pool: PgPool)
     for (cookie, origin, csrf, expected) in [
         (
             None,
-            "http://127.0.0.1:5173",
+            "http://127.0.0.1:15400",
             Some(writer.csrf.as_str()),
             StatusCode::UNAUTHORIZED,
         ),
@@ -28,13 +28,13 @@ async fn document_writes_require_a_session_trusted_origin_and_csrf(pool: PgPool)
         ),
         (
             Some(writer.cookie.as_str()),
-            "http://127.0.0.1:5173",
+            "http://127.0.0.1:15400",
             None,
             StatusCode::FORBIDDEN,
         ),
         (
             Some(writer.cookie.as_str()),
-            "http://127.0.0.1:5173",
+            "http://127.0.0.1:15400",
             Some("wrong"),
             StatusCode::FORBIDDEN,
         ),
@@ -182,7 +182,7 @@ async fn register(app: &Router, email: &str) -> Browser {
         .clone()
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":email, "password":"a-long-test-password"}).to_string(),
@@ -228,7 +228,7 @@ async fn create_with_key(
     app.clone()
         .oneshot(
             Request::post("/api/v1/knowledge/documents")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .header("cookie", &actor.cookie)
                 .header("x-csrf-token", &actor.csrf)
@@ -260,7 +260,7 @@ async fn mutate(app: &Router, actor: &Browser, method: &str, path: &str, body: V
             Request::builder()
                 .method(method)
                 .uri(path)
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .header("cookie", &actor.cookie)
                 .header("x-csrf-token", &actor.csrf)
@@ -834,7 +834,7 @@ async fn update(
     app.clone()
         .oneshot(
             Request::put(format!("/api/v1/knowledge/documents/{id}"))
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .header("cookie", &actor.cookie)
                 .header("x-csrf-token", &actor.csrf)

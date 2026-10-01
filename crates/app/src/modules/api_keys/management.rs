@@ -115,8 +115,8 @@ async fn create_api_key(
     let Ok(random) = crate::secrets::secret() else {
         return unavailable(id);
     };
-    let secret = format!("saas_key_{random}");
-    let prefix = format!("saas_key_{}", &random[..8]);
+    let secret = format!("{}{random}", super::KEY_PREFIX);
+    let prefix = format!("{}{}", super::KEY_PREFIX, &random[..8]);
     let hash = crate::secrets::secret_hash(&secret);
     let result = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         let mut tx = state.pool.begin().await?;

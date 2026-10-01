@@ -7,7 +7,7 @@ Goal: use Core registration and credentials without reimplementing passwords, Us
 The [Core Router](../../crates/app/src/lib.rs) composes [Identity](../../crates/app/src/modules/identity/mod.rs): `POST /api/v1/auth/register`, `POST /api/v1/auth/login` and `GET /api/v1/auth/session`. Registration accepts `email`, `password` and optional `display_name`; the server determines the role.
 
 ```bash
-curl -i http://127.0.0.1:3000/api/v1/auth/session
+curl -i http://127.0.0.1:18000/api/v1/auth/session
 node scripts/test-backend.mjs --test registration
 ```
 

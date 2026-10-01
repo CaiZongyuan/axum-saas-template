@@ -7,11 +7,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = postgres::connect_lazy(settings.database);
     match tokio::time::timeout(settings.migration_timeout, postgres::MIGRATOR.run(&pool)).await {
         Ok(Ok(())) => {}
-        Ok(Err(_)) => {
-            return Err(io::Error::other(
-                "Migration failed; check database availability and migration history",
-            )
-            .into());
+        Ok(Err(error)) => {
+            return Err(error.into());
         }
         Err(_) => {
             return Err(io::Error::new(

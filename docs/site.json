@@ -66,7 +66,7 @@
       "title": "开发者文档",
       "titleEn": "Developer documentation",
       "type": "overview",
-      "next": "course",
+      "next": "create-project",
       "group": "开始"
     },
     {
@@ -201,6 +201,18 @@
       "previous": "course-verification"
     },
     {
+      "id": "create-project",
+      "source": "docs/getting-started/create-project.md",
+      "sourceEn": "docs/getting-started/create-project.en.md",
+      "route": "getting-started/create-project.md",
+      "title": "创建自己的项目",
+      "titleEn": "Create your project",
+      "type": "guide",
+      "group": "开始",
+      "previous": "documentation",
+      "next": "quickstart"
+    },
+    {
       "id": "quickstart",
       "source": "docs/getting-started/quickstart.md",
       "sourceEn": "docs/getting-started/quickstart.en.md",
@@ -208,7 +220,7 @@
       "title": "快速开始",
       "titleEn": "Quick start",
       "group": "开始",
-      "previous": "documentation",
+      "previous": "create-project",
       "next": "project-structure"
     },
     {

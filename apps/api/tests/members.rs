@@ -22,7 +22,7 @@ async fn register(app: &Router, email: &str) -> Browser {
         .clone()
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":email,"password":"a-long-test-password"}).to_string(),
@@ -68,7 +68,7 @@ async fn change(
     app.clone()
         .oneshot(
             Request::put(format!("/api/v1/organization/members/{}", target.id))
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .header("cookie", &actor.cookie)
                 .header("x-csrf-token", &actor.csrf)
@@ -95,7 +95,7 @@ async fn an_inflight_login_cannot_escape_a_concurrent_membership_disable(pool: P
         .unwrap();
     let login = app.clone().oneshot(
         Request::post("/api/v1/auth/login")
-            .header("origin", "http://127.0.0.1:5173")
+            .header("origin", "http://127.0.0.1:15400")
             .header("content-type", "application/json")
             .body(Body::from(
                 json!({"email":"member@example.com","password":"a-long-test-password"}).to_string(),
@@ -322,7 +322,7 @@ async fn disabling_and_reenabling_a_member_never_revives_their_old_session(pool:
         .clone()
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":"MEMBER@example.com","password":"a-different-password"})

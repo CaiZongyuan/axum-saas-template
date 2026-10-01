@@ -48,6 +48,12 @@
 
 ## 快速开始
 
+<!-- scaffold:creator:start -->
+
+用 `create-axum-saas` 创建完成改名、端口与 Docker namespace 隔离的项目；`--no-examples` 生成只含 Core 的起点。首次 npm 发布前，运行 `pnpm scaffold:pack` 并通过 `npx` 使用本地 tarball。完整命令与多副本流程见[创建自己的项目](docs/getting-started/create-project.md)。
+
+<!-- scaffold:creator:end -->
+
 准备 Docker / Compose，以及仓库固定的工具链：**Rust 1.96.0、Node 24.18.0、pnpm 11.17.0、just 1.58.0**。版本记录在 [rust-toolchain.toml](rust-toolchain.toml)、[.node-version](.node-version) 和 [.tool-versions](.tool-versions)。
 
 ```bash
@@ -60,22 +66,22 @@ just dev
 在另一个终端先检查后端：
 
 ```bash
-curl -i http://127.0.0.1:3000/health/ready
-curl -i http://127.0.0.1:3000/api/v1/system/status
+curl -i http://127.0.0.1:18000/health/ready
+curl -i http://127.0.0.1:18000/api/v1/system/status
 ```
 
-预期 HTTP 200，响应携带 `x-request-id`。打开 **[http://127.0.0.1:5173/register](http://127.0.0.1:5173/register)** 创建开发账号：首位成功注册者为 Owner，后续为 Member；密码长度 12–128 字符。
+预期 HTTP 200，响应携带 `x-request-id`。打开 **[http://127.0.0.1:15400/register](http://127.0.0.1:15400/register)** 创建开发账号：首位成功注册者为 Owner，后续为 Member；密码长度 12–128 字符。
 
 `just dev` 在 Docker 中启动 PostgreSQL、Redis、RustFS 与 Mailpit，执行迁移、初始化存储，然后在宿主机启动 API、Worker 和 Web。修改 Rust 源码会重启 API/Worker，Web 支持热更新。
 
 开发默认值来自 [.env.example](.env.example)，需要调整时复制为不提交的 `.env`。
 
-| 本地服务       | 地址                                   |
-| -------------- | -------------------------------------- |
-| Web 应用       | http://127.0.0.1:5173                  |
-| API 就绪检查   | http://127.0.0.1:3000/health/ready     |
-| OpenAPI Schema | http://127.0.0.1:3000/api/openapi.json |
-| 开发邮件       | http://127.0.0.1:8025                  |
+| 本地服务       | 地址                                    |
+| -------------- | --------------------------------------- |
+| Web 应用       | http://127.0.0.1:15400                  |
+| API 就绪检查   | http://127.0.0.1:18000/health/ready     |
+| OpenAPI Schema | http://127.0.0.1:18000/api/openapi.json |
+| 开发邮件       | http://127.0.0.1:18025                  |
 
 保持 `just dev` 运行，使用 `just desktop` 在 Electron 中打开同一应用。`Ctrl+C` 停止宿主机进程；`just services-down` 停止 Docker 服务并保留数据卷。
 

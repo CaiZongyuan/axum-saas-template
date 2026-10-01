@@ -24,7 +24,7 @@ impl Default for WorkerPolicy {
 pub const FIELDS: &[saas_platform::config::Setting] = &[
     saas_platform::config::Setting {
         name: "WORKER_BIND",
-        default: Some("127.0.0.1:3001"),
+        default: Some("127.0.0.1:18001"),
         secret: false,
         description: "Worker health listener IP address and port.",
         description_zh: "Worker 健康检查监听 IP 地址和端口。",
@@ -72,7 +72,7 @@ impl WorkerPolicy {
 }
 pub fn worker_bind() -> Result<std::net::SocketAddr, saas_platform::config::ConfigError> {
     std::env::var("WORKER_BIND")
-        .unwrap_or_else(|_| "127.0.0.1:3001".into())
+        .unwrap_or_else(|_| "127.0.0.1:18001".into())
         .parse()
         .map_err(|_| saas_platform::config::ConfigError("WORKER_BIND"))
 }

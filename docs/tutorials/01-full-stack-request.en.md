@@ -7,9 +7,9 @@ Goal: connect your business API to Dougong and verify that requests, database re
 Start `just dev`, then request the API from another terminal:
 
 ```bash
-curl --fail-with-body http://127.0.0.1:3000/health/live
-curl --fail-with-body http://127.0.0.1:3000/health/ready
-curl --fail-with-body http://127.0.0.1:3000/api/v1/system/status
+curl --fail-with-body http://127.0.0.1:18000/health/live
+curl --fail-with-body http://127.0.0.1:18000/health/ready
+curl --fail-with-body http://127.0.0.1:18000/api/v1/system/status
 ```
 
 Health returns `{"status":"ok"}`; status reads real PostgreSQL migration state. If you start only the API against an empty database, live may succeed while ready must return 503. Run `just migrate` explicitly and check ready again. API startup does not change tables; `just dev` coordinates dependencies and migrations.
@@ -48,7 +48,7 @@ Declare protocol with Handler `utoipa::path` and DTO `ToSchema`, then merge modu
 ```bash
 just generate
 pnpm contracts:check
-curl --fail-with-body http://127.0.0.1:3000/api/openapi.json
+curl --fail-with-body http://127.0.0.1:18000/api/openapi.json
 node scripts/test-backend.mjs --test health --test tutorial_module
 pnpm tutorial:check
 ```

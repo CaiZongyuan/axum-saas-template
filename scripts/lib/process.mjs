@@ -1,10 +1,9 @@
 import { developmentMailKey } from './development-mail-key.mjs';
+import { readDevelopmentEnv } from './development-env.mjs';
 import { execFileSync, spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { isAbsolute, resolve } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { parseEnv } from 'node:util';
 
 export const root = resolve(import.meta.dirname, '../..');
 
@@ -14,19 +13,8 @@ export function resolveRoot(path) {
 }
 
 export function developmentEnv() {
-  const defaults = parseEnv(
-    readFileSync(resolve(root, '.env.example'), 'utf8'),
-  );
-  let local = {};
-  try {
-    local = parseEnv(readFileSync(resolve(root, '.env'), 'utf8'));
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-  }
   const env = {
-    ...defaults,
-    ...local,
-    ...process.env,
+    ...readDevelopmentEnv(root),
     CARGO_BUILD_JOBS: process.env.CARGO_BUILD_JOBS ?? '4',
   };
   if (

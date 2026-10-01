@@ -11,7 +11,7 @@ use tower::ServiceExt;
 async fn register(app: Router, email: &str) -> axum::response::Response {
     app.oneshot(Request::post("/api/v1/auth/register")
         .header("content-type", "application/json")
-        .header("origin", "http://127.0.0.1:5173")
+        .header("origin", "http://127.0.0.1:15400")
         .body(Body::from(json!({"email": email, "password": "a-long-test-password", "display_name": "学习者"}).to_string())).unwrap())
         .await.unwrap()
 }
@@ -180,12 +180,12 @@ async fn untrusted_origins_invalid_input_and_injected_roles_cannot_claim_owner(p
             StatusCode::FORBIDDEN,
         ),
         (
-            "http://127.0.0.1:5173",
+            "http://127.0.0.1:15400",
             json!({"email":"owner@example.com","password":"a-long-test-password","role":"owner"}),
             StatusCode::BAD_REQUEST,
         ),
         (
-            "http://127.0.0.1:5173",
+            "http://127.0.0.1:15400",
             json!({"email":"invalid","password":"short"}),
             StatusCode::BAD_REQUEST,
         ),
@@ -254,7 +254,7 @@ async fn duplicate_registration_cannot_replace_credentials_or_reactivate_members
         .clone()
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":"DISABLED@example.com", "password":"different-long-password"})
@@ -321,7 +321,7 @@ async fn oversized_registration_has_the_public_413_error_contract(pool: PgPool) 
     let response = saas_app::router(pool)
         .oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from(
                     json!({"email":"large@example.com", "password":"x".repeat(17000)}).to_string(),
@@ -342,7 +342,7 @@ async fn incomplete_registration_bodies_time_out_with_a_request_id(pool: PgPool)
         std::time::Duration::from_secs(4),
         saas_app::router(pool).oneshot(
             Request::post("/api/v1/auth/register")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("content-type", "application/json")
                 .body(Body::from_stream(pending))
                 .unwrap(),

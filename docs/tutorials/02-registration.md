@@ -7,7 +7,7 @@
 [Core Router](../../crates/app/src/lib.rs)已装配 [Identity](../../crates/app/src/modules/identity/mod.rs)入口：`POST /api/v1/auth/register`、`POST /api/v1/auth/login`、`GET /api/v1/auth/session`。注册输入为 `email`、`password`、可选 `display_name`，角色由服务端决定。
 
 ```bash
-curl -i http://127.0.0.1:3000/api/v1/auth/session
+curl -i http://127.0.0.1:18000/api/v1/auth/session
 node scripts/test-backend.mjs --test registration
 ```
 

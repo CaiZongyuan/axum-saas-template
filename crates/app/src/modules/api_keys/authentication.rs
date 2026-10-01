@@ -78,10 +78,10 @@ pub async fn require_read(
             return None;
         }
         let token = parts.next()?;
+        let suffix = token.strip_prefix(super::KEY_PREFIX)?;
         if parts.next().is_some()
-            || token.len() != 73
-            || !token.starts_with("saas_key_")
-            || !token[9..].bytes().all(|b| b.is_ascii_hexdigit())
+            || suffix.len() != 64
+            || !suffix.bytes().all(|b| b.is_ascii_hexdigit())
         {
             return None;
         }

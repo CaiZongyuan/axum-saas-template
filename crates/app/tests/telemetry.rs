@@ -289,7 +289,7 @@ async fn exercise_job(pool: PgPool) -> (String, String, String) {
         endpoint,
         saas_app::openapi(),
     );
-    let registration=app.clone().oneshot(Request::post("/api/v1/auth/register").header("origin","http://127.0.0.1:5173").header("content-type","application/json").body(Body::from(serde_json::json!({"email":"trace@example.test","password":"should-not-be-exported"}).to_string())).unwrap()).await.unwrap();
+    let registration=app.clone().oneshot(Request::post("/api/v1/auth/register").header("origin","http://127.0.0.1:15400").header("content-type","application/json").body(Body::from(serde_json::json!({"email":"trace@example.test","password":"should-not-be-exported"}).to_string())).unwrap()).await.unwrap();
     assert_eq!(registration.status(), 201);
     let cookie = registration.headers()["set-cookie"]
         .to_str()
@@ -305,7 +305,7 @@ async fn exercise_job(pool: PgPool) -> (String, String, String) {
         .clone()
         .oneshot(
             Request::post("/api/v1/test-job")
-                .header("origin", "http://127.0.0.1:5173")
+                .header("origin", "http://127.0.0.1:15400")
                 .header("cookie", cookie)
                 .header("x-csrf-token", body["csrf_token"].as_str().unwrap())
                 .header(
@@ -342,7 +342,7 @@ async fn exercise_job(pool: PgPool) -> (String, String, String) {
     };
     let storage = saas_platform::object_storage::S3ObjectStorage::new(&settings);
     storage
-        .bootstrap(&settings.bucket, "http://127.0.0.1:5173")
+        .bootstrap(&settings.bucket, "http://127.0.0.1:15400")
         .await
         .unwrap();
     let probe = Probe {

@@ -53,7 +53,7 @@ Create a Key through Session management first, then enter the one-time secret in
 ```bash
 read -rsp 'API Key: ' SAAS_API_KEY
 curl --fail-with-body --config - <<CURL
-url = "http://127.0.0.1:3000/api/v1/profile"
+url = "http://127.0.0.1:18000/api/v1/profile"
 header = "Authorization: Bearer ${SAAS_API_KEY}"
 CURL
 unset SAAS_API_KEY
