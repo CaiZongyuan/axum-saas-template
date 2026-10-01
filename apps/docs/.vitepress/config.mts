@@ -45,7 +45,9 @@ function sectionsFor(locale: 'zh' | 'en') {
       link: siteLink(locale === 'en' ? chapter.routeEn : chapter.route, locale),
     });
   }
-  return [...sections.values()];
+  return Object.keys(site.groupLabels)
+    .filter((group) => sections.has(group))
+    .map((group) => ({ ...sections.get(group)!, collapsed: false }));
 }
 
 function themeConfigFor(locale: 'zh' | 'en') {
@@ -133,6 +135,8 @@ function themeConfigFor(locale: 'zh' | 'en') {
 
 export default defineConfig({
   srcDir: '.generated',
+  // VitePress enables the search bundle from the top-level theme config.
+  themeConfig: { search: themeConfigFor('zh').search },
   base:
     process.env.DOCS_BASE ??
     (project.endsWith('.github.io') ? '/' : `/${project}/`),

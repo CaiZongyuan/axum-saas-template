@@ -1,6 +1,6 @@
 # Dougong（斗拱）
 
-**以 Rust + React 为基础构建 SaaS，通过真实可运行的应用学习与扩展。**
+**使用 Rust + Axum 开发自己的 SaaS 后端，再接入共享 Web 与 Desktop 客户端。**
 
 斗拱是中国木构建筑中标准化、预制装配的承托构件——不同的屋顶架在同一套构件上。本模板借用这个意象：一套可复用的核心，加上可组装、可移除的参考应用。
 
@@ -11,7 +11,13 @@
 
 从已经接好的认证、权限、后台任务、文件存储和共享 Web/Desktop 界面开始。保留可复用的 SaaS Core，沿着参考应用学习完整业务流程，再替换成自己的业务。
 
-[在线教程](https://caizongyuan.github.io/axum-saas-template/) · [快速开始](docs/getting-started/quickstart.md) · [架构规范](docs/saas-template-architecture-spec.md) · [能力覆盖](docs/architecture/v1-coverage.md)
+[开发者文档](https://caizongyuan.github.io/axum-saas-template/docs/) · [快速开始](docs/getting-started/quickstart.md) · [项目结构](docs/architecture/project-structure.md) · [能力覆盖](docs/architecture/v1-coverage.md)
+
+## 开发自己的业务
+
+先读[项目结构](docs/architecture/project-structure.md)，再按[新增业务模块](docs/guides/develop-module.md)写自己的第一条接口。指南说明代码归属、路由/OpenAPI 组装与 HTTP 验证。模块拥有自己的数据和规则，通过公开接口复用 Core 的身份、成员、审计、幂等、文件与任务。
+
+知识库用于查阅完整实现；后端合同完成后再接客户端。文档与教学源码一起维护中英文版本，规则见[作者指南](docs/guides/maintain-docs.md)。
 
 ## 为什么选择这个模板
 
@@ -49,7 +55,14 @@ pnpm install --frozen-lockfile
 just dev
 ```
 
-打开 **[http://127.0.0.1:5173/register](http://127.0.0.1:5173/register)** 创建账号。首个注册用户成为企业 Owner，后续用户为 Member。密码长度为 12–128 个字符。
+在另一个终端先检查后端：
+
+```bash
+curl -i http://127.0.0.1:3000/health/ready
+curl -i http://127.0.0.1:3000/api/v1/system/status
+```
+
+预期 HTTP 200，响应携带 `x-request-id`。打开 **[http://127.0.0.1:5173/register](http://127.0.0.1:5173/register)** 创建开发账号：首位成功注册者为 Owner，后续为 Member；密码长度 12–128 字符。
 
 `just dev` 在 Docker 中启动 PostgreSQL、Redis、RustFS 与 Mailpit，执行迁移、初始化存储，然后在宿主机启动 API、Worker 和 Web。修改 Rust 源码会重启 API/Worker，Web 支持热更新。
 

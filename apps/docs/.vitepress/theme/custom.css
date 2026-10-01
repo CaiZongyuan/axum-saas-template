@@ -17,6 +17,79 @@
   /* A flat bar: the navbar paints the page background instead of the
      default translucent glass. */
   --vp-nav-bg-color: var(--vp-c-bg);
+  --vp-sidebar-width: 264px;
+}
+
+/* The documentation sidebar stays at the viewport edge independently of
+   VitePress's centered reading container. Public page layouts are unaffected. */
+@media (min-width: 960px) {
+  .VPSidebar {
+    left: 0;
+    width: var(--vp-sidebar-width) !important;
+    padding-left: 26px !important;
+    padding-right: 22px;
+    border-right: 1px solid var(--vp-c-divider);
+  }
+  .VPContent.has-sidebar {
+    padding-left: var(--vp-sidebar-width) !important;
+    padding-right: 0 !important;
+  }
+  .VPNavBar.has-sidebar .container {
+    max-width: none;
+  }
+  .VPNavBar.has-sidebar .container > .title {
+    left: 0 !important;
+    width: var(--vp-sidebar-width) !important;
+    padding-left: 26px !important;
+  }
+  .VPNavBar.has-sidebar .content {
+    padding-left: var(--vp-sidebar-width) !important;
+  }
+  .VPNavBar.has-sidebar .divider {
+    padding-left: var(--vp-sidebar-width) !important;
+  }
+  .VPDoc.has-sidebar .container {
+    max-width: 1120px;
+  }
+  .VPDoc.has-sidebar .content {
+    min-width: 0;
+  }
+}
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+  letter-spacing: 0;
+}
+.vp-doc h1 {
+  font-size: 30px;
+  line-height: 1.45;
+}
+.vp-doc .docs-paths {
+  display: grid;
+  margin: 24px 0;
+  border-top: 1px solid var(--vp-c-divider);
+}
+.vp-doc .docs-path {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--vp-c-divider);
+  color: var(--vp-c-text-1);
+  text-decoration: none;
+}
+.vp-doc .docs-path span {
+  color: var(--vp-c-text-2);
+  font-size: 14px;
+}
+@media (max-width: 640px) {
+  .vp-doc h1 {
+    font-size: 25px;
+  }
+  .vp-doc .docs-path {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
 }
 
 /* The frontmatter-driven switcher replaces the default locale dropdown —

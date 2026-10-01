@@ -58,8 +58,11 @@ function counterpartPath(route, locale, routePairs) {
 // Coming soon pages carry honest titles and descriptions in both locales.
 // `sidebar: false` is required beside `layout: page`: this VitePress
 // version only drops the sidebar column for `layout: home` otherwise.
-function frontmatter(docLocale, counterpart, page = {}) {
+function frontmatter(docLocale, counterpart, page = {}, navigation = {}) {
   const lines = [`docLocale: ${docLocale}`, `counterpart: ${counterpart}`];
+  lines.push(`contentType: ${page.type ?? 'reference'}`);
+  lines.push(`prev: ${JSON.stringify(navigation.previous ?? false)}`);
+  lines.push(`next: ${JSON.stringify(navigation.next ?? false)}`);
   if (page.layout !== undefined) {
     lines.push(`layout: ${page.layout}`, 'sidebar: false');
   }
@@ -252,6 +255,25 @@ function loadConfigFields() {
 
 export function renderDocs() {
   const site = siteModel();
+  const chapters = new Map(
+    [...site.pages, ...site.references].map((page) => [page.id, page]),
+  );
+  const navigationFor = (page, locale) =>
+    Object.fromEntries(
+      ['previous', 'next'].map((direction) => {
+        const target = chapters.get(page[direction]);
+        const english = locale === 'en' && target?.bilingual;
+        return [
+          direction,
+          target
+            ? {
+                text: english ? target.titleEn : target.title,
+                link: sitePath(english ? target.routeEn : target.route),
+              }
+            : false,
+        ];
+      }),
+    );
   const pages = new Map();
   const put = (route, content) => {
     if (pages.has(route))
@@ -301,7 +323,12 @@ export function renderDocs() {
     if (page.source === undefined) continue;
     put(
       page.route,
-      frontmatter('zh', counterpartPath(page.route, 'zh', routePairs), page) +
+      frontmatter(
+        'zh',
+        counterpartPath(page.route, 'zh', routePairs),
+        page,
+        navigationFor(page, 'zh'),
+      ) +
         transformContent({
           sourcePath: repositoryFile(page.source),
           route: page.route,
@@ -318,6 +345,7 @@ export function renderDocs() {
           'en',
           counterpartPath(page.routeEn, 'en', routePairs),
           page,
+          navigationFor(page, 'en'),
         ) +
           transformContent({
             sourcePath: repositoryFile(page.sourceEn),

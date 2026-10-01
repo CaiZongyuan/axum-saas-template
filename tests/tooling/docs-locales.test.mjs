@@ -178,3 +178,32 @@ test('reference ids stay unique across chapters', () => {
     /duplicate chapter id: quickstart/,
   );
 });
+
+test('explicit next chapters must name an existing published chapter', () => {
+  assert.throws(
+    () =>
+      validateSiteModel(
+        siteModel({ pages: [{ ...bilingualPage, next: 'missing' }] }),
+      ),
+    /quickstart.*next.*missing/,
+  );
+  const model = validateSiteModel(
+    siteModel({ pages: [{ ...bilingualPage, next: 'api-reference' }] }),
+  );
+  assert.equal(model.pages[0].next, 'api-reference');
+});
+
+test('content types separate tutorials, guides, concepts and references', () => {
+  assert.throws(
+    () =>
+      validateSiteModel(
+        siteModel({ pages: [{ ...bilingualPage, type: 'feature-list' }] }),
+      ),
+    /quickstart.*content type/,
+  );
+  const model = validateSiteModel(
+    siteModel({ pages: [{ ...bilingualPage, type: 'tutorial' }] }),
+  );
+  assert.equal(model.pages[0].type, 'tutorial');
+  assert.equal(model.references[0].type, 'reference');
+});
