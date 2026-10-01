@@ -4,6 +4,10 @@ Read CONTEXT.md before changing domain terminology and the relevant docs/adr/ de
 
 ## Agent skills
 
+### Git branches
+
+Develop on one branch at a time. Once a ticket's branch is merged into `main`, delete the local branch immediately (`git branch -d <name>`, pruning stale worktrees with `git worktree prune` first if needed); do not leave finished branches behind. Never delete unmerged branches without confirmation.
+
 ### Issue tracker
 
 Use GitHub Issues in CaiZongyuan/axum-saas-template. Before planning, publishing, claiming or completing tickets, read docs/agents/issue-tracker.md.
