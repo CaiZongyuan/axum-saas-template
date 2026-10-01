@@ -1,6 +1,8 @@
-# Axum SaaS Template
+# Dougong
 
 **A Rust + React foundation for your next SaaS, with a working application to learn from.**
+
+Named after the _dougong_ (斗拱), the standardized bracket set of Chinese timber architecture — prefabricated parts that carry whatever roof you assemble on top. The template applies the same idea to SaaS: one reusable core, reference applications you can remove.
 
 English · [简体中文](README.zh-CN.md)
 
@@ -146,4 +148,4 @@ When adding a feature, update its behavior, tests, and tutorial together. Use `j
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 Axum SaaS Template contributors.
+[MIT](LICENSE) — Copyright (c) 2026 Dougong contributors.

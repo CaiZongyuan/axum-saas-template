@@ -1,6 +1,8 @@
-# Axum SaaS Template
+# Dougong（斗拱）
 
 **以 Rust + React 为基础构建 SaaS，通过真实可运行的应用学习与扩展。**
+
+斗拱是中国木构建筑中标准化、预制装配的承托构件——不同的屋顶架在同一套构件上。本模板借用这个意象：一套可复用的核心，加上可组装、可移除的参考应用。
 
 [English](README.md) · 简体中文
 
@@ -146,4 +148,4 @@ docs/          教程、架构、决策与运维指南
 
 ## 许可证
 
-[MIT](LICENSE) — Copyright (c) 2026 Axum SaaS Template contributors.
+[MIT](LICENSE) — Copyright (c) 2026 Dougong contributors.
