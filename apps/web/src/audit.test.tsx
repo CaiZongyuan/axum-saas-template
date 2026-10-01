@@ -206,11 +206,16 @@ test('the audit filter survives a language switch and speaks English afterwards'
   await user.click(screen.getByRole('button', { name: '筛选记录' }));
   expect(await screen.findByText('knowledge.document.create')).toBeVisible();
   await user.click(await screen.findByRole('navigation', { name: '主菜单' }));
+  await user.click(screen.getByRole('link', { name: '设置' }));
+  const settingsDirectory = screen.getByRole('navigation', {
+    name: '设置目录',
+  });
   await user.click(
-    within(screen.getByRole('navigation', { name: '主菜单' })).getByRole(
-      'link',
-      { name: '设置' },
-    ),
+    await within(settingsDirectory).findByRole('link', { name: '个人资料' }),
+  );
+  await screen.findByRole('heading', { name: '个人资料', level: 1 });
+  await user.click(
+    within(settingsDirectory).getByRole('link', { name: '外观与语言' }),
   );
   await user.click(await screen.findByRole('radio', { name: 'English' }));
   await user.click(

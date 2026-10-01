@@ -5,11 +5,14 @@
 // locales must stay complete — the parity test in core-messages.test.ts is
 // the release check.
 
+import { graphicMessages } from './graphic-messages';
+
 export const coreMessages: {
   zh: Record<string, string>;
   en: Record<string, string>;
 } = {
   zh: {
+    ...graphicMessages.zh,
     'app.name': 'SaaS 模板',
     'app.description': '从真实全栈请求开始的可运行 SaaS 模板教程。',
 
@@ -28,6 +31,7 @@ export const coreMessages: {
     'shell.nav.openMenu': '打开导航菜单',
     'shell.nav.closeMenu': '关闭导航菜单',
     'shell.nav.skipToContent': '跳到主内容区',
+    'shell.nav.resize': '调整侧栏宽度',
 
     'common.retry': '重试',
     'common.requestId': '请求编号：{id}',
@@ -110,13 +114,14 @@ export const coreMessages: {
     'common.backHome': '返回首页',
 
     'settings.title': '设置',
+    'settings.directory': '设置目录',
     'settings.description': '管理语言、外观与账户偏好。',
     'settings.appearance': '外观与语言',
     'settings.appearanceHint':
       '偏好保存在当前设备：登录前后均生效，不跨设备同步。',
     'settings.scope.device': '本设备',
     'settings.scope.account': '账户',
-    'settings.account': '账户',
+    'settings.account': '个人资料',
     'settings.accountHint': '当前登录的身份。',
     'settings.accountEmail': '邮箱',
     'settings.accountDisplayName': '显示名',
@@ -446,6 +451,7 @@ export const coreMessages: {
     'unavailable.backHome': '返回首页',
   },
   en: {
+    ...graphicMessages.en,
     'app.name': 'SaaS Template',
     'app.description':
       'A runnable SaaS template tutorial starting from a real full-stack request.',
@@ -465,6 +471,7 @@ export const coreMessages: {
     'shell.nav.openMenu': 'Open navigation menu',
     'shell.nav.closeMenu': 'Close navigation menu',
     'shell.nav.skipToContent': 'Skip to main content',
+    'shell.nav.resize': 'Resize sidebar',
 
     'common.retry': 'Retry',
     'common.requestId': 'Request ID: {id}',
@@ -560,6 +567,7 @@ export const coreMessages: {
     'common.backHome': 'Back to home',
 
     'settings.title': 'Settings',
+    'settings.directory': 'Settings sections',
     'settings.description':
       'Manage language, appearance and account preferences.',
     'settings.appearance': 'Appearance & language',
@@ -567,7 +575,7 @@ export const coreMessages: {
       'Preferences stay on this device: they apply before and after sign-in and never sync across devices.',
     'settings.scope.device': 'This device',
     'settings.scope.account': 'Account',
-    'settings.account': 'Account',
+    'settings.account': 'Profile',
     'settings.accountHint': 'The identity you are signed in as.',
     'settings.accountEmail': 'Email',
     'settings.accountDisplayName': 'Display name',

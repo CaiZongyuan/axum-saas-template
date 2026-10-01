@@ -64,6 +64,8 @@ With multiple members involved, locks are taken in member-ID order, matching org
 
 ## 5. Pages and caching
 
+Click a knowledge-base icon in the list to customize it. Glass is the default; glyphs and category colors are also available. A choice stays in a draft until confirmed, then appears in the list, reader and editor context. This device-only preference is scoped by user and knowledge base. It changes neither knowledge-base data nor Grants, and it does not change other members' views.
+
 [Knowledge Views](../../packages/views/src/knowledge/knowledge-bases-view.tsx) reuse Core's member directory to pick registered users — no invitation step. Documents in the personal space and inside a knowledge base share the same [list/edit View](../../packages/views/src/knowledge/documents-view.tsx); the knowledge base scope enters the Query key and the API parameters, and unsaved drafts stay separate per account and knowledge base.
 
 Grant control names resolve with the UI language, and the revoke button's accessible name carries the target email ("撤销 {邮箱} 的授权" / "Revoke {email}’s access") so screen readers identify the target in both languages; bilingual View tests cover the representative pages.

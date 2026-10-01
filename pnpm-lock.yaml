@@ -211,6 +211,15 @@ importers:
       remark-gfm:
         specifier: 4.0.1
         version: 4.0.1
+      "@dicebear/core":
+        specifier: 10.7.0
+        version: 10.7.0
+      "@dicebear/styles":
+        specifier: 10.6.0
+        version: 10.6.0
+      "@tabler/icons-react":
+        specifier: 3.46.0
+        version: 3.46.0(react@19.3.0)
 
 packages:
 
@@ -3310,6 +3319,17 @@ packages:
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
+  "@dicebear/core@10.7.0":
+    resolution: {integrity: sha512-JUOzKOd8RUByJJo8ZL+C7YE/pvEsWewfpbWUmR8OIQZWv/PvUQHnohdevySC3icyyxe6EIU/8B/rQgA42us1QA==}
+    engines: {node: '>=22.0.0'}
+  "@dicebear/styles@10.6.0":
+    resolution: {integrity: sha512-KhxbEVI+z8TaenX58+ZhIRFBt7adggu/F+8g6ZYLu43H2/lgLuWA3Kg8vHBrCVWdfTTTt1p2wUhQomIkkypTuQ==}
+  "@tabler/icons-react@3.46.0":
+    resolution: {integrity: sha512-CCm7xJWhDT2PH4ZIFkP6AgYKtVhq0gpYkjUN+GVh1AzmIQaa77OW0bQPBPQiTE0PsXMR9oSxFqA3qBglzPyrVQ==}
+    peerDependencies:
+      react: '>= 16'
+  "@tabler/icons@3.46.0":
+    resolution: {integrity: sha512-f2RYFl3fzPwj5WO82x6en0dmkjefxEfOm16D1ByM6cj/McNiwOkL4VaPUoP9VVIrXAD9WnTSVFr70px703b//A==}
 
 snapshots:
 
@@ -6441,3 +6461,10 @@ snapshots:
   zod@4.6.5: {}
 
   zwitch@2.0.4: {}
+  "@dicebear/core@10.7.0": {}
+  "@dicebear/styles@10.6.0": {}
+  "@tabler/icons-react@3.46.0(react@19.3.0)":
+    dependencies:
+      "@tabler/icons": 3.46.0
+      react: 19.3.0
+  "@tabler/icons@3.46.0": {}

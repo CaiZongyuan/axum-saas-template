@@ -124,7 +124,13 @@ test('creating a key reveals its secret once and refresh or leaving never reveal
     name: '主菜单',
   });
   expect(
-    within(homeNavigation).getByRole('link', { name: 'API Keys' }),
+    within(homeNavigation).queryByRole('link', { name: 'API Keys' }),
+  ).toBeNull();
+  await user.click(screen.getByRole('link', { name: '设置' }));
+  expect(
+    await within(
+      screen.getByRole('navigation', { name: '设置目录' }),
+    ).findByRole('link', { name: 'API Keys' }),
   ).toBeVisible();
 });
 
@@ -147,9 +153,7 @@ test('switching the language after the secret was hidden never reveals it again'
     }),
   );
   const user = open();
-  const navigation = await screen.findByRole('navigation', {
-    name: '主菜单',
-  });
+  await screen.findByRole('navigation', { name: '主菜单' });
   await user.type(await screen.findByLabelText('名称'), 'My script');
   await user.click(screen.getByRole('switch', { name: profileScope.label }));
   await user.click(screen.getByRole('button', { name: '创建密钥' }));
@@ -159,13 +163,12 @@ test('switching the language after the secret was hidden never reveals it again'
   await user.click(screen.getByRole('button', { name: '我已保存，隐藏密钥' }));
   // Language and theme changes route through settings; returning must
   // rebuild the page from metadata only — no cached secret anywhere.
-  await user.click(within(navigation).getByRole('link', { name: '设置' }));
+  await user.click(screen.getByRole('link', { name: '设置' }));
   await user.click(await screen.findByRole('radio', { name: 'English' }));
   await user.click(
-    within(screen.getByRole('navigation', { name: 'Main menu' })).getByRole(
-      'link',
-      { name: 'API Keys' },
-    ),
+    within(
+      screen.getByRole('navigation', { name: 'Settings sections' }),
+    ).getByRole('link', { name: 'API Keys' }),
   );
   expect(
     await screen.findByRole('heading', { name: 'API Keys', level: 1 }),
@@ -200,7 +203,7 @@ test('the workspace renders key management in English around registered scope la
   );
   open('en');
   const navigation = await screen.findByRole('navigation', {
-    name: 'Main menu',
+    name: 'Settings sections',
   });
   expect(
     await within(navigation).findByRole('link', { name: 'API Keys' }),

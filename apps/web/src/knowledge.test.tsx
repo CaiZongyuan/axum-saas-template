@@ -292,7 +292,7 @@ test('reading saved Markdown filters unsafe URLs and renders images as text with
   }
   expect(screen.getByText('图片：私密图')).toBeVisible();
   expect(
-    window.document.querySelector('article img, article iframe'),
+    screen.getByRole('region', { name: '正文' }).querySelector('img, iframe'),
   ).toBeNull();
 });
 

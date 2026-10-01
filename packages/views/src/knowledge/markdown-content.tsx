@@ -17,7 +17,13 @@ const schema = {
   },
 };
 
-export default function MarkdownContent({ markdown }: { markdown: string }) {
+export default function MarkdownContent({
+  markdown,
+  framed = true,
+}: {
+  markdown: string;
+  framed?: boolean;
+}) {
   const message = useAppMessage('knowledge');
   // Images render the author's alt text, falling back to a localized
   // placeholder in both the attachment channel and the plain-text one.
@@ -41,7 +47,12 @@ export default function MarkdownContent({ markdown }: { markdown: string }) {
       ),
   };
   return (
-    <div className="break-words rounded-lg border p-6 leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_h1]:text-2xl [&_h2]:text-xl [&_h3]:text-lg [&_li]:ml-6 [&_ol]:list-decimal [&_p]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-4 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2 [&_ul]:list-disc">
+    <div
+      className={
+        'markdown-content break-words leading-relaxed [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_h1]:text-2xl [&_h2]:text-xl [&_h3]:text-lg [&_li]:ml-6 [&_ol]:list-decimal [&_p]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-4 [&_table]:block [&_table]:overflow-x-auto [&_td]:border [&_td]:p-2 [&_th]:border [&_th]:p-2 [&_ul]:list-disc' +
+        (framed ? ' rounded-lg border p-6' : '')
+      }
+    >
       <Markdown
         skipHtml
         remarkPlugins={[remarkGfm]}

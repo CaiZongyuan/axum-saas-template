@@ -2,6 +2,7 @@
 import { render, screen } from '@testing-library/react';
 import { BookOpenIcon } from 'lucide-react';
 import { expect, test } from 'vitest';
+import userEvent from '@testing-library/user-event';
 import { AppMessagesProvider } from './messages';
 import { PreferencesProvider } from './preferences';
 import { AppShellLayout } from './app-shell';
@@ -35,6 +36,27 @@ function Shell(props: Omit<Parameters<typeof AppShellLayout>[0], 'children'>) {
     </PreferencesProvider>
   );
 }
+
+test('the sidebar can be resized with the keyboard and restores its device width', async () => {
+  pinLocale('zh');
+  const user = userEvent.setup();
+  const view = render(<Shell role="member" />);
+  const handle = screen.getByRole('separator', { name: '调整侧栏宽度' });
+  expect(handle).toHaveAttribute('aria-valuenow', '224');
+  handle.focus();
+  await user.keyboard('{ArrowRight}{ArrowRight}');
+  expect(handle).toHaveAttribute('aria-valuenow', '240');
+  view.unmount();
+  render(<Shell role="member" />);
+  expect(
+    screen.getByRole('separator', { name: '调整侧栏宽度' }),
+  ).toHaveAttribute('aria-valuenow', '240');
+  await user.click(screen.getByRole('separator', { name: '调整侧栏宽度' }));
+  await user.keyboard('{End}');
+  expect(
+    screen.getByRole('separator', { name: '调整侧栏宽度' }),
+  ).toHaveAttribute('aria-valuenow', '360');
+});
 
 test('the drawer toggles are Lucide glyphs, not bare characters', () => {
   pinLocale('en');

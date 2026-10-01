@@ -159,7 +159,7 @@ test('the documents page renders the zh workspace with localized dates and names
   expect(
     await within(navigation).findByRole('link', { name: '我的文档' }),
   ).toBeVisible();
-  for (const label of ['知识库', '首页', '设置'])
+  for (const label of ['知识库', '首页'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
   expect(
     await screen.findByRole('heading', { name: '我的文档' }),
@@ -168,9 +168,7 @@ test('the documents page renders the zh workspace with localized dates and names
   const item = (
     await screen.findByRole('button', { name: '团队手册' })
   ).closest('li');
-  expect(item).toHaveTextContent(
-    `更新于 ${localeDateTime('zh', doc.updated_at)}`,
-  );
+  expect(item).toHaveTextContent(localeDateTime('zh', doc.updated_at));
   expect(screen.getByText('已显示 1 篇文档。')).toBeVisible();
   expect(screen.getByLabelText('标题关键词')).toBeVisible();
   expect(screen.getByRole('button', { name: '新建文档' })).toBeVisible();
@@ -184,7 +182,7 @@ test('the en workspace renders the documents page and reader with localized chro
   expect(
     await within(navigation).findByRole('link', { name: 'My documents' }),
   ).toBeVisible();
-  for (const label of ['Knowledge bases', 'Home', 'Settings'])
+  for (const label of ['Knowledge bases', 'Home'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
   expect(
     await screen.findByRole('heading', { name: 'My documents' }),
@@ -193,9 +191,7 @@ test('the en workspace renders the documents page and reader with localized chro
   const item = (
     await screen.findByRole('button', { name: '团队手册' })
   ).closest('li');
-  expect(item).toHaveTextContent(
-    `Updated ${localeDateTime('en', doc.updated_at)}`,
-  );
+  expect(item).toHaveTextContent(localeDateTime('en', doc.updated_at));
   expect(screen.getByText('Documents shown: 1.')).toBeVisible();
   expect(screen.getByLabelText('Title keywords')).toBeVisible();
 

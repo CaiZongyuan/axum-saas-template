@@ -316,10 +316,18 @@ test('the status filter survives a language switch and speaks English afterwards
   // The switch routes through settings; returning must restore the filter
   // from the URL and render the catalog in English.
   await user.click(await screen.findByRole('navigation', { name: '主菜单' }));
-  const navigation = await screen.findByRole('navigation', {
-    name: '主菜单',
+  await screen.findByRole('navigation', { name: '主菜单' });
+  await user.click(screen.getByRole('link', { name: '设置' }));
+  const settingsDirectory = screen.getByRole('navigation', {
+    name: '设置目录',
   });
-  await user.click(within(navigation).getByRole('link', { name: '设置' }));
+  await user.click(
+    await within(settingsDirectory).findByRole('link', { name: '个人资料' }),
+  );
+  await screen.findByRole('heading', { name: '个人资料', level: 1 });
+  await user.click(
+    within(settingsDirectory).getByRole('link', { name: '外观与语言' }),
+  );
   await user.click(await screen.findByRole('radio', { name: 'English' }));
   await user.click(
     within(screen.getByRole('navigation', { name: 'Main menu' })).getByRole(

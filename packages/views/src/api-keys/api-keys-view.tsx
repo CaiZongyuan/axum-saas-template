@@ -81,17 +81,27 @@ function Failure({
 export function ApiKeysView({
   apiClient,
   copySecret,
+  embedded = false,
 }: {
   apiClient: ApiClient;
   copySecret: (secret: string) => Promise<void>;
+  embedded?: boolean;
 }) {
   const message = useAppMessage();
-  usePageTitle('apiKeys.title');
+  usePageTitle(embedded ? undefined : 'apiKeys.title');
   const client = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, client));
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-10">
-      <h1 className="text-2xl font-semibold">{message('apiKeys.title')}</h1>
+    <div
+      className={
+        embedded
+          ? 'flex min-w-0 flex-col gap-6'
+          : 'app-page flex flex-col gap-6'
+      }
+    >
+      {embedded ? null : (
+        <h1 className="text-xl font-semibold">{message('apiKeys.title')}</h1>
+      )}
       {session.isPending ? (
         <p role="status">{message('common.loadingSession')}</p>
       ) : session.isError ? (

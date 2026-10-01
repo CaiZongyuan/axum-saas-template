@@ -8,11 +8,14 @@
     "./design-system": "./src/design-system/design-system-view.tsx"
   },
   "dependencies": {
+    "@dicebear/core": "10.7.0",
+    "@dicebear/styles": "10.6.0",
     "@saas/contracts": "workspace:*",
     "@saas/core": "workspace:*",
     "@saas/sdk": "workspace:*",
     "@saas/ui": "workspace:*",
     "@tanstack/react-query": "5.103.2",
+    "@tabler/icons-react": "3.46.0",
     "lucide-react": "1.48.0",
     "react-markdown": "10.1.0",
     "rehype-sanitize": "6.0.0",

@@ -43,6 +43,7 @@ import {
 import { FolderOpenIcon } from 'lucide-react';
 import { DocumentList } from './documents-view';
 import { knowledgeBaseQuery } from './knowledge-base-query';
+import { KnowledgeBaseGraphic } from './knowledge-base-graphic';
 
 function Failure({ error }: { error: unknown }) {
   const message = useAppMessage('knowledge');
@@ -165,9 +166,9 @@ export function KnowledgeBasesView({
   const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
+    <div className="app-page flex flex-col gap-6">
       <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{message('bases.title')}</h1>
+        <h1 className="text-xl font-semibold">{message('bases.title')}</h1>
         <Button variant="outline" onClick={onBack}>
           {message('bases.backHome')}
         </Button>
@@ -305,16 +306,19 @@ function BaseList({
               </EmptyHeader>
             </Empty>
           ) : (
-            <ul className="flex flex-col gap-3">
+            <ul className="knowledge-base-list">
               {items.map((base) => (
-                <li
-                  key={base.id}
-                  className="flex items-center justify-between gap-4 rounded-lg border p-4"
-                >
+                <li key={base.id} className="knowledge-base-row">
+                  <KnowledgeBaseGraphic
+                    userId={identity.user.id}
+                    baseId={base.id}
+                    name={base.name}
+                    editable
+                  />
                   <Button variant="link" onClick={() => onOpen(base.id)}>
                     {base.name}
                   </Button>
-                  <span>
+                  <span className="knowledge-base-summary">
                     {base.personal
                       ? message('bases.personalBadge')
                       : message('bases.sharedBadge')}{' '}

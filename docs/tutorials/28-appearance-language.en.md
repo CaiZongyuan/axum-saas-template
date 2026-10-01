@@ -8,7 +8,9 @@ Run `just dev` and open `/login`. The top-right corner carries two controls — 
 
 After signing in, the sidebar bottom leads to "Settings" (`/settings`): language and theme live in the "Appearance & language" section, still two native radio groups writing the same preference state as the login-page controls. Switch to English and the sidebar, page title and `html.lang` become English together; the address bar is unchanged and no network request is made — switching is pure frontend state.
 
-The settings page is organized into sections: Appearance & language (this device), Account, API Keys, Design system (embedding the same showroom) and Help; the last three are signed-in capabilities and appear once the session resolves. A `?section=` query deep-links straight to a section, e.g. `/settings?section=api-keys`. The sidebar bottom converges on the "Settings" entry plus the signed-in shortcuts (API Keys, Design system, System status); Documentation moved into the settings page's Help section.
+Clicking the lower-left user area opens settings directly. Its directory sits immediately beside the main sidebar, with Appearance & language, Profile, API Keys, Design system, System status and Help. Identity-related sections appear after sign-in. `?section=` opens a specific section, such as `/settings?section=api-keys`. The utilities operate inside settings; existing `/api-keys`, `/design-system` and `/system` bookmarks remain usable.
+
+Drag the desktop sidebar's right edge to change its width. With the separator focused, arrow keys adjust it, Home/End reach its bounds, and double-click restores the default. Width is remembered on this device. Profile avatars use DiceBear, defaulting to Lorelei, with selectable designs and backgrounds. Changes stay in a draft until confirmed. Avatar preferences are remembered per user on this device; they do not modify account data or sync across devices.
 
 ## 2. How the preference is decided
 

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createRootRouteWithContext,
@@ -22,11 +22,9 @@ import {
   SettingsView,
   ForgotPasswordView,
   ResetPasswordView,
-  ApiKeysView,
   AuditView,
   auditFilterFields,
   NotificationsView,
-  StatusView,
   LoginView,
   RegisterView,
   HomeView,
@@ -45,7 +43,6 @@ import { DesktopPreferencesMirror } from './desktop-preferences';
 // (docs/ui/design.md §6 Q9): the subpath import keeps the design-system
 // view — and everything it alone uses — out of the initial bundle, within
 // the existing perf budgets.
-const DesignSystemView = lazy(() => import('@saas/views/design-system'));
 
 type AppContext = { apiClient: ApiClient; docsUrl: string };
 const rootRoute = createRootRouteWithContext<AppContext>()({
@@ -131,7 +128,16 @@ function shellPathPort(
   return (path) => {
     void navigate({
       to: path,
-      ...(queryRetainingPaths.has(path) ? { search: true as const } : {}),
+      ...(path === '/settings'
+        ? {
+            search: (previous: Record<string, unknown>) => ({
+              ...previous,
+              section: undefined,
+            }),
+          }
+        : queryRetainingPaths.has(path)
+          ? { search: true as const }
+          : {}),
     });
   };
 }
@@ -160,11 +166,16 @@ const shellRoute = createRoute({
     const queryClient = useQueryClient();
     const session = useQuery(sessionQuery(apiClient, queryClient));
     const signedIn = session.data?.user !== undefined;
+    const currentPath = useLocation({
+      select: (location) => location.pathname,
+    });
     return (
       <AppShellLayout
         navigation={signedIn ? assembledApp.navigation : undefined}
         moduleIcons={signedIn ? assembledApp.moduleIcons : undefined}
         role={session.data?.user.role}
+        user={session.data?.user}
+        currentPath={currentPath}
         onOpen={shellPathPort(navigate)}
         loadingIndicator={
           session.isPending ? (
@@ -185,8 +196,7 @@ const statusRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/system',
   component: function StatusPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
-    return <StatusView apiClient={apiClient} docsUrl={docsUrl} />;
+    return <AppSettingsPage section="system" />;
   },
 });
 
@@ -250,45 +260,42 @@ const settingsRoute = createRoute({
   path: '/settings',
   validateSearch: validateSettingsSearch,
   component: function SettingsPage() {
-    const { apiClient, docsUrl } = rootRoute.useRouteContext();
-    const navigate = useNavigate();
     const { section } = settingsRoute.useSearch();
-    return (
-      <SettingsView
-        docsUrl={docsUrl}
-        apiClient={apiClient}
-        onOpen={shellPathPort(navigate)}
-        section={section}
-        showroom={{
-          scenes: assembledApp.scenes,
-          copyText: (text) => navigator.clipboard.writeText(text),
-        }}
-      />
-    );
+    return <AppSettingsPage section={section} />;
   },
 });
+
+function AppSettingsPage({ section }: { section?: string }) {
+  const { apiClient, docsUrl } = rootRoute.useRouteContext();
+  const navigate = useNavigate();
+  return (
+    <SettingsView
+      docsUrl={docsUrl}
+      apiClient={apiClient}
+      onOpen={shellPathPort(navigate)}
+      section={section}
+      onSectionChange={(next) => {
+        void navigate({
+          to: '/settings',
+          search: (previous: Record<string, unknown>) => ({
+            ...previous,
+            section: next,
+          }),
+        });
+      }}
+      showroom={{
+        scenes: assembledApp.scenes,
+        copyText: (text) => navigator.clipboard.writeText(text),
+      }}
+    />
+  );
+}
 
 const designSystemRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/design-system',
   component: function DesignSystemPage() {
-    const { docsUrl } = rootRoute.useRouteContext();
-    const message = useAppMessage();
-    return (
-      <Suspense
-        fallback={
-          <p role="status" className="p-8 text-sm text-muted-foreground">
-            {message('design.pageLoading')}
-          </p>
-        }
-      >
-        <DesignSystemView
-          docsUrl={docsUrl}
-          scenes={assembledApp.scenes}
-          copyText={(text) => navigator.clipboard.writeText(text)}
-        />
-      </Suspense>
-    );
+    return <AppSettingsPage section="design-system" />;
   },
 });
 
@@ -462,13 +469,7 @@ const apiKeysRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/api-keys',
   component: function ApiKeysPage() {
-    const { apiClient } = rootRoute.useRouteContext();
-    return (
-      <ApiKeysView
-        apiClient={apiClient}
-        copySecret={(secret) => navigator.clipboard.writeText(secret)}
-      />
-    );
+    return <AppSettingsPage section="api-keys" />;
   },
 });
 

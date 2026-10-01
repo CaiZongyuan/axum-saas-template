@@ -64,6 +64,8 @@
 
 ## 5. 页面与缓存
 
+知识库列表中的图标可以点击更换：默认 Glass，也可以选择图标图案和分类色。选择先保留在草稿中，确认后同步显示在列表、阅读页和编辑上下文。该外观选择按用户与知识库在本机记忆，不修改知识库数据，不影响 Grant，也不会改变其他成员看到的外观。
+
 [知识库 Views](../../packages/views/src/knowledge/knowledge-bases-view.tsx)复用 Core 成员目录选择已注册用户，无邀请步骤。个人文档与库内文档使用同一个[列表/编辑 View](../../packages/views/src/knowledge/documents-view.tsx)；库范围进入 Query key 与 API 参数，未保存草稿也按账号和库分开。
 
 授权控件的名称随界面语言解析，撤销按钮的可访问名称携带目标邮箱（“撤销 {邮箱} 的授权” / “Revoke {email}’s access”），屏幕阅读器在两种语言下都能明确目标；双语 View 测试覆盖代表页面。

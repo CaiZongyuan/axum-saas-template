@@ -32,7 +32,7 @@ const signedIn = {
   csrf_token: 'design-system-csrf',
 } satisfies CurrentSession;
 
-function open(path = '/design-system') {
+async function open(path = '/design-system') {
   server.use(
     http.get('http://api.test/api/v1/auth/session', () =>
       HttpResponse.json(signedIn),
@@ -53,17 +53,35 @@ function open(path = '/design-system') {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return { user: userEvent.setup(), router };
+  const user = userEvent.setup();
+  if (path === '/design-system')
+    await screen.findByRole(
+      'tab',
+      {
+        name:
+          window.localStorage.getItem('saas.locale') === 'en'
+            ? 'Foundation'
+            : '基础',
+      },
+      { timeout: 5000 },
+    );
+  return { user, router };
 }
 
 test('the sidebar entry opens the showroom; the page renames the document', async () => {
-  const { user } = open('/');
+  const { user } = await open('/');
   await screen.findByText('你好，展厅用户');
-  await user.click(screen.getByRole('link', { name: '设计系统' }));
+  await user.click(screen.getByRole('link', { name: '设置' }));
+  await user.click(
+    await within(
+      screen.getByRole('navigation', { name: '设置目录' }),
+    ).findByRole('link', { name: '设计系统' }),
+  );
   expect(
     await screen.findByRole('heading', { name: '设计系统' }),
   ).toBeVisible();
   expect(document.title).toBe('设计系统 · SaaS 模板');
+  await screen.findByRole('tab', { name: '基础' }, { timeout: 5000 });
   for (const tab of ['基础', '组件', '场景', '图标'])
     expect(
       screen.getByRole('tab', { name: tab }),
@@ -78,7 +96,7 @@ test('the sidebar entry opens the showroom; the page renames the document', asyn
 });
 
 test('foundation lists production tokens with search and copy of the live value', async () => {
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   // The foundation tab is the landing tab; tokens render from the live
   // computed styles, not a second color table.
@@ -103,7 +121,7 @@ test('foundation lists production tokens with search and copy of the live value'
 });
 
 test('component states operate: loading, validation error, disabled', async () => {
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   await user.click(screen.getByRole('tab', { name: '组件' }));
 
@@ -138,7 +156,7 @@ test('component states operate: loading, validation error, disabled', async () =
 });
 
 test('the overlay demo moves focus into the dialog and closes without writes', async () => {
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   await user.click(screen.getByRole('tab', { name: '组件' }));
 
@@ -163,7 +181,7 @@ test('the overlay demo moves focus into the dialog and closes without writes', a
 });
 
 test('scenes run on isolated local state; example scenes come from the real assembly', async () => {
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   await user.click(screen.getByRole('tab', { name: '场景' }));
 
@@ -216,7 +234,7 @@ test('the knowledge save-conflict scene demos success, failure, conflict and dis
     (scene) => scene.exampleId === 'knowledge' && scene.id === 'save-conflict',
   );
   if (!knowledge) return; // combo without the knowledge example
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   await user.click(screen.getByRole('tab', { name: '场景' }));
 
@@ -276,7 +294,7 @@ test('the knowledge attachment scene demos file icons and upload lifecycle feedb
       scene.exampleId === 'knowledge' && scene.id === 'attachment-states',
   );
   if (!knowledge) return; // combo without the knowledge example
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   await user.click(screen.getByRole('tab', { name: '场景' }));
 
@@ -320,7 +338,7 @@ test('the knowledge export scene demos export statuses and the notification disp
     (scene) => scene.exampleId === 'knowledge' && scene.id === 'export-states',
   );
   if (!knowledge) return; // combo without the knowledge example
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   await user.click(screen.getByRole('tab', { name: '场景' }));
 
@@ -378,7 +396,7 @@ test('the knowledge export scene demos export statuses and the notification disp
   // interface language without its own strings (UI09).
   cleanup();
   window.localStorage.setItem('saas.locale', 'en');
-  const english = open();
+  const english = await open();
   await screen.findByRole('heading', { name: 'Design system' });
   await english.user.click(screen.getByRole('tab', { name: 'Scenes' }));
   expect(await screen.findByText('Document export completed')).toBeVisible();
@@ -395,7 +413,7 @@ test('the knowledge export scene demos export statuses and the notification disp
 });
 
 test('the icon catalog lazy-loads, filters by name, and copies names', async () => {
-  const { user } = open();
+  const { user } = await open();
   await screen.findByRole('heading', { name: '设计系统' });
   await user.click(screen.getByRole('tab', { name: '图标' }));
 
@@ -435,7 +453,7 @@ test('all four locale/theme combinations render the showroom', async () => {
   ] as const) {
     window.localStorage.setItem('saas.locale', locale);
     window.localStorage.setItem('saas.theme', theme);
-    const { user } = open();
+    const { user } = await open();
     const heading = locale === 'zh' ? '设计系统' : 'Design system';
     expect(await screen.findByRole('heading', { name: heading })).toBeVisible();
     expect(document.documentElement.classList.contains('dark')).toBe(

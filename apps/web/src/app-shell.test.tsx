@@ -116,8 +116,11 @@ test('the sidebar holds the Core entries; a member sees no administration group'
   // describe the signed-in sidebar, not the pre-session first paint.
   expect(await screen.findByText('你好，壳用户')).toBeVisible();
   const navigation = screen.getByRole('navigation', { name: '主菜单' });
-  for (const label of ['首页', '通知', '设置', '设计系统', '系统状态'])
+  for (const label of ['首页', '通知'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
+  expect(screen.getByRole('link', { name: '设置' })).toBeVisible();
+  for (const label of ['设置', 'API Keys', '设计系统', '系统状态'])
+    expect(within(navigation).queryByRole('link', { name: label })).toBeNull();
   expect(
     within(navigation).queryByRole('link', { name: '企业成员' }),
   ).toBeNull();
@@ -134,8 +137,9 @@ test('a signed-out visitor sees the public Core entries only', async () => {
   // absence assertions describe the final sidebar.
   await screen.findByRole('link', { name: '登录' });
   const navigation = screen.getByRole('navigation', { name: '主菜单' });
-  for (const label of ['首页', '设置', '系统状态'])
+  for (const label of ['首页'])
     expect(within(navigation).getByRole('link', { name: label })).toBeVisible();
+  expect(screen.getByRole('link', { name: '设置' })).toBeVisible();
   // Notification, API-key and design-system surfaces are authenticated
   // capabilities; the sidebar does not advertise them before sign-in.
   // Business groups are session-scoped too, so they stay out as well.

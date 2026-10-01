@@ -26,12 +26,14 @@ import { usePageTitle } from '../shell/page-title';
 export function StatusView({
   apiClient,
   docsUrl,
+  embedded = false,
 }: {
   apiClient: ApiClient;
   docsUrl: string;
+  embedded?: boolean;
 }) {
   const message = useAppMessage();
-  usePageTitle('status.title');
+  usePageTitle(embedded ? undefined : 'status.title');
   const query = useQuery({
     queryKey: ['system-status', apiClient.getConfig().baseUrl],
     queryFn: async ({ signal }) =>
@@ -49,13 +51,21 @@ export function StatusView({
       : message('status.ready');
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-6 py-12 md:py-16">
+    <div
+      className={
+        embedded
+          ? 'status-content flex min-w-0 flex-col gap-6'
+          : 'app-page status-content flex flex-col gap-6'
+      }
+    >
       <section className="flex flex-col items-start gap-4">
         <Badge variant="outline">{message('status.badge')}</Badge>
-        <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-          {heading}
-        </h1>
-        <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+        {embedded ? (
+          <h2 className="text-base font-semibold">{heading}</h2>
+        ) : (
+          <h1 className="text-xl font-semibold">{heading}</h1>
+        )}
+        <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
           {message('status.intro')}
         </p>
         <div className="flex flex-wrap gap-3 pt-2">

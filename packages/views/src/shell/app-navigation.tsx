@@ -7,7 +7,17 @@ import { useAppMessage } from './messages';
 // carry their module icon (registry lookups are optional data — an entry
 // without one still renders) before the label.
 export const sidebarLinkClass =
-  'flex h-11 items-center gap-2 rounded-md px-3 text-sm text-foreground hover:bg-accent lg:h-9 ';
+  'app-nav-link flex h-11 items-center gap-2.5 rounded-md px-3 text-sm text-muted-foreground hover:bg-accent lg:h-9 ';
+
+export function navigationActive(
+  currentPath: string | undefined,
+  path: string,
+) {
+  return (
+    currentPath === path ||
+    (path !== '/' && currentPath?.startsWith(path + '/') === true)
+  );
+}
 
 // Renders the assembled business navigation groups. The shell never
 // inspects which example a group came from — groups carry their own
@@ -18,17 +28,19 @@ export function BusinessNavigation({
   navigation,
   moduleIcons,
   onOpen,
+  currentPath,
 }: {
   navigation: AssembledApp['navigation'];
   moduleIcons?: AssembledApp['moduleIcons'];
   onOpen: (path: string) => void;
+  currentPath?: string;
 }) {
   const message = useAppMessage();
   return (
     <div className="flex flex-col gap-4">
       {navigation.map((group) => (
         <div key={group.id} className="flex flex-col gap-1">
-          <h3 className="px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <h3 className="app-nav-group-label px-3 text-xs font-medium text-muted-foreground">
             {message(group.labelKey)}
           </h3>
           {group.items.map((item) => {
@@ -38,7 +50,19 @@ export function BusinessNavigation({
                 key={item.id}
                 href={item.path}
                 className={sidebarLinkClass.trim()}
+                aria-current={
+                  navigationActive(currentPath, item.path) ? 'page' : undefined
+                }
+                aria-label={message(item.labelKey)}
+                title={message(item.labelKey)}
                 onClick={(event) => {
+                  if (
+                    event.metaKey ||
+                    event.ctrlKey ||
+                    event.shiftKey ||
+                    event.altKey
+                  )
+                    return;
                   event.preventDefault();
                   onOpen(item.path);
                 }}
@@ -51,7 +75,7 @@ export function BusinessNavigation({
                     size="sm"
                   />
                 ) : null}
-                {message(item.labelKey)}
+                <span className="app-nav-label">{message(item.labelKey)}</span>
               </a>
             );
           })}

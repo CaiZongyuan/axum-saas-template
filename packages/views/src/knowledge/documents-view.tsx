@@ -28,12 +28,6 @@ import {
 import { errorCodeOf } from '@saas/core';
 import { Button } from '@saas/ui/components/button';
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@saas/ui/components/card';
-import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -41,7 +35,17 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from '@saas/ui/components/empty';
-import { FileSearchIcon } from 'lucide-react';
+import {
+  ArrowLeft,
+  ArrowRight,
+  FileCode2,
+  FileSearchIcon,
+  Loader2,
+  Plus,
+  Save,
+  X,
+} from 'lucide-react';
+import { MaterialFileIcon } from '@saas/ui/components/material-file-icon';
 import {
   Field,
   FieldDescription,
@@ -60,6 +64,7 @@ import { AttachmentsPanel } from './attachments-panel';
 import { DeleteResource } from './delete-resource';
 import { ExportsPanel } from './exports-panel';
 import type { FileTransfer } from './file-transfer';
+import { KnowledgeBaseGraphic } from './knowledge-base-graphic';
 
 function permissionDenied(error: unknown): boolean {
   const code = errorCodeOf(error);
@@ -100,15 +105,17 @@ function Page({
   title,
   actions,
   children,
+  className = '',
 }: {
   title: string;
   actions?: ReactNode;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
+    <div className={'app-page flex flex-col gap-6 ' + className}>
       <header className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{title}</h1>
+        <h1 className="text-xl font-semibold">{title}</h1>
         {actions}
       </header>
       {children}
@@ -129,7 +136,7 @@ export function DocumentsView({
   const message = useAppMessage('knowledge');
   const session = useQuery(sessionQuery(apiClient, queryClient));
   return (
-    <Page title={message('documents.title')}>
+    <Page title={message('documents.title')} className="documents-page">
       <IdentityGate session={session}>
         {session.data ? (
           <DocumentList
@@ -138,6 +145,7 @@ export function DocumentsView({
             identity={session.data}
             onOpen={onOpen}
             onNew={onNew}
+            standalone
           />
         ) : null}
       </IdentityGate>
@@ -152,6 +160,7 @@ export function DocumentList({
   knowledgeBaseId,
   canCreate = true,
   onNew,
+  standalone = false,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
@@ -159,6 +168,7 @@ export function DocumentList({
   knowledgeBaseId?: string;
   canCreate?: boolean;
   onNew?: () => void;
+  standalone?: boolean;
 }) {
   const queryClient = useQueryClient();
   const message = useAppMessage('knowledge');
@@ -213,18 +223,25 @@ export function DocumentList({
   return (
     <div className="flex flex-col gap-4">
       {onNew && documents.data?.pages[0]?.can_create ? (
-        <Button onClick={onNew}>{message('common.newDocument')}</Button>
+        <Button
+          className={standalone ? 'document-new-action' : 'self-start'}
+          onClick={onNew}
+        >
+          <Plus data-icon="inline-start" />
+          {message('common.newDocument')}
+        </Button>
       ) : null}
       <form
+        className="document-search"
         role="search"
         onSubmit={(event) => {
           event.preventDefault();
           search(searchInput.current?.value.trim() ?? '');
         }}
       >
-        <FieldGroup>
+        <FieldGroup className="document-search-fields">
           <Field>
-            <FieldLabel htmlFor="document-search">
+            <FieldLabel htmlFor="document-search" className="sr-only">
               {message('documents.searchLabel')}
             </FieldLabel>
             <Input
@@ -232,23 +249,29 @@ export function DocumentList({
               id="document-search"
               name="q"
               maxLength={200}
+              placeholder={message('documents.searchPlaceholder')}
             />
-            <FieldDescription>
-              {message('documents.searchHint')}
-            </FieldDescription>
           </Field>
           <div className="flex gap-2">
-            <Button type="submit" disabled={documents.isFetching}>
+            <Button
+              variant="outline"
+              size="sm"
+              type="submit"
+              disabled={documents.isFetching}
+            >
               {message('documents.search')}
             </Button>
             <Button
-              variant="outline"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={message('documents.clearSearch')}
+              title={message('documents.clearSearch')}
               onClick={() => {
                 if (searchInput.current) searchInput.current.value = '';
                 search('');
               }}
             >
-              {message('documents.clearSearch')}
+              <X aria-hidden="true" />
             </Button>
           </div>
         </FieldGroup>
@@ -264,7 +287,7 @@ export function DocumentList({
       ) : null}
       {!documents.isPending && canShowResults ? (
         items.length === 0 ? (
-          <Empty className="border">
+          <Empty className="document-empty">
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <FileSearchIcon aria-hidden="true" />
@@ -286,7 +309,7 @@ export function DocumentList({
           </Empty>
         ) : (
           <>
-            <p role="status">
+            <p role="status" className="document-results-count">
               {keyword
                 ? message('documents.shownWithKeyword', {
                     count: items.length,
@@ -294,26 +317,50 @@ export function DocumentList({
                   })
                 : message('documents.shownCount', { count: items.length })}
             </p>
-            <ul className="flex flex-col gap-3">
+            <div className="document-columns" aria-hidden="true">
+              <span>{message('documents.titleLabel')}</span>
+              <span>{message('documents.updatedColumn')}</span>
+              <span>{message('documents.versionColumn')}</span>
+              <span />
+            </div>
+            <ul className="document-rows">
               {items.map((document) => (
                 <li key={document.id}>
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>
-                        <Button
-                          variant="link"
-                          onClick={() => onOpen(document.id)}
-                        >
-                          {document.title}
-                        </Button>
-                      </CardTitle>
-                      <CardDescription>
-                        {message('documents.updated', {
-                          date: formatDateTime(document.updated_at),
-                        })}
-                      </CardDescription>
-                    </CardHeader>
-                  </Card>
+                  <button
+                    type="button"
+                    className="document-row"
+                    aria-label={document.title}
+                    onClick={() => onOpen(document.id)}
+                  >
+                    <span className="document-row-name">
+                      <span className="document-file-icon">
+                        <MaterialFileIcon
+                          name="document.md"
+                          className="size-6"
+                        />
+                      </span>
+                      <span>
+                        <strong>{document.title}</strong>
+                        <span className="document-mobile-meta">
+                          {formatDateTime(document.updated_at)} · v
+                          {document.version}
+                        </span>
+                      </span>
+                    </span>
+                    <span
+                      className="document-row-date"
+                      title={formatDateTime(document.updated_at)}
+                    >
+                      {formatDateTime(document.updated_at)}
+                    </span>
+                    <span className="document-row-version">
+                      v{document.version}
+                    </span>
+                    <ArrowRight
+                      className="document-row-arrow"
+                      aria-hidden="true"
+                    />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -569,6 +616,7 @@ function DocumentForm({
   }
   return (
     <form
+      className="document-form"
       onChange={() => {
         const markdown = markdownInput.current?.value ?? '';
         setDirty(
@@ -604,6 +652,29 @@ function DocumentForm({
         mutation.mutate({ body, key: attempt.current.key });
       }}
     >
+      <div className="document-save-toolbar">
+        <span role="status">
+          {dirty
+            ? message('documents.unsavedChanges')
+            : document
+              ? message('documents.savedState')
+              : message('documents.notSaved')}
+        </span>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={mutation.isPending || conflict || cannotEdit}
+        >
+          {mutation.isPending ? (
+            <Loader2 data-icon="inline-start" className="animate-spin" />
+          ) : (
+            <Save data-icon="inline-start" />
+          )}
+          {mutation.isPending
+            ? message('common.saving')
+            : message('documents.save')}
+        </Button>
+      </div>
       <FieldGroup>
         {cannotEdit ? (
           <p role="status">
@@ -649,9 +720,26 @@ function DocumentForm({
             breakpoint re-labels the panes but never remounts them, so the
             uncontrolled draft survives a resize. Wide shows the panes side
             by side with a live preview; narrow keeps the tabbed mode. */}
-        <div data-editor-layout={wide ? 'wide' : 'narrow'}>
+        {document || knowledgeBaseId ? (
+          <div className="document-editor-context">
+            <KnowledgeBaseGraphic
+              userId={identity.user.id}
+              baseId={document?.knowledge_base_id ?? knowledgeBaseId!}
+              name={message('documents.openBase')}
+              small
+            />
+            <span>{message('documents.openBase')}</span>
+            {baseline.version !== undefined ? (
+              <span>v{baseline.version}</span>
+            ) : null}
+          </div>
+        ) : null}
+        <div
+          data-editor-layout={wide ? 'wide' : 'narrow'}
+          className="document-editor"
+        >
           {wide ? (
-            <div className="grid grid-cols-2 gap-4 text-sm font-medium text-muted-foreground">
+            <div className="document-pane-labels grid grid-cols-2 text-sm font-medium text-muted-foreground">
               <span>{message('documents.tabEdit')}</span>
               <span>{message('documents.tabPreview')}</span>
             </div>
@@ -659,7 +747,7 @@ function DocumentForm({
             <div
               role="tablist"
               aria-label={message('documents.markdownMode')}
-              className="flex w-fit gap-1 rounded-lg bg-muted p-1"
+              className="document-mode-tabs flex w-fit gap-1"
             >
               {EDITOR_MODES.map((mode) => (
                 <button
@@ -683,7 +771,13 @@ function DocumentForm({
               ))}
             </div>
           )}
-          <div className={wide ? 'grid grid-cols-2 gap-4' : undefined}>
+          <div
+            className={
+              wide
+                ? 'document-editor-panes grid grid-cols-2'
+                : 'document-editor-panes'
+            }
+          >
             <div
               role={wide ? undefined : 'tabpanel'}
               id={wide ? undefined : 'document-panel-edit'}
@@ -697,7 +791,7 @@ function DocumentForm({
                   inputError === 'knowledge.invalid_text'
                 }
               >
-                <FieldLabel htmlFor="document-markdown">
+                <FieldLabel htmlFor="document-markdown" className="sr-only">
                   {message('documents.bodyLabel')}
                 </FieldLabel>
                 <Textarea
@@ -706,13 +800,14 @@ function DocumentForm({
                   id="document-markdown"
                   name="markdown"
                   rows={16}
+                  variant="code"
                   aria-invalid={
                     inputError === 'knowledge.too_large' ||
                     inputError === 'knowledge.invalid_text'
                   }
                   disabled={mutation.isPending || cannotEdit}
                 />
-                <FieldDescription>
+                <FieldDescription className="sr-only">
                   {message('documents.bodyHint')}
                 </FieldDescription>
               </Field>
@@ -725,6 +820,7 @@ function DocumentForm({
             >
               <MarkdownPreview
                 markdown={deferredPreview}
+                framed={false}
                 attachments={attachmentContext}
               />
             </div>
@@ -752,14 +848,6 @@ function DocumentForm({
             {message('documents.baseline', { version: baseline.version })}
           </p>
         ) : null}
-        <Button
-          type="submit"
-          disabled={mutation.isPending || conflict || cannotEdit}
-        >
-          {mutation.isPending
-            ? message('common.saving')
-            : message('documents.save')}
-        </Button>
       </FieldGroup>
       {document && fileTransfer ? (
         <AttachmentsPanel
@@ -907,8 +995,9 @@ export function DocumentView({
     documentQuery(apiClient, session.data?.user.id, documentId),
   );
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-6 py-10">
-      <Button variant="outline" onClick={onBack}>
+    <div className="app-page document-reader flex flex-col gap-6">
+      <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
+        <ArrowLeft data-icon="inline-start" />
         {message('documents.title')}
       </Button>
       <IdentityGate session={session}>
@@ -918,63 +1007,108 @@ export function DocumentView({
           <Failure error={document.error} />
         ) : (
           <article className="flex flex-col gap-6">
-            <h1 className="text-3xl font-semibold">{document.data.title}</h1>
-            <Button
-              variant="outline"
-              onClick={() => onLibrary(document.data.knowledge_base_id)}
+            <div className="document-reader-heading">
+              <div>
+                <h1 className="text-2xl font-semibold">
+                  {document.data.title}
+                </h1>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  aria-label={message('documents.openBase')}
+                  onClick={() => onLibrary(document.data.knowledge_base_id)}
+                >
+                  <span aria-hidden="true">
+                    <KnowledgeBaseGraphic
+                      userId={session.data?.user.id}
+                      baseId={document.data.knowledge_base_id}
+                      name={message('documents.openBase')}
+                      small
+                    />
+                  </span>
+                  {message('documents.openBase')}
+                </Button>
+                <p className="text-sm text-muted-foreground">
+                  {message('common.version', {
+                    version: document.data.version,
+                  })}
+                </p>
+              </div>
+              <div className="document-reader-actions">
+                {document.data.can_edit ? (
+                  <Button size="sm" onClick={onEdit}>
+                    <FileCode2 data-icon="inline-start" />
+                    {message('documents.edit')}
+                  </Button>
+                ) : null}
+                {document.data.can_edit && session.data ? (
+                  <DeleteResource
+                    key={`delete:${session.data.user.id}:${documentId}`}
+                    apiClient={apiClient}
+                    identity={session.data}
+                    resource={{
+                      kind: 'document',
+                      id: documentId,
+                      name: document.data.title,
+                    }}
+                    onDeleted={onBack}
+                  />
+                ) : null}
+              </div>
+            </div>
+            <nav
+              className="document-reader-navigation"
+              aria-label={message('reader.navigation')}
             >
-              {message('documents.openBase')}
-            </Button>
-            {document.data.can_edit ? (
-              <Button onClick={onEdit}>{message('documents.edit')}</Button>
-            ) : null}
-            <p className="text-sm text-muted-foreground">
-              {message('common.version', { version: document.data.version })}
-            </p>
-            {document.data.can_edit && session.data ? (
-              <DeleteResource
-                key={`delete:${session.data.user.id}:${documentId}`}
-                apiClient={apiClient}
-                identity={session.data}
-                resource={{
-                  kind: 'document',
-                  id: documentId,
-                  name: document.data.title,
-                }}
-                onDeleted={onBack}
+              <a href="#document-body">{message('reader.body')}</a>
+              <a href="#document-attachments">
+                {message('attachments.heading')}
+              </a>
+              <a href="#document-exports">{message('exports.heading')}</a>
+            </nav>
+            <section
+              id="document-body"
+              className="document-reading-body"
+              aria-label={message('reader.body')}
+            >
+              <MarkdownPreview
+                framed={false}
+                markdown={document.data.markdown}
+                attachments={
+                  session.data
+                    ? {
+                        apiClient,
+                        userId: session.data.user.id,
+                        documentId,
+                        transfer: fileTransfer,
+                      }
+                    : undefined
+                }
               />
-            ) : null}
-            <MarkdownPreview
-              markdown={document.data.markdown}
-              attachments={
-                session.data
-                  ? {
-                      apiClient,
-                      userId: session.data.user.id,
-                      documentId,
-                      transfer: fileTransfer,
-                    }
-                  : undefined
-              }
-            />
+            </section>
             {session.data ? (
-              <ExportsPanel
-                key={`exports:${session.data.user.id}:${documentId}`}
-                apiClient={apiClient}
-                identity={session.data}
-                documentId={documentId}
-                transfer={fileTransfer}
-              />
+              <div id="document-exports">
+                <ExportsPanel
+                  key={`exports:${session.data.user.id}:${documentId}`}
+                  apiClient={apiClient}
+                  identity={session.data}
+                  documentId={documentId}
+                  transfer={fileTransfer}
+                />
+              </div>
             ) : null}
             {session.data ? (
-              <AttachmentsPanel
-                key={`${session.data.user.id}:${documentId}`}
-                apiClient={apiClient}
-                identity={session.data}
-                documentId={documentId}
-                canEdit={document.data.can_edit}
-                transfer={fileTransfer}
-              />
+              <div id="document-attachments">
+                <AttachmentsPanel
+                  key={`${session.data.user.id}:${documentId}`}
+                  apiClient={apiClient}
+                  identity={session.data}
+                  documentId={documentId}
+                  canEdit={document.data.can_edit}
+                  transfer={fileTransfer}
+                />
+              </div>
             ) : null}
           </article>
         )}

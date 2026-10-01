@@ -80,6 +80,34 @@ function open(path: string) {
   return { user: userEvent.setup(), router };
 }
 
+test('a knowledge-base icon is a local preference and keeps its selected glyph and color', async () => {
+  server.use(
+    http.get('http://api.test/api/v1/knowledge/bases', () =>
+      HttpResponse.json({
+        data: [base],
+        next_cursor: null,
+        has_more: false,
+        can_create: false,
+      }),
+    ),
+  );
+  const { user } = open('/knowledge-bases');
+  await user.click(
+    await screen.findByRole('button', { name: '更换共享知识库图标' }),
+  );
+  await user.click(screen.getByRole('radio', { name: '图标' }));
+  await user.click(screen.getByRole('button', { name: '研究' }));
+  await user.click(screen.getByRole('radio', { name: '蓝色' }));
+  await user.click(screen.getByRole('button', { name: '使用此图案' }));
+  await user.click(screen.getByRole('button', { name: '更换共享知识库图标' }));
+  expect(screen.getByRole('radio', { name: '图标' })).toBeChecked();
+  expect(screen.getByRole('button', { name: '研究' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  expect(screen.getByRole('radio', { name: '蓝色' })).toBeChecked();
+});
+
 test('an administrator grants a member Reader access and revokes it through the library page', async () => {
   let granted = false;
   server.use(

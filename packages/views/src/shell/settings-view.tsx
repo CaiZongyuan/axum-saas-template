@@ -1,10 +1,10 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ApiClient } from '@saas/sdk';
 import {
-  SETTINGS_ANCHOR_ATTR,
   SettingsCard,
   SettingsRow,
+  SettingsScopeBadge,
   SettingsSection,
   SettingsTab,
 } from './settings-kit';
@@ -19,16 +19,13 @@ import {
 import { usePageTitle } from './page-title';
 import { sessionQuery } from '../identity/session';
 import type { AssembledApp } from './app-contract';
-
-// The settings page (docs/ui/design.md §6, §5 kit): grouped, anchored
-// sections — appearance & language (device scope), account and API keys
-// (account scope), the embedded design-system showroom, and help.
-// Preferences keep their native radio groups as the public test
-// interface, applied instantly through the preferences provider. The
-// page is reachable before sign-in; the account sections appear once the
-// session resolves. `?section=<anchor>` deep-links to a section and
-// survives the query-retaining navigation the shell already grants this
-// route.
+import { SettingsLayout } from './settings-layout';
+import { ApiKeysView } from '../api-keys/api-keys-view';
+import { StatusView } from '../system/status-view';
+import { EntityGraphic } from './entity-graphic';
+import { GraphicPicker } from './graphic-picker';
+import { useGraphicPreference } from './graphic-preferences';
+import { ErrorAlert } from './error-alert';
 
 // The showroom stays an async chunk here exactly as on its own route:
 // the dynamic import resolves to the same module, so both entries share
@@ -80,14 +77,16 @@ export function SettingsView({
   apiClient,
   onOpen,
   section,
+  onSectionChange,
   showroom,
 }: {
   docsUrl: string;
   apiClient: ApiClient;
   /** Router port for opening paths without a full page load. */
   onOpen?: (path: string) => void;
-  /** `?section=` target: scroll the anchored section into view. */
+  /** Selected settings pane, including legacy deep links. */
   section?: string;
+  onSectionChange?: (section: string) => void;
   /** Ports for the embedded showroom; missing scenes or copy hide it. */
   showroom?: {
     scenes?: AssembledApp['scenes'];
@@ -96,11 +95,36 @@ export function SettingsView({
 }) {
   const message = useAppMessage();
   const { locale, setLocale, theme, setTheme } = usePreferences();
-  usePageTitle('settings.title');
+  const [localSection, setLocalSection] = useState('appearance');
   const queryClient = useQueryClient();
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const user = session.data?.user;
   const signedIn = user !== undefined;
+  const [avatar, setAvatar] = useGraphicPreference(user?.id, 'user', 'user');
+  const entries = [
+    { id: 'appearance', label: message('settings.appearance') },
+    { id: 'account', label: message('settings.account'), authenticated: true },
+    { id: 'api-keys', label: message('settings.apiKeys'), authenticated: true },
+    {
+      id: 'design-system',
+      label: message('settings.designSystem'),
+      authenticated: true,
+    },
+    { id: 'system', label: message('shell.nav.status') },
+    { id: 'help', label: message('settings.help') },
+  ];
+  const selected =
+    entries.find((entry) => entry.id === (section ?? localSection)) ??
+    entries[0];
+  usePageTitle(
+    selected.id === 'api-keys'
+      ? 'apiKeys.title'
+      : selected.id === 'system'
+        ? 'status.title'
+        : selected.id === 'design-system'
+          ? 'design.title'
+          : 'settings.title',
+  );
   const languageOptions: { value: AppLocale; label: string }[] = [
     { value: 'zh', label: message('settings.language.zh') },
     { value: 'en', label: message('settings.language.en') },
@@ -111,17 +135,6 @@ export function SettingsView({
     { value: 'dark', label: message('settings.theme.dark') },
   ];
 
-  // Deep links land on an anchor once it exists: the account sections
-  // mount with the session, so the scroll also waits for the resolved
-  // session. Unresolvable sections (unknown or signed-out) scroll nowhere.
-  useEffect(() => {
-    if (!section) return;
-    const target = document.querySelector(
-      `[${SETTINGS_ANCHOR_ATTR}="${CSS.escape(section)}"]`,
-    );
-    target?.scrollIntoView?.({ block: 'start' });
-  }, [section, signedIn]);
-
   const openPath =
     (path: string) => (event: { preventDefault: () => void }) => {
       if (onOpen) {
@@ -131,62 +144,108 @@ export function SettingsView({
     };
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-12">
-      <SettingsTab
-        title={message('settings.title')}
-        description={message('settings.description')}
-      >
-        <SettingsSection
-          title={message('settings.appearance')}
-          scope="device"
-          scopeLabel={message('settings.scope.device')}
-          description={message('settings.appearanceHint')}
-          anchor="appearance"
-        >
-          <SettingsCard>
-            <div className="py-4">
-              <ChoiceGroup
-                name="language"
-                legend={message('settings.language')}
-                hint={message('settings.languageHint')}
-                options={languageOptions}
-                value={locale}
-                onChange={setLocale}
-              />
-            </div>
-            <div className="py-4">
-              <ChoiceGroup
-                name="theme"
-                legend={message('settings.theme')}
-                hint={message('settings.themeHint')}
-                options={themeOptions}
-                value={theme}
-                onChange={setTheme}
-              />
-            </div>
-          </SettingsCard>
-          <a
-            href={docsChapterUrl(
-              docsUrl,
-              locale,
-              'tutorials/appearance-language.md',
-            )}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-block text-sm text-link hover:underline"
-          >
-            {message('settings.tutorial')}
-          </a>
-        </SettingsSection>
+    <SettingsLayout
+      entries={entries.filter((entry) => !entry.authenticated || signedIn)}
+      selected={selected.id}
+      onSelect={(next) => {
+        if (onSectionChange) onSectionChange(next);
+        else setLocalSection(next);
+      }}
+    >
+      <SettingsTab title={selected.label}>
+        {selected.authenticated && !signedIn && selected.id !== 'api-keys' ? (
+          session.isPending ? (
+            <p role="status">{message('common.loadingSession')}</p>
+          ) : session.isError ? (
+            <ErrorAlert
+              error={session.error}
+              title={message('common.sessionUnavailable')}
+            />
+          ) : (
+            <p>
+              {message('common.signedOut')}{' '}
+              <a href="/login" className="underline">
+                {message('login.submit')}
+              </a>
+            </p>
+          )
+        ) : null}
+        {selected.id === 'appearance' ? (
+          <>
+            <SettingsSection
+              scope="device"
+              scopeLabel={message('settings.scope.device')}
+              description={message('settings.appearanceHint')}
+              anchor="appearance"
+            >
+              <SettingsCard>
+                <div className="py-4">
+                  <ChoiceGroup
+                    name="language"
+                    legend={message('settings.language')}
+                    hint={message('settings.languageHint')}
+                    options={languageOptions}
+                    value={locale}
+                    onChange={setLocale}
+                  />
+                </div>
+                <div className="py-4">
+                  <ChoiceGroup
+                    name="theme"
+                    legend={message('settings.theme')}
+                    hint={message('settings.themeHint')}
+                    options={themeOptions}
+                    value={theme}
+                    onChange={setTheme}
+                  />
+                </div>
+              </SettingsCard>
+              <a
+                href={docsChapterUrl(
+                  docsUrl,
+                  locale,
+                  'tutorials/appearance-language.md',
+                )}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 inline-block text-sm text-link hover:underline"
+              >
+                {message('settings.tutorial')}
+              </a>
+            </SettingsSection>
+          </>
+        ) : null}
 
-        {signedIn && user ? (
+        {selected.id === 'account' && signedIn && user ? (
           <SettingsSection
-            title={message('settings.account')}
             scope="account"
             scopeLabel={message('settings.scope.account')}
             description={message('settings.accountHint')}
             anchor="account"
           >
+            <div className="profile-identity">
+              <EntityGraphic
+                choice={avatar}
+                name={user.display_name || user.email}
+                size="large"
+                portrait
+              />
+              <div>
+                <strong>{user.display_name || user.email}</strong>
+                <SettingsScopeBadge
+                  scope="device"
+                  label={message('settings.scope.device')}
+                />
+              </div>
+              <GraphicPicker
+                kind="user"
+                choice={avatar}
+                name={user.display_name || user.email}
+                seed={`user:${user.id}`}
+                label={message('graphic.changeAvatar')}
+                onChange={setAvatar}
+              />
+            </div>
             <SettingsCard>
               <SettingsRow label={message('settings.accountEmail')}>
                 <span className="text-sm">{user.email}</span>
@@ -203,31 +262,30 @@ export function SettingsView({
           </SettingsSection>
         ) : null}
 
-        {signedIn ? (
+        {selected.id === 'api-keys' ? (
           <SettingsSection
-            title={message('settings.apiKeys')}
             scope="account"
             scopeLabel={message('settings.scope.account')}
-            description={message('settings.apiKeysHint')}
             anchor="api-keys"
-            action={
-              <a
-                href="/api-keys"
-                className="text-sm text-link hover:underline"
-                onClick={openPath('/api-keys')}
-              >
-                {message('settings.apiKeysOpen')}
-              </a>
-            }
-          />
+          >
+            <ApiKeysView
+              embedded
+              apiClient={apiClient}
+              copySecret={
+                showroom?.copyText ??
+                (async () => {
+                  throw new Error('Clipboard unavailable');
+                })
+              }
+            />
+          </SettingsSection>
         ) : null}
 
-        {signedIn && showroom?.scenes && showroom.copyText ? (
-          <SettingsSection
-            title={message('settings.designSystem')}
-            description={message('settings.designSystemHint')}
-            anchor="design-system"
-          >
+        {selected.id === 'design-system' &&
+        signedIn &&
+        showroom?.scenes &&
+        showroom.copyText ? (
+          <SettingsSection anchor="design-system">
             <Suspense
               fallback={
                 <p role="status" className="text-sm text-muted-foreground">
@@ -242,33 +300,52 @@ export function SettingsView({
                 copyText={showroom.copyText}
               />
             </Suspense>
+            <a
+              href={docsChapterUrl(
+                docsUrl,
+                locale,
+                'tutorials/design-system.md',
+              )}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-link hover:underline"
+            >
+              {message('design.tutorial')}
+            </a>
           </SettingsSection>
         ) : null}
 
-        <SettingsSection title={message('settings.help')} anchor="help">
-          <SettingsCard>
-            <SettingsRow label={message('settings.helpDocsLabel')}>
-              <a
-                href={docsHomeUrl(docsUrl, locale)}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm text-link hover:underline"
-              >
-                {message('shell.nav.tutorials')}
-              </a>
-            </SettingsRow>
-            <SettingsRow label={message('settings.helpStatusLabel')}>
-              <a
-                href="/system"
-                className="text-sm text-link hover:underline"
-                onClick={openPath('/system')}
-              >
-                {message('shell.nav.status')}
-              </a>
-            </SettingsRow>
-          </SettingsCard>
-        </SettingsSection>
+        {selected.id === 'system' ? (
+          <SettingsSection anchor="system">
+            <StatusView embedded apiClient={apiClient} docsUrl={docsUrl} />
+          </SettingsSection>
+        ) : null}
+        {selected.id === 'help' ? (
+          <SettingsSection anchor="help">
+            <SettingsCard>
+              <SettingsRow label={message('settings.helpDocsLabel')}>
+                <a
+                  href={docsHomeUrl(docsUrl, locale)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm text-link hover:underline"
+                >
+                  {message('shell.nav.tutorials')}
+                </a>
+              </SettingsRow>
+              <SettingsRow label={message('settings.helpStatusLabel')}>
+                <a
+                  href="/system"
+                  className="text-sm text-link hover:underline"
+                  onClick={openPath('/system')}
+                >
+                  {message('shell.nav.status')}
+                </a>
+              </SettingsRow>
+            </SettingsCard>
+          </SettingsSection>
+        ) : null}
       </SettingsTab>
-    </div>
+    </SettingsLayout>
   );
 }

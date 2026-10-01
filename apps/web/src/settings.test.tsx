@@ -8,11 +8,7 @@ import { expect, test } from 'vitest';
 import { server } from '../../../tests/frontend/server';
 import { createAppRouter } from './router';
 
-// The settings page (UI04, regrouped in UI-R3): preferences apply
-// instantly through native radios, and the page groups appearance,
-// account, API keys, the embedded design-system showroom and help into
-// anchored sections. Signed-in state reveals the account sections; the
-// `?section=` query deep-links to an anchor and survives navigation.
+// Settings deep links select a pane; account capabilities appear after login.
 
 const signedIn = {
   user: {
@@ -26,6 +22,12 @@ const signedIn = {
 
 function open(path = '/', session: 'anonymous' | CurrentSession = 'anonymous') {
   server.use(
+    http.get('http://api.test/api/v1/api-keys', () =>
+      HttpResponse.json({ data: [], next_cursor: null, has_more: false }),
+    ),
+    http.get('http://api.test/api/v1/api-keys/scopes', () =>
+      HttpResponse.json({ data: [] }),
+    ),
     http.get('http://api.test/api/v1/auth/session', () =>
       session === 'anonymous'
         ? HttpResponse.json(null, { status: 401 })
@@ -42,12 +44,12 @@ function open(path = '/', session: 'anonymous' | CurrentSession = 'anonymous') {
     },
     createMemoryHistory({ initialEntries: [path] }),
   );
-  render(
+  const view = render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
-  return { user: userEvent.setup(), router };
+  return { user: userEvent.setup(), router, unmount: view.unmount };
 }
 
 test('the settings page is reachable signed out and renames the document', async () => {
@@ -59,6 +61,58 @@ test('the settings page is reachable signed out and renames the document', async
   expect(
     screen.getByRole('link', { name: '查看「外观与语言」教程' }),
   ).toHaveAttribute('href', 'https://docs.test/tutorials/appearance-language');
+});
+
+test('settings has its own section sidebar and opens the integrated system status', async () => {
+  server.use(
+    http.get('http://api.test/api/v1/system/status', () =>
+      HttpResponse.json({
+        service: 'saas-api',
+        version: 'test',
+        database: 'connected',
+        schema_version: 1,
+      }),
+    ),
+  );
+  const { user, router } = open('/settings', signedIn);
+  const directory = await screen.findByRole('navigation', { name: '设置目录' });
+  expect(
+    await within(directory).findByRole('link', { name: 'API Keys' }),
+  ).toBeVisible();
+  expect(
+    within(directory).getByRole('link', { name: '设计系统' }),
+  ).toBeVisible();
+  await user.click(within(directory).getByRole('link', { name: '系统状态' }));
+  expect(
+    await screen.findByRole('heading', { name: '系统状态' }),
+  ).toBeVisible();
+  expect(router.state.location.pathname).toBe('/settings');
+  expect(router.state.location.search).toEqual({ section: 'system' });
+});
+
+test('an avatar choice is remembered for this user without changing another user', async () => {
+  const first = open('/settings?section=account', signedIn);
+  await first.user.click(
+    await screen.findByRole('button', { name: '更换头像' }),
+  );
+  await first.user.click(screen.getByRole('radio', { name: 'Marbles' }));
+  await first.user.click(screen.getByRole('button', { name: '使用此图案' }));
+  first.unmount();
+  const second = open('/settings?section=account', signedIn);
+  await second.user.click(
+    await screen.findByRole('button', { name: '更换头像' }),
+  );
+  expect(screen.getByRole('radio', { name: 'Marbles' })).toBeChecked();
+  await second.user.click(screen.getByRole('button', { name: '取消' }));
+  second.unmount();
+  const another = open('/settings?section=account', {
+    ...signedIn,
+    user: { ...signedIn.user, id: 'another-settings-user' },
+  });
+  await another.user.click(
+    await screen.findByRole('button', { name: '更换头像' }),
+  );
+  expect(screen.getByRole('radio', { name: 'Lorelei' })).toBeChecked();
 });
 
 test('an explicit language applies instantly, persists, and survives a remount', async () => {
@@ -112,17 +166,22 @@ test('switching language keeps typed input: no reload, nothing lost', async () =
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeVisible();
 });
 
-test('signed in, the account sections appear with the embedded showroom', async () => {
-  open('/settings', signedIn);
+test('signed in, the account and showroom are selected through the settings directory', async () => {
+  const { user } = open('/settings', signedIn);
   await screen.findByRole('heading', { name: '设置' });
+  const directory = screen.getByRole('navigation', { name: '设置目录' });
+  await user.click(
+    await within(directory).findByRole('link', { name: '个人资料' }),
+  );
   // The account section names the signed-in identity…
   expect(await screen.findByText('settings@example.com')).toBeVisible();
   // …the API-keys section anchors for deep links…
   expect(
-    document.querySelector('[data-settings-anchor="api-keys"]'),
-  ).not.toBeNull();
+    within(directory).getByRole('link', { name: 'API Keys' }),
+  ).toHaveAttribute('href', '/settings?section=api-keys');
   // …and the design-system section embeds the showroom itself (§6 Q3):
   // the production tabs render in place, no navigation needed.
+  await user.click(within(directory).getByRole('link', { name: '设计系统' }));
   expect(
     await screen.findByRole('tab', { name: '基础', hidden: false }),
   ).toBeVisible();
@@ -151,40 +210,34 @@ test('the section query survives on the settings route for deep links', async ()
   expect(router.state.location.search).toEqual({ section: 'api-keys' });
 });
 
-test('the section query scrolls the anchored section into view once it mounts', async () => {
-  // jsdom has no scrollIntoView; the effect calls it optionally, so the
-  // stub records which anchor the deep link actually landed on.
-  const scrolled: (string | null)[] = [];
-  const native = Element.prototype.scrollIntoView as unknown;
-  Element.prototype.scrollIntoView = function scrollIntoView(this: Element) {
-    scrolled.push(this.getAttribute('data-settings-anchor'));
-  } as typeof Element.prototype.scrollIntoView;
-  try {
-    open('/settings?section=api-keys', signedIn);
-    await screen.findByRole('heading', { name: 'API Keys' });
-    // The scroll waits for the session-resolved anchor: the deep link
-    // lands on the API-keys section, not the top of the page.
-    expect(scrolled).toContain('api-keys');
-  } finally {
-    if (typeof native === 'function') {
-      Element.prototype.scrollIntoView =
-        native as typeof Element.prototype.scrollIntoView;
-    } else {
-      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-    }
-  }
+test('a deep link shows its selected pane and the directory switches panes', async () => {
+  const { user } = open('/settings?section=api-keys', signedIn);
+  await screen.findByRole('heading', { name: 'API Keys', level: 1 });
+  const directory = screen.getByRole('navigation', { name: '设置目录' });
+  expect(
+    await within(directory).findByRole('link', { name: 'API Keys' }),
+  ).toHaveAttribute('aria-current', 'page');
+  expect(
+    screen.queryByRole('radio', { name: '简体中文' }),
+  ).not.toBeInTheDocument();
+  await user.click(within(directory).getByRole('link', { name: '外观与语言' }));
+  expect(await screen.findByRole('radio', { name: '简体中文' })).toBeVisible();
+  expect(
+    screen.queryByRole('heading', { name: 'API Keys' }),
+  ).not.toBeInTheDocument();
 });
 
 test('the help section links to the docs home and system status', async () => {
-  open('/settings');
+  open('/settings?section=help');
   await screen.findByRole('heading', { name: '设置' });
   // Scoped to the main landmark: the sidebar keeps its own 系统状态 entry.
   const main = within(screen.getByRole('main'));
   const docsLink = main.getByRole('link', { name: '使用教程' });
   expect(docsLink).toHaveAttribute('href', 'https://docs.test/docs/');
   expect(docsLink).toHaveAttribute('target', '_blank');
-  expect(main.getByRole('link', { name: '系统状态' })).toHaveAttribute(
-    'href',
-    '/system',
-  );
+  expect(
+    main
+      .getAllByRole('link', { name: '系统状态' })
+      .find((link) => link.getAttribute('href') === '/system'),
+  ).toHaveAttribute('href', '/system');
 });

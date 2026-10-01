@@ -184,12 +184,7 @@ test.each([
 
     // The same rejection speaks the active language: switch to English and
     // repeat the rejected save.
-    await user.click(
-      within(screen.getByRole('navigation', { name: '主菜单' })).getByRole(
-        'link',
-        { name: '设置' },
-      ),
-    );
+    await user.click(screen.getByRole('link', { name: '设置' }));
     await user.click(await screen.findByRole('radio', { name: 'English' }));
     await user.click(
       within(screen.getByRole('navigation', { name: 'Main menu' })).getByRole(

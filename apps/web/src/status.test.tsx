@@ -78,15 +78,21 @@ test('a signed-out visitor reads the ready status inside the shell', async () =>
     name: '主菜单',
   });
   expect(
-    within(navigation).getByRole('link', { name: '系统状态' }),
+    within(screen.getByRole('navigation', { name: '设置目录' })).getByRole(
+      'link',
+      { name: '系统状态' },
+    ),
   ).toBeVisible();
   expect(within(navigation).getByRole('link', { name: '首页' })).toBeVisible();
-  expect(within(navigation).getByRole('link', { name: '设置' })).toBeVisible();
+  expect(screen.getByRole('link', { name: '设置' })).toBeVisible();
   expect(
     within(navigation).queryByRole('link', { name: '通知' }),
   ).not.toBeInTheDocument();
   expect(
-    await screen.findByRole('heading', { name: '服务已就绪', level: 1 }),
+    await screen.findByRole('heading', { name: '服务已就绪', level: 2 }),
+  ).toBeVisible();
+  expect(
+    screen.getByRole('heading', { name: '系统状态', level: 1 }),
   ).toBeVisible();
   expect(screen.getByText('PostgreSQL 已连接')).toBeVisible();
   expect(screen.getByText('迁移版本 1')).toBeVisible();
@@ -155,14 +161,14 @@ test('the workspace reports status in English with the raw protocol values', asy
     ),
   );
   open('en');
-  const navigation = await screen.findByRole('navigation', {
-    name: 'Main menu',
-  });
+  await screen.findByRole('navigation', { name: 'Main menu' });
   expect(
-    within(navigation).getByRole('link', { name: 'System status' }),
+    within(
+      screen.getByRole('navigation', { name: 'Settings sections' }),
+    ).getByRole('link', { name: 'System status' }),
   ).toBeVisible();
   expect(
-    await screen.findByRole('heading', { name: 'Service is ready', level: 1 }),
+    await screen.findByRole('heading', { name: 'Service is ready', level: 2 }),
   ).toBeVisible();
   expect(screen.getByText('PostgreSQL connected')).toBeVisible();
   expect(screen.getByText('Migration version 1')).toBeVisible();
@@ -189,6 +195,6 @@ test('a signed-in administrator keeps the administration group on the status pag
     await within(navigation).findByRole('link', { name: '后台任务' }),
   ).toBeVisible();
   expect(
-    await screen.findByRole('heading', { name: '服务已就绪', level: 1 }),
+    await screen.findByRole('heading', { name: '服务已就绪', level: 2 }),
   ).toBeVisible();
 });

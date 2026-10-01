@@ -64,12 +64,7 @@ test('the shell mounts once: navigating between shell routes keeps the sidebar n
   expect(await screen.findByText('composition@example.com')).toBeVisible();
   const sidebar = document.getElementById('app-sidebar');
   expect(sidebar).not.toBeNull();
-  await user.click(
-    within(screen.getByRole('navigation', { name: '主菜单' })).getByRole(
-      'link',
-      { name: '设置' },
-    ),
-  );
+  await user.click(screen.getByRole('link', { name: '设置' }));
   expect(await screen.findByRole('heading', { name: '设置' })).toBeVisible();
   // The exact DOM node survives the navigation: the page swapped under a
   // persistent shell instead of mounting a second one.
