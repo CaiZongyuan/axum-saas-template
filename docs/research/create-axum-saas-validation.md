@@ -45,3 +45,9 @@ Standards 首轮发现创建目录与 `cd` 不一致，随后发现父仓库版�
 当前 npm 未认证，`npm whoami` 返回 `ENEEDAUTH`；`create-axum-saas` 尚未注册。公开 `npx create-axum-saas` 的验收需要完成 npm 登录/双因素认证，并发布已审查的 tarball。此步骤完成前保持 #122 开放，不将 PR 或本地包当作公开发布。
 
 本次实际运行环境为 Linux，未验证 macOS/Windows。可选完整观测栈及 Electron GUI 没有重复跑浏览器长测；其共享构建/类型/协议检查与本票变更相关的端口检查已覆盖。
+
+## 干净 CI 修复
+
+PR #124 的首轮 CI 通过 backend、frontend、documentation、teaching-backend 与 desktop-smoke；tooling 在 Core 快照的离线依赖重解析处失败。本地缓存没有揭示该问题。
+
+Core 打包现改为通过 YAML API 从 importer 中删除已不再声明的依赖，同时保留自动安装的 peer dependencies，再使用 `pnpm install --frozen-lockfile`。输出确认 `resolution step is skipped`，保留已锁定版本和供应链检查。安装错误不再由 `--silent` 隐藏。定向四项真实产物测试与 lint 刷新通过；最终 CI 结果以 PR checks 为准。

@@ -227,7 +227,28 @@ export function regenerateCoreTemplate(root, targetDirectory) {
         CARGO_BUILD_JOBS: '4',
       },
     });
-  run('pnpm', ['install', '--offline', '--no-frozen-lockfile', '--silent']);
+  const lockPath = join(root, 'pnpm-lock.yaml');
+  const lock = yaml.load(readFileSync(lockPath, 'utf8'));
+  for (const [directory, importer] of Object.entries(lock.importers)) {
+    const manifest = JSON.parse(
+      readFileSync(join(root, directory, 'package.json'), 'utf8'),
+    );
+    const declared = {
+      ...manifest.dependencies,
+      ...manifest.devDependencies,
+      ...manifest.optionalDependencies,
+      ...manifest.peerDependencies,
+    };
+    for (const section of [
+      'dependencies',
+      'devDependencies',
+      'optionalDependencies',
+    ])
+      for (const name of Object.keys(importer[section] ?? {}))
+        if (!Object.hasOwn(declared, name)) delete importer[section][name];
+  }
+  writeFileSync(lockPath, yaml.dump(lock, { lineWidth: -1, noRefs: true }));
+  run('pnpm', ['install', '--frozen-lockfile']);
   run('cargo', ['update', '--workspace', '--offline', '--quiet']);
   run('node', ['scripts/generate-contracts.mjs']);
   const workspaces = JSON.parse(
