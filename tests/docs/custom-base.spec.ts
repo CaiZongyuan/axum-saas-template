@@ -21,7 +21,7 @@ test('the landing, its entries and the switcher survive a custom base', async ({
   await page.locator('.VPNavBarMenuLink', { hasText: '文档' }).click();
   await expect(page).toHaveURL(/\/ui16-custom-base\/docs\/$/);
   await expect(
-    page.getByRole('heading', { name: '文档教程', level: 1 }),
+    page.getByRole('heading', { name: '用 Dougong 开发自己的 SaaS', level: 1 }),
   ).toBeVisible();
   await page.getByRole('banner').getByRole('link', { name: 'English' }).click();
   await expect(page).toHaveURL(/\/ui16-custom-base\/en\/docs\/$/);

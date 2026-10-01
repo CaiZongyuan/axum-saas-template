@@ -16,6 +16,10 @@ Use the agreed five-role vocabulary in docs/agents/triage-labels.md when creatin
 
 The shared glossary is CONTEXT.md; decisions live in docs/adr/. Read docs/agents/domain.md when exploring or changing domain boundaries.
 
+### Documentation
+
+When changing public documentation, teaching examples, navigation or generated references, read docs/agents/documentation.md. Teach backend developers to build their own SaaS with the accepted documentation experience in docs/plans/documentation-rebuild.md.
+
 ### Engineering flow
 
 For user-facing UI, UX or workflow changes, read [experience-design.md](docs/agents/experience-design.md). Start with a versioned interactive preview, carry the user's decisions into implementation, and compare the real application with the accepted experience. Reuse existing approval and honor an explicit instruction to proceed without another preview. Continue through the matt engineering flow below; keep imported skills unchanged.

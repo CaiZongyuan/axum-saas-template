@@ -54,12 +54,41 @@ test('the primary CTA enters the Chinese documentation and old deep links keep w
     .click();
   await expect(page).toHaveURL(/\/docs\/$/);
   await expect(
-    page.getByRole('heading', { name: '文档教程', level: 1 }),
+    page.getByRole('heading', { name: '用 Dougong 开发自己的 SaaS', level: 1 }),
   ).toBeVisible();
   await go(page, '/getting-started/quickstart');
   await expect(
     page.getByRole('heading', { level: 1 }).filter({ hasText: '快速开始' }),
   ).toBeVisible();
+});
+
+test('backend developers can follow structure to a checked module in either language', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await go(page, '/architecture/project-structure');
+  await expect(
+    page.getByRole('heading', { level: 1, name: '项目结构' }),
+  ).toBeVisible();
+  const sidebar = await page.locator('.VPSidebar').boundingBox();
+  const navigation = await page.locator('#VPSidebarNav').boundingBox();
+  expect(sidebar?.x).toBe(0);
+  expect(sidebar?.width).toBe(264);
+  expect(navigation?.x).toBeLessThanOrEqual(32);
+  await page.locator('.pager-link.next').click();
+  await expect(page).toHaveURL(/\/guides\/new-module$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: '新增业务模块' }),
+  ).toBeVisible();
+  await expect(page.locator('.vp-doc')).toContainText('previewTicket');
+  await page.locator('.docs-locale-link').click();
+  await expect(page).toHaveURL(/\/en\/guides\/new-module$/);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Add a business module' }),
+  ).toBeVisible();
+  await expect(page.locator('.vp-doc')).toContainText(
+    '/api/v1/tickets/preview',
+  );
 });
 
 test('blog and downloads are direct Coming soon pages without fabricated content', async ({
@@ -91,6 +120,30 @@ test('blog and downloads are direct Coming soon pages without fabricated content
   await expect(meta).toHaveAttribute('content', /尚未开始实现/);
   await go(page, '/downloads/');
   await expect(meta).toHaveAttribute('content', /尚未开始实现/);
+});
+
+test('local search finds a backend guide and keeps its locale', async ({
+  page,
+}) => {
+  for (const [path, button, query] of [
+    ['/docs/', '搜索文档', '新增业务模块'],
+    ['/en/docs/', 'Search docs', 'Add a business module'],
+  ] as const) {
+    await go(page, path);
+    await page.getByRole('button', { name: button, exact: true }).click();
+    await page.getByRole('searchbox').fill(query);
+    const result = page.locator('.VPLocalSearchBox').getByRole('link').first();
+    await expect(result).toHaveAttribute('href', /\/guides\/new-module#/);
+    await result.click();
+    await expect(page).toHaveURL(
+      path.startsWith('/en/')
+        ? /\/en\/guides\/new-module#/
+        : /\/guides\/new-module#/,
+    );
+    await expect(
+      page.getByRole('heading', { level: 1, name: query }),
+    ).toBeVisible();
+  }
 });
 
 test('the English coming soon pages carry honest English meta', async ({

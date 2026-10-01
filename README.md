@@ -1,6 +1,6 @@
 # Dougong
 
-**A Rust + React foundation for your next SaaS, with a working application to learn from.**
+**Build your SaaS backend with Rust and Axum, then connect shared Web and Desktop clients.**
 
 Named after the _dougong_ (斗拱), the standardized bracket set of Chinese timber architecture — prefabricated parts that carry whatever roof you assemble on top. The template applies the same idea to SaaS: one reusable core, reference applications you can remove.
 
@@ -11,7 +11,13 @@ English · [简体中文](README.zh-CN.md)
 
 Start with authentication, permissions, background jobs, file storage, and a shared Web/Desktop UI. Keep the reusable SaaS Core, follow the reference application through real business flows, then replace it with your own domain.
 
-[Online tutorials](https://caizongyuan.github.io/axum-saas-template/) · [Quick start](docs/getting-started/quickstart.md) · [Architecture](docs/saas-template-architecture-spec.md) · [Capability coverage](docs/architecture/v1-coverage.md)
+[Developer documentation](https://caizongyuan.github.io/axum-saas-template/en/docs/) · [Quick start](docs/getting-started/quickstart.en.md) · [Project structure](docs/architecture/project-structure.en.md) · [Capability coverage](docs/architecture/v1-coverage.en.md)
+
+## Develop your own business
+
+Start with [project structure](docs/architecture/project-structure.en.md), then [add a business module](docs/guides/develop-module.en.md). The guides show where code belongs, how to compose routes and OpenAPI, and how to verify the HTTP result. Your module owns its data and rules; it reuses Core identity, membership, audit, idempotency, files and jobs through public interfaces.
+
+Use the knowledge example to inspect a complete implementation. Connect clients after the backend contract works. Documentation and teaching code are maintained together in Chinese and English; see the [author guide](docs/guides/maintain-docs.en.md).
 
 ## Why this template
 
@@ -49,7 +55,14 @@ pnpm install --frozen-lockfile
 just dev
 ```
 
-Open **[http://127.0.0.1:5173/register](http://127.0.0.1:5173/register)** and create an account. The first registered user becomes the Organization Owner; later users become Members. Passwords must contain 12–128 characters.
+Verify the backend in another terminal:
+
+```bash
+curl -i http://127.0.0.1:3000/health/ready
+curl -i http://127.0.0.1:3000/api/v1/system/status
+```
+
+Expect HTTP 200 and an `x-request-id`. Open **[http://127.0.0.1:5173/register](http://127.0.0.1:5173/register)** for a development account. The first successful account is Owner, later accounts are Members, and passwords use 12–128 characters.
 
 `just dev` starts PostgreSQL, Redis, RustFS, and Mailpit in Docker, applies migrations, initializes storage, then starts the API, Worker, and Web app on the host. Rust changes restart the API/Worker; the Web app supports hot reload.
 
@@ -137,7 +150,7 @@ docs/          Tutorials, architecture, decisions, and operational guides
 
 ## Documentation and deployment
 
-The [online tutorials](https://caizongyuan.github.io/axum-saas-template/) are currently in Chinese. Each page links to its source revision. Run `just docs` for the local site at http://127.0.0.1:5174/axum-saas-template/.
+The [developer documentation](https://caizongyuan.github.io/axum-saas-template/en/docs/) provides Chinese and English chapters with source revision links. Run `just docs` for the English local entry at http://127.0.0.1:5174/axum-saas-template/en/docs/.
 
 - [Follow a request through the full stack](docs/tutorials/01-full-stack-request.md)
 - [Deploy on a single machine](docs/tutorials/21-single-machine-production.md)

@@ -102,7 +102,9 @@
     "docs/architecture/v1-coverage.en.md": ["coverage"],
     "docs/index.md": ["landing"],
     "docs/index.en.md": ["landing"],
-    "docs/getting-started/quickstart.en.md": ["quickstart"]
+    "docs/getting-started/quickstart.en.md": ["quickstart"],
+    "docs/getting-started/documentation.md": ["documentation"],
+    "docs/getting-started/documentation.en.md": ["documentation"]
   },
   "ownedDependencies": {
     "packages/views/package.json": [

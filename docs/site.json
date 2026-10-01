@@ -1,17 +1,17 @@
 {
   "title": "Dougong 斗拱",
   "titleEn": "Dougong",
-  "description": "从真实请求开始，学习、验证并替换自己的业务。",
-  "descriptionEn": "Start from a real request, then learn, verify and adapt it to your own product.",
+  "description": "使用 Rust + Axum 开发自己的 SaaS：模块、数据库、认证、事务、任务、测试与部署。",
+  "descriptionEn": "Build your SaaS with Rust and Axum: modules, persistence, identity, transactions, jobs, testing and deployment.",
   "repository": "CaiZongyuan/axum-saas-template",
   "groupLabels": {
     "开始": "Start",
-    "跟做教程": "Tutorials",
-    "替换示例": "Replace the example",
-    "性能": "Performance",
-    "理解模板": "Understand the template",
-    "验证": "Verification",
-    "生成参考": "Generated references",
+    "开发指南": "Development",
+    "核心能力": "Core capabilities",
+    "生产部署": "Production",
+    "参考": "Reference",
+    "客户端扩展": "Client extensions",
+    "维护文档": "Contributing",
     "公开站": "Public site"
   },
   "pages": [
@@ -62,8 +62,10 @@
       "source": "docs/getting-started/documentation.md",
       "sourceEn": "docs/getting-started/documentation.en.md",
       "route": "docs/index.md",
-      "title": "文档教程",
-      "titleEn": "Documentation",
+      "title": "开发者文档",
+      "titleEn": "Developer documentation",
+      "type": "overview",
+      "next": "quickstart",
       "group": "开始"
     },
     {
@@ -73,7 +75,44 @@
       "route": "getting-started/quickstart.md",
       "title": "快速开始",
       "titleEn": "Quick start",
-      "group": "开始"
+      "group": "开始",
+      "previous": "documentation",
+      "next": "project-structure"
+    },
+    {
+      "id": "project-structure",
+      "source": "docs/architecture/project-structure.md",
+      "sourceEn": "docs/architecture/project-structure.en.md",
+      "route": "architecture/project-structure.md",
+      "title": "项目结构",
+      "titleEn": "Project structure",
+      "group": "开发指南",
+      "type": "concept",
+      "previous": "quickstart",
+      "next": "develop-module"
+    },
+    {
+      "id": "develop-module",
+      "source": "docs/guides/develop-module.md",
+      "sourceEn": "docs/guides/develop-module.en.md",
+      "route": "guides/new-module.md",
+      "title": "新增业务模块",
+      "titleEn": "Add a business module",
+      "group": "开发指南",
+      "type": "tutorial",
+      "previous": "project-structure",
+      "next": "boundaries"
+    },
+    {
+      "id": "maintain-docs",
+      "source": "docs/guides/maintain-docs.md",
+      "sourceEn": "docs/guides/maintain-docs.en.md",
+      "route": "guides/documentation.md",
+      "title": "维护开发者文档",
+      "titleEn": "Maintain documentation",
+      "group": "维护文档",
+      "type": "guide",
+      "next": "publish-docs"
     },
     {
       "id": "publish-docs",
@@ -82,7 +121,7 @@
       "route": "getting-started/publish-docs.md",
       "title": "发布教程站点",
       "titleEn": "Publish the documentation site",
-      "group": "开始"
+      "group": "维护文档"
     },
     {
       "id": "first-request",
@@ -91,7 +130,7 @@
       "route": "tutorials/first-request.md",
       "title": "第一条全栈请求",
       "titleEn": "The first full-stack request",
-      "group": "跟做教程"
+      "group": "开发指南"
     },
     {
       "id": "registration",
@@ -100,7 +139,7 @@
       "route": "tutorials/registration.md",
       "title": "注册、事务与会话",
       "titleEn": "Registration, transactions and sessions",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "sessions",
@@ -109,7 +148,7 @@
       "route": "tutorials/sessions.md",
       "title": "登录、退出与会话失效",
       "titleEn": "Sign-in, sign-out and session invalidation",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "personal-documents",
@@ -118,7 +157,7 @@
       "route": "tutorials/personal-documents.md",
       "title": "第一篇 Markdown 文档",
       "titleEn": "Your first Markdown document",
-      "group": "跟做教程"
+      "group": "开发指南"
     },
     {
       "id": "search-preview",
@@ -127,7 +166,7 @@
       "route": "tutorials/search-preview.md",
       "title": "标题搜索与安全预览",
       "titleEn": "Title search and safe preview",
-      "group": "跟做教程"
+      "group": "开发指南"
     },
     {
       "id": "edit-conflicts",
@@ -136,7 +175,7 @@
       "route": "tutorials/edit-conflicts.md",
       "title": "显式保存与版本冲突",
       "titleEn": "Explicit saves and version conflicts",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "library-grants",
@@ -145,7 +184,7 @@
       "route": "tutorials/library-grants.md",
       "title": "共享知识库与权限继承",
       "titleEn": "Shared knowledge bases and permission inheritance",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "members",
@@ -154,7 +193,7 @@
       "route": "tutorials/members.md",
       "title": "成员管理与最后 Owner",
       "titleEn": "Member management and the last owner",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "attachments",
@@ -163,7 +202,7 @@
       "route": "tutorials/attachments.md",
       "title": "RustFS 附件、校验与发布",
       "titleEn": "RustFS attachments, verification and publication",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "document-exports",
@@ -171,7 +210,7 @@
       "sourceEn": "docs/tutorials/10-document-exports.en.md",
       "route": "tutorials/document-exports.md",
       "title": "文档导出与 PostgreSQL Jobs",
-      "group": "跟做教程",
+      "group": "核心能力",
       "titleEn": "Document exports and PostgreSQL Jobs"
     },
     {
@@ -181,7 +220,7 @@
       "route": "tutorials/job-recovery.md",
       "title": "任务恢复与管理员重试",
       "titleEn": "Job recovery and administrator retries",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "deletion-cleanup",
@@ -190,7 +229,7 @@
       "route": "tutorials/deletion-cleanup.md",
       "title": "删除与可靠对象清理",
       "titleEn": "Deletion and reliable object cleanup",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "export-notifications",
@@ -198,7 +237,7 @@
       "sourceEn": "docs/tutorials/13-export-notifications.en.md",
       "route": "tutorials/export-notifications.md",
       "title": "导出通知与已读状态",
-      "group": "跟做教程",
+      "group": "核心能力",
       "titleEn": "Export notifications and read state"
     },
     {
@@ -208,7 +247,7 @@
       "route": "tutorials/audit-history.md",
       "title": "管理员审计与业务追溯",
       "titleEn": "Administrator audits and business tracing",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "api-keys",
@@ -217,15 +256,18 @@
       "route": "tutorials/api-keys.md",
       "title": "API Key 与当前资源权限",
       "titleEn": "API keys and current resource permissions",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "versioned-cache",
       "source": "docs/tutorials/16-versioned-cache.md",
       "route": "tutorials/versioned-cache.md",
       "title": "Redis 正文缓存与数据库回源",
-      "group": "跟做教程",
-      "translation": { "status": "pending", "owner": "UI06" }
+      "group": "核心能力",
+      "translation": {
+        "status": "pending",
+        "owner": "UI06"
+      }
     },
     {
       "id": "rate-limits",
@@ -234,7 +276,7 @@
       "route": "tutorials/rate-limits.md",
       "title": "请求限流与保守回退",
       "titleEn": "Rate limits and degradation",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "password-reset",
@@ -243,7 +285,7 @@
       "route": "tutorials/password-reset.md",
       "title": "密码重置与可靠邮件",
       "titleEn": "Password reset and reliable email",
-      "group": "跟做教程"
+      "group": "核心能力"
     },
     {
       "id": "observability",
@@ -252,7 +294,7 @@
       "route": "tutorials/observability.md",
       "title": "从导出追踪到任务与存储",
       "titleEn": "From exports to jobs and storage",
-      "group": "跟做教程"
+      "group": "生产部署"
     },
     {
       "id": "electron-shell",
@@ -261,7 +303,7 @@
       "route": "tutorials/electron-shell.md",
       "title": "Electron 桌面壳复用同一套页面",
       "titleEn": "Reusing the same pages in an Electron desktop shell",
-      "group": "跟做教程"
+      "group": "客户端扩展"
     },
     {
       "id": "single-machine-production",
@@ -270,7 +312,7 @@
       "route": "tutorials/single-machine-production.md",
       "title": "单机生产部署与降级验证",
       "titleEn": "Single-machine production deployment",
-      "group": "跟做教程"
+      "group": "生产部署"
     },
     {
       "id": "backup-restore",
@@ -279,7 +321,7 @@
       "route": "tutorials/backup-restore.md",
       "title": "备份与独立环境恢复演练",
       "titleEn": "Backup and isolated-environment restore",
-      "group": "跟做教程"
+      "group": "生产部署"
     },
     {
       "id": "appearance-language",
@@ -288,7 +330,7 @@
       "route": "tutorials/appearance-language.md",
       "title": "外观与语言设置",
       "titleEn": "Appearance and language settings",
-      "group": "跟做教程"
+      "group": "客户端扩展"
     },
     {
       "id": "design-system",
@@ -297,7 +339,7 @@
       "route": "tutorials/design-system.md",
       "title": "选用生产组件与注册演示场景",
       "titleEn": "Production components and demo scenes",
-      "group": "跟做教程"
+      "group": "客户端扩展"
     },
     {
       "id": "public-site",
@@ -306,7 +348,7 @@
       "route": "tutorials/public-site.md",
       "title": "双语公开站点",
       "titleEn": "The bilingual public site",
-      "group": "跟做教程"
+      "group": "维护文档"
     },
     {
       "id": "add-example",
@@ -315,7 +357,7 @@
       "route": "tutorials/add-example.md",
       "title": "接入一个参考业务",
       "titleEn": "Add a reference example",
-      "group": "替换示例"
+      "group": "客户端扩展"
     },
     {
       "id": "example-removal",
@@ -324,7 +366,7 @@
       "route": "tutorials/example-removal.md",
       "title": "组合与移除参考业务",
       "titleEn": "Compose and remove reference examples",
-      "group": "替换示例"
+      "group": "开发指南"
     },
     {
       "id": "perf-gates",
@@ -333,7 +375,7 @@
       "route": "tutorials/perf-gates.md",
       "title": "确定性性能门禁",
       "titleEn": "Deterministic performance gates",
-      "group": "性能"
+      "group": "生产部署"
     },
     {
       "id": "load-reports",
@@ -342,7 +384,7 @@
       "route": "tutorials/load-reports.md",
       "title": "负载、饱和与长测报告",
       "titleEn": "Load, saturation and soak reports",
-      "group": "性能"
+      "group": "生产部署"
     },
     {
       "id": "desktop-soak",
@@ -351,7 +393,7 @@
       "route": "tutorials/desktop-soak.md",
       "title": "桌面壳资源长测",
       "titleEn": "Desktop shell resource soak",
-      "group": "性能"
+      "group": "客户端扩展"
     },
     {
       "id": "boundaries",
@@ -360,7 +402,7 @@
       "route": "architecture/boundaries.md",
       "title": "Core 与示例边界",
       "titleEn": "Core and example boundaries",
-      "group": "理解模板"
+      "group": "核心能力"
     },
     {
       "id": "v1-coverage",
@@ -369,7 +411,7 @@
       "route": "architecture/v1-coverage.md",
       "title": "v1 覆盖与验收",
       "titleEn": "v1 capability coverage and acceptance",
-      "group": "理解模板"
+      "group": "维护文档"
     },
     {
       "id": "feedback-loop",
@@ -378,7 +420,7 @@
       "route": "testing/feedback-loop.md",
       "title": "运行测试与检查",
       "titleEn": "Tests and the feedback loop",
-      "group": "验证"
+      "group": "开发指南"
     }
   ],
   "references": [
@@ -387,14 +429,14 @@
       "route": "reference/api.md",
       "title": "API 合同",
       "titleEn": "API contract",
-      "group": "生成参考"
+      "group": "参考"
     },
     {
       "id": "config-reference",
       "route": "reference/config.md",
       "title": "API 配置",
       "titleEn": "API configuration",
-      "group": "生成参考"
+      "group": "参考"
     }
   ]
 }

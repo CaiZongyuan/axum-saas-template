@@ -1,62 +1,25 @@
-# 快速开始
+# 快速开始：后端开发环境
 
-Core 提供邮箱密码注册、登录/退出、成员管理、密码重置、会话失效与真实服务状态查询，链路为 **Web → 生成 SDK → Axum → PostgreSQL**。
+启动模板的 API 与依赖，确认 HTTP、PostgreSQL 和迁移正常，再进入自己的业务开发。
 
-## 准备工具
+## 1. 准备工具与副本
 
-使用仓库固定的 Rust 1.96.0、Node 24.18.0、pnpm 11.17.0、just 1.58.0，以及能运行 Linux 容器的 Docker / Compose。版本记录在 `rust-toolchain.toml`、`.node-version`、`package.json` 和 `.tool-versions`。
-
-每个在线页面的页脚都标注“源码版本”——该页验收时对应的仓库提交。要精确复现本页步骤，先取到该提交：
+使用仓库固定版本：Rust 1.96.0、Node 24.18.0、pnpm 11.17.0、just 1.58.0，以及能够运行 Linux 容器的 Docker / Compose。版本来源是 `rust-toolchain.toml`、`.node-version`、`package.json` 与 `.tool-versions`。
 
 ```bash
 git clone https://github.com/CaiZongyuan/axum-saas-template.git
 cd axum-saas-template
-git checkout <页脚源码版本>   # 例如 git checkout 18710ff9b5ab
 pnpm install --frozen-lockfile
 just dev
 ```
 
-`just dev` 启动 Docker 中的 PostgreSQL/RustFS/Redis/Mailpit，显式运行迁移并初始化私有存储 bucket，再启动宿主机 API、Worker 与 Web。Web 支持 HMR；修改 Rust 源码会重新启动 API 和 Worker。没有 `.env` 时使用 `.env.example` 中的本地开发设置，需要调整时先复制为 `.env`。
+从仓库根目录执行。首次运行需要下载依赖和编译 Rust；开发脚本启动 PostgreSQL、Redis、RustFS、Mailpit，显式执行迁移并初始化存储，然后启动 API、Worker 与 Web。
 
-打开[注册页面](http://127.0.0.1:5173/register)，填写邮箱、12–128 字符的密码及可选显示名，成功后自动进入已登录首页。首个成功注册的账号成为企业 Owner，后续账号为 Member。部署人员应先注册自己的 Owner 账号，再交给普通使用者；不需要邀请或等待邮件。
+没有 `.env` 时使用 `.env.example` 的开发默认值。需要覆盖端口或服务设置时建立本地 `.env`；所有配置来源见[配置参考](site:reference/config.md)。
 
-[服务状态页](http://127.0.0.1:5173/system)会显示“服务已就绪”“PostgreSQL 已连接”和当前迁移版本；迁移历史必须与当前源码匹配。
+## 2. 发出第一条真实请求
 
-已有账号可以打开[登录页面](http://127.0.0.1:5173/login)。首页可退出登录，随后旧会话失效；详见[登录与会话教程](../tutorials/03-sessions.md)。
-
-忘记密码时可从登录页申请重置邮件，在 [Mailpit](http://127.0.0.1:8025) 打开一次性链接；详见[密码重置教程](../tutorials/18-password-reset.md)。开发邮件 key 自动保存为私有的 `.secrets/development-mail-key`，不会进入版本控制。
-
-Owner/Admin 从首页“企业成员”管理角色和启用状态；最后一位有效 Owner 不能被停用或降级。详见[成员管理教程](../tutorials/08-members.md)。后台任务入口提供安全状态、尝试历史和失败任务的有限重试。
-
-注册、登录和普通请求默认启用限流，达到上限后页面展示等待提示；见[请求限流与回退](../tutorials/17-rate-limits.md)。
-
-<!-- example:knowledge:quickstart:start -->
-
-## 保存第一篇文档
-
-登录后点击“我的文档”→“新建文档”，填写标题和 Markdown，再点击“保存文档”。普通成员也可以直接开始；个人库与 Editor 授权在首次保存时自动准备。刷新详情页后正文仍在，返回列表可以重新打开。
-
-支持新建、安全预览、标题搜索、分页、访问隔离和可靠重试；支持[编辑与冲突处理](../tutorials/06-edit-conflicts.md)，并可[上传附件、下载与插入图片引用](../tutorials/09-attachments.md)。跟做步骤见[第一篇 Markdown 文档](../tutorials/04-personal-documents.md)和[搜索与预览](../tutorials/05-search-preview.md)。
-
-Owner/Admin 可从首页“知识库”创建共享库、修改名称、授予或撤销 Reader/Editor；获授权成员在库内浏览与写作。参见[共享知识库与权限](../tutorials/07-library-grants.md)。
-
-打开已保存文档，点击“导出当前文档”可生成正文与附件的 ZIP；页面展示进度并提供下载。参见[文档导出与后台任务](../tutorials/10-document-exports.md)。
-
-有权编辑时可以确认删除文档或附件；管理员可删除整个库，后台任务负责对象清理。详见[删除与可靠清理](../tutorials/12-deletion-cleanup.md)。
-
-导出完成或最终失败后，从首页“通知”查看结果，标记已读或打开导出详情。详见[导出通知与已读状态](../tutorials/13-export-notifications.md)。
-
-Owner/Admin 可以从“审计记录”按文档 ID、动作和请求 ID 追溯实际操作，参见[管理员审计](../tutorials/14-audit-history.md)。
-
-从“API Keys”创建只读文档凭据，可用脚本读取有权访问的文档；参见 [API Key 教程](../tutorials/15-api-keys.md)。
-
-文档详情使用实际 Redis 正文缓存，每次读取仍由 PostgreSQL 验证可见性和版本；参见[版本缓存与回源](../tutorials/16-versioned-cache.md)。
-
-需要定位导出问题时，运行 `just dev-observability`，从请求追踪到 Worker、RustFS、日志与指标；参见[可观测性教程](../tutorials/19-observability.md)。
-
-<!-- example:knowledge:quickstart:end -->
-
-API 默认监听 `127.0.0.1:3000`：
+保持开发入口运行，在另一个终端执行：
 
 ```bash
 curl -i http://127.0.0.1:3000/health/live
@@ -64,41 +27,62 @@ curl -i http://127.0.0.1:3000/health/ready
 curl -i http://127.0.0.1:3000/api/v1/system/status
 ```
 
-每个响应都有 `x-request-id`。状态请求实际读取 PostgreSQL 的迁移记录，不是写死的前端展示数据。
+预期均返回 HTTP 200，每个响应带有 `x-request-id`。status 返回 `status: "ok"`、`database: "connected"` 和实际 `schema_version`；版本随源码迁移改变。
 
-## 观察一个失败场景
+live 证明进程运行；ready 核对依赖与完整迁移集合。API 启动不会自动修改数据库结构。
 
-保持 `just dev` 运行，在另一个终端暂时停止开发数据库：
+## 3. 观察依赖失败与恢复
+
+只在自己的开发环境操作。另一个终端停止 PostgreSQL：
 
 ```bash
 just db-down
+curl -i http://127.0.0.1:3000/health/ready
 ```
 
-再次点击服务状态页的“重新检查”。页面显示失败提示和请求编号；`/health/ready` 返回 `503`，`/health/live` 仍返回 `200`。
-
-恢复数据库后重新检查即可：
+ready 返回 503，live 仍返回 200。恢复数据库后重新请求：
 
 ```bash
 docker compose up -d --wait postgres
+curl -i http://127.0.0.1:3000/health/ready
 ```
 
-`Ctrl+C` 停止开发 API/Worker/Web，数据库、RustFS 与数据卷保留。`just services-down` 停止四项依赖，不删除数据；`just db-down` 可单独停止数据库。
+ready 应恢复 200。若连接成功但迁移历史不匹配，运行 `just migrate` 并确认源码与数据库版本一致。
 
-## 文档与下一步
+## 4. 准备认证请求
+
+默认 Web 为 `http://127.0.0.1:5173`，可以在 `/register` 创建开发账号。首个成功注册者为 Owner，后续为 Member；密码长度 12–128 字符。
+
+自己的受保护 HTTP 接口复用当前 Session、可信 Origin 和 CSRF。接入方式见[认证与会话](../tutorials/03-sessions.md)，邮件恢复可通过 [Mailpit](http://127.0.0.1:8025)查看。
+
+<!-- example:knowledge:quickstart:start -->
+
+已有知识库示例展示[业务写入](../tutorials/04-personal-documents.md)、[资源授权](../tutorials/07-library-grants.md)和[后台导出](../tutorials/10-document-exports.md)，供自己实现业务时查阅。
+
+<!-- example:knowledge:quickstart:end -->
+
+## 5. 进入开发循环
 
 ```bash
-just docs
+just generate
+pnpm contracts:check
+pnpm boundaries:check
 ```
 
-本地文档入口为 [http://127.0.0.1:5174/axum-saas-template/docs/](http://127.0.0.1:5174/axum-saas-template/docs/)。在线站点和本地站点使用同一组 Markdown 源文件；站点提供简体中文与英文，语言切换保持同一章节。
+Rust DTO 定义合同，SDK 与类型从 OpenAPI 生成。自己的模块、迁移、路由和测试应同步增加。先阅读[项目结构](../architecture/project-structure.md)，再完成[新增业务模块](../guides/develop-module.md)。
 
-复制模板后，按[发布教程站点](publish-docs.md)启用自己的 GitHub Pages；后续合并到 `main` 时由 CI 检查并发布。
+Rust `.rs` / `.toml` 变更会重启 API 与 Worker。新增 SQL 迁移后显式执行 `just migrate`，并重启开发入口使编译进二进制的迁移集合刷新。Web 使用 HMR。
 
-继续阅读[第一条全栈请求](../tutorials/01-full-stack-request.md)、[测试反馈循环](../testing/t01-feedback-loop.md)以及 [Core/示例边界](../architecture/module-boundaries.md)。完整后续范围记录在[架构规范](../saas-template-architecture-spec.md)。
+## 停止与排错
 
-## 常见问题
+`Ctrl+C` 停止宿主机 API/Worker/Web；`just services-down` 停止依赖并保留数据卷。
 
-- **数据库能连接但 ready 仍失败**：运行 `just migrate`；API 不自动迁移，已应用的迁移集合、成功状态和 checksum 必须匹配当前源码。
-- **端口已占用**：修改 `.env` 中的 `APP_BIND` / `VITE_API_PROXY`；更改数据库端口时同时调整 `POSTGRES_PORT` 与 `DATABASE_URL`，然后重启开发入口。
-- **Rust 配置报错**：检查[生成的配置参考](site:reference/config.md)。错误不会打印数据库凭据。
-- **浏览器请求失败**：用 request_id 对照 API 的 JSON 日志；页面通过 Vite 同源代理访问 API，数据库 URL 不进入浏览器。
+| 症状                | 检查与恢复                                                        |
+| ------------------- | ----------------------------------------------------------------- |
+| Docker 服务未就绪   | 确认 Docker daemon、镜像与端口，再启动开发入口                    |
+| ready 返回 503      | 检查 PostgreSQL、显式迁移和当前源码 checksum                      |
+| API 或 Web 端口占用 | 同步修改 APP_BIND / VITE_API_PROXY；Web 端口改变时更新 APP_ORIGIN |
+| 数据库端口改变      | 同时更新 POSTGRES_PORT 与 DATABASE_URL                            |
+| 请求失败            | 按 request_id 查 API JSON 日志，并核对公开错误                    |
+
+本地文档通过 `just docs` 启动，默认地址为 `http://127.0.0.1:5174/axum-saas-template/docs/`。页脚的源码版本表示构建来源；需要复现某个版本时检出该提交再执行步骤。

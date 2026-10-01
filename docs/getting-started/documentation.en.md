@@ -1,18 +1,52 @@
-# Documentation
+# Build your SaaS with Dougong
 
-This is the unified entry to the online tutorials and the generated references. Everything shares one source with the repository: tutorial steps can be followed as-is, the [API contract](site:reference/api.md) and the [configuration reference](site:reference/config.md) are generated from the implementation, and each page's footer marks the repository commit the page was verified against.
+Start with a Rust + Axum backend. Implement your business module, connect identity, persistence, audit, files and jobs, then deliver an API you can verify and deploy.
 
-- Start with the [quick start](quickstart.en.md) to run the template from a real request.
-- The [tutorials](../tutorials/01-full-stack-request.md) walk through registration, sessions, documents, attachments, exports, members, audit and more, one real path at a time.
-- The [generated references](site:reference/api.md) list the current API operationIds and configuration defaults, always matching the sources.
-- When you are ready to publish your own site, read [publish the documentation site](publish-docs.en.md).
+<div class="docs-paths">
+  <a class="docs-path" href="../guides/new-module"><strong>Build a new business</strong><span>Create your module and grow from the first route into data, permissions and business rules.</span></a>
+  <a class="docs-path" href="../architecture/project-structure"><strong>Experienced developer</strong><span>Find code ownership, then enter the database, endpoint, use case and testing guides.</span></a>
+  <a class="docs-path" href="../reference/api"><strong>Using the framework</strong><span>Look up public API, configuration, module integration and commands.</span></a>
+</div>
 
-## Languages and scope
+## Framework and business responsibilities
 
-The site ships in Simplified Chinese and English, switched from the language menu in the navigation bar; chapters correspond one to one. Chapters that have no translation yet do not appear in the English navigation and never pretend an English page exists. Search covers every published documentation page and generated reference on this site, not in-application data. Links decide the reading language; a shared link is never redirected by device language.
+| Framework capability                                    | Your business owns                                       |
+| ------------------------------------------------------- | -------------------------------------------------------- |
+| Identity, sessions, membership and organization roles   | Entities, rules and resource access                      |
+| Settings, pools, migration entry and public errors      | Use cases, transactions and HTTP contracts               |
+| Audit, idempotency, files, jobs, notifications and mail | Audit meaning, file ownership and business Handlers      |
+| OpenAPI, generated SDK, testing and deployment          | Business checks, production configuration and operations |
 
-English coverage note: the quick start, this entry, the publishing guide and both generated references are fully available in English. The remaining tutorial chapters are registered migration items in `docs/site.json` and arrive with the implementation tickets that rework their features.
+Each deployment serves one Organization with multiple members and business resources. Sharing a deployment across customer organizations needs a new organization context and access contract; see the [deployment decision](../adr/0001-single-organization-deployment.md).
 
-## Maintaining bilingual chapters
+## Understand a business request
 
-New pages must be delivered as a pair: place a same-named `.en.md` file next to the Chinese source and register one stable `id`, both titles and both group labels in `docs/site.json`. The publish checks validate chapter pairing, links and generated references; see [publish the documentation site](publish-docs.en.md) for the full steps.
+```text
+HTTP / request DTO
+  → your business use case
+  → Core public capabilities and transaction
+  → PostgreSQL / Platform adapters
+  → response DTO / OpenAPI
+```
+
+The application composes Router and OpenAPI, your module owns rules and tables, Core provides reusable SaaS capabilities, and Platform encapsulates infrastructure. See [project structure](../architecture/project-structure.md) and [Core and business boundaries](../architecture/module-boundaries.md).
+
+## Run, then develop
+
+Complete the [quick start](quickstart.md) and verify a request against PostgreSQL. Then [add a business module](../guides/develop-module.md), compile it and request your endpoint.
+
+Guides provide locations, public interfaces, minimal code, observable results and failure boundaries. Generated [API](site:reference/api.md) and [configuration](site:reference/config.md) keep the implementation as their source of truth.
+
+<!-- example:knowledge:documentation:start -->
+
+## Inspect a complete implementation
+
+The built-in knowledge example combines CRUD, resource grants, attachments, exports, notifications and audit. Learn how it calls Core, then replace the rules with your own business. Inspect [document use cases](../tutorials/04-personal-documents.md), [resource permissions](../tutorials/07-library-grants.md) and [background exports](../tutorials/10-document-exports.md) for complete paths.
+
+<!-- example:knowledge:documentation:end -->
+
+## Clients and contributions
+
+After the backend contract works, use [shared clients](../tutorials/20-electron-shell.md) and [business contributions](../tutorials/27-add-example.md) to connect Web and Electron. Chinese and English chapters stay paired during language switching. Search covers public documentation only.
+
+Read the [author guide](../guides/maintain-docs.md) when changing documentation and the [publishing guide](publish-docs.md) to publish your own site.

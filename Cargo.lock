@@ -2638,6 +2638,7 @@ dependencies = [
  "reqwest 0.12.28",
  "saas-app",
  "saas-platform",
+ "serde",
  "serde_json",
  "sha2 0.10.9",
  "sqlx",

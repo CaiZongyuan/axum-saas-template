@@ -127,6 +127,14 @@ function validateChapter(chapter, context, seenIds, seenRoutes) {
     throw new Error(`chapter ${chapter.id} is missing its title`);
   if (chapter.group === undefined)
     throw new Error(`chapter ${chapter.id} is missing its group`);
+  const type = chapter.reference
+    ? 'reference'
+    : (chapter.type ?? (chapter.layout ? 'overview' : 'guide'));
+  if (!['overview', 'tutorial', 'guide', 'concept', 'reference'].includes(type))
+    throw new Error(
+      `chapter ${chapter.id} has an unknown content type: ${type}`,
+    );
+  chapter = { ...chapter, type };
   assertLayoutDeclaration(chapter);
 
   // Generated references carry no source file: they are synthesized from
@@ -184,6 +192,19 @@ export function validateSiteModel(site) {
   for (const chapter of [...pages, ...references])
     if (groupLabels[chapter.group] === undefined)
       throw new Error(`group ${chapter.group} has no English label`);
+  for (const chapter of [...pages, ...references]) {
+    for (const direction of ['previous', 'next']) {
+      const target = chapter[direction];
+      if (
+        target !== undefined &&
+        target !== false &&
+        (!seenIds.has(target) || target === chapter.id)
+      )
+        throw new Error(
+          `chapter ${chapter.id} has invalid ${direction} chapter: ${target}`,
+        );
+    }
+  }
   return {
     repository: site.repository,
     title: site.title,
