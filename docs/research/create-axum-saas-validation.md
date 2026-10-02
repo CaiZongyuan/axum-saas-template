@@ -42,7 +42,7 @@ Standards 首轮发现创建目录与 `cd` 不一致，随后发现父仓库版�
 
 ## 发布结果
 
-2026-10-02，用户完成 npm 浏览器验证后，账号 `airickc1999` 成功发布 [`create-axum-saas@0.1.0`](https://www.npmjs.com/package/create-axum-saas/v/0.1.0)。发布源码与 PR #126 的合并提交 `168d088bf74cc7f1a4660c9c3c643f7e57b0f0d8` 内容一致，包含全部 CI 修复。最终发布包的 SHA-256：
+2026-10-02，用户完成 npm 浏览器验证后，账号 `airickc1999` 成功发布 [`create-axum-saas@0.1.0`](https://www.npmjs.com/package/create-axum-saas/v/0.1.0)。发布源码与 PR #126 的合并提交 `168d088bf74cc7f1a4660c9c3c643f7e57b0f0d8` 内容一致，包含标题定位、k6 校验与成组端口修复。最终发布包的 SHA-256：
 
 ```text
 3885f477af48808b2f17d84f4f77313f8492bef11241cc51784b98ddc65e9eb6
@@ -50,7 +50,7 @@ Standards 首轮发现创建目录与 `cd` 不一致，随后发现父仓库版�
 
 公开 registry 的版本、SHA-512 integrity 与 SHA-1 shasum 均与发布包一致。使用全新 npm 缓存、临时目录和独立端口登记，实际执行公开 `npx --yes create-axum-saas` 创建默认版和 `--no-examples` 版；两份生成物均无旧标识和 Git 历史，许可证保留，端口互异，`pnpm install --frozen-lockfile` 与 `cargo metadata --no-deps --locked` 通过。默认版包含修正后的 k6 workflow 与桌面断言，Core 版不含参考业务及其 workflow。脱敏结果位于 `.scratch/ci-122/public-package-report.json`，验收时间为 `2026-10-02T00:17:13Z`。
 
-本轮源码变更限于 CI 与测试栈的端口分配，应用运行时保持初次完整双副本浏览器验收的内容；复用注册、登录、API Key、存储与邮件隔离证据。README 和双语创建指南已改用正式发布命令，仍保留从当前源码构建本地包的路径。
+初次浏览器验收后的源码变更限于 CI、测试栈端口分配及测试缓存预算，应用运行时保持初次完整双副本浏览器验收的内容；复用注册、登录、API Key、存储与邮件隔离证据。README 和双语创建指南已改用正式发布命令，仍保留从当前源码构建本地包的路径。
 
 本次实际运行环境为 Linux，未验证 macOS/Windows。可选完整观测栈及 Electron GUI 没有重复跑浏览器长测；其共享构建/类型/协议检查与本票变更相关的端口检查已覆盖。
 
@@ -75,3 +75,5 @@ nightly 在安装 k6 时失败：下载使用 `/tmp/k6.tgz`，checksum 清单要
 改用 `freePorts(count)` 在整组端口探测期间保持 socket 绑定，完成或中途失败后统一关闭；桌面、E2E、受控负载与观测冒烟均使用同一分配器。模拟系统立即回收端口的回归测试先失败再通过，分配失败时的清理测试通过；真实系统连续 50000 组 API/Web 端口均互异，实际 Electron 四项冒烟再次通过。单端口调用保留原接口。
 
 PR #126 的全部检查通过，包括 backend、frontend、teaching-backend、tooling、documentation、desktop-smoke、example-removal 与 `verify`。手动 nightly `36942374994` 的 load、saturation、trajectory、60 秒 soak 与 60 秒 desktop-soak 均通过。端口修复完成简化检查；Standards 与 Spec 对快照 `5e0d8ed95f401ba1dbe29b74b646e847f84be016` 均无待修复问题，本地完整 `just check` 通过。
+
+主 CI `36944760132` 的桌面、backend 与其他选中任务通过，但 dual-example gate 的缓存权限测试期望 2 次命中而得到 1 次。它沿用了生产的 100ms Redis 预算，正常降级也会导致精确命中断言失败。临时把该 fixture 预算压至 1ms，经原 HTTP 入口复现 3 次 fallback、0 次命中，正文与权限行为仍成功。此后与已有 miss→hit 测试一致，将依赖缓存命中的 fixture 使用 1 秒测试预算，保留全部授权、版本、删除及命中断言；独立慢 Redis 测试仍使用 200ms 并验证有界降级。五项真实 PostgreSQL/Redis 集成测试通过。临时诊断代码已删除；这些后续改动仅作用于仓库测试，不修改已发布包的应用运行时。
