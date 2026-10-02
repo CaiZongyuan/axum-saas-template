@@ -6,7 +6,7 @@
 
 准备 Node 24.18.0。运行应用还需要 Rust 1.96.0、pnpm 11.17.0、just 1.58.0 和 Docker Compose。
 
-发布到 npm 后，创建入口是：
+从 npm 创建项目：
 
 ```bash
 npx create-axum-saas my-app
@@ -14,7 +14,7 @@ npx create-axum-saas my-app
 
 省略目录参数时会询问项目名。目录末级名称需为小写字母开头的 kebab-case，最长 48 字符；已有目录会被拒绝，文件不会覆盖。默认保留知识库参考应用、便签示例与教学源码。
 
-首次 npm 发布前，从模板仓库根目录构建并使用同一个真实包：
+也可以从模板仓库根目录构建当前源码快照并使用本地包：
 
 ```bash
 pnpm scaffold:pack

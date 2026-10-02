@@ -6,7 +6,7 @@ Use the Dougong creator to generate a renamed project, choose whether to retain 
 
 Prepare Node 24.18.0. Running the application also requires Rust 1.96.0, pnpm 11.17.0, just 1.58.0 and Docker Compose.
 
-After the npm release, use:
+Create a project from npm:
 
 ```bash
 npx create-axum-saas my-app
@@ -14,7 +14,7 @@ npx create-axum-saas my-app
 
 Omit the directory to be prompted for a project name. The final directory name must use lowercase kebab-case, start with a letter, and contain at most 48 characters. Existing directories are rejected without overwriting files. Knowledge, Notes and the teaching fixtures are included by default.
 
-Before the first npm release, build and use the same real package from the template repository root:
+You can also build the current source snapshot and use a local package from the template repository root:
 
 ```bash
 pnpm scaffold:pack

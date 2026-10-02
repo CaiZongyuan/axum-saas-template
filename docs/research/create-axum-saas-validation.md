@@ -6,7 +6,7 @@
 
 基点 `83f1f71bd166af8b604dd50124abc85242b82177`。实现位于 `feat/create-axum-saas-122`；提交之前用不可变树快照 `767089303cbc7a38dd7370c46995bcd12d0c0215` 完成两轴审查。快照不是分支提交，覆盖本票所有已暂存的实现、测试和双语文档；本记录随后补入。
 
-本地 npm 包：`.scratch/create-package/create-axum-saas-0.1.0.tgz`，SHA-256：
+初次本地验收的 npm 包为 `.scratch/create-package/create-axum-saas-0.1.0.tgz`，当时的 SHA-256：
 
 ```text
 9b08d808a8463358f9d457d87508b6e3dfbda4fdac592e57fc0c50dfe549b402
@@ -22,7 +22,7 @@
 - 初始 Web gzip 216.2 KiB，5 个异步 chunk，预算通过；未调整性能基线。
 - CLI 产物测试验证改名、无历史、许可证保留、尚未启动副本的端口互斥、现有目录拒绝、Core 完整剥离，以及包含源标识的项目名/仓库名。模拟 Docker 对所有 TCP 端口的发布，验证即使宿主无监听也不会分配这些端口。
 
-`pnpm scaffold:smoke` 对上述真实 npm 包创建默认应用与 `--no-examples` 应用。两套 `pnpm install --frozen-lockfile` 与 `just dev` 同时运行，真实 PostgreSQL/Redis/RustFS/Mailpit 与宿主 API/Worker/Web 完成以下行为：
+`pnpm scaffold:smoke` 对初次本地验收的真实 npm 包创建默认应用与 `--no-examples` 应用。两套 `pnpm install --frozen-lockfile` 与 `just dev` 同时运行，真实 PostgreSQL/Redis/RustFS/Mailpit 与宿主 API/Worker/Web 完成以下行为：
 
 1. 通过 `agent-browser` 在各自独立浏览器注册同一邮箱、退出并重新登录；各数据库首个账号均为 Owner。
 2. 两个改名应用都创建 API Key，并通过 Bearer 读取 profile，HTTP 200。
@@ -40,9 +40,17 @@
 
 Standards 首轮发现创建目录与 `cd` 不一致，随后发现父仓库版本误认；均已修复。Spec 首轮发现 API Key 固定长度、重复替换用户输入、分配时遗漏 Docker 发布端口；HTTP/CLI 失败已复现并修复。最终两轴对上述不可变快照均无待修复问题。元数据和换行调整后刷新了相关格式、文档、构建、预算和打包浏览器检查。
 
-## 发布边界
+## 发布结果
 
-首次合并时 npm 未认证；随后用户完成登录，`npm whoami` 确认账号 `airickc1999`。实际发布仍被 npm 返回 E403，要求双因素认证或启用 bypass 2FA 的 granular token。账号已有具备包写权限的有效发布 token，但当前登录凭据不是它，服务端只返回 token 掩码。公开 `npx create-axum-saas` 的验收需要找到本机的发布配置或完成双因素验证，再发布已审查的 tarball。此步骤完成前保持 #122 开放，不将 PR 或本地包当作公开发布。
+2026-10-02，用户完成 npm 浏览器验证后，账号 `airickc1999` 成功发布 [`create-axum-saas@0.1.0`](https://www.npmjs.com/package/create-axum-saas/v/0.1.0)。发布源码与 PR #126 的合并提交 `168d088bf74cc7f1a4660c9c3c643f7e57b0f0d8` 内容一致，包含全部 CI 修复。最终发布包的 SHA-256：
+
+```text
+3885f477af48808b2f17d84f4f77313f8492bef11241cc51784b98ddc65e9eb6
+```
+
+公开 registry 的版本、SHA-512 integrity 与 SHA-1 shasum 均与发布包一致。使用全新 npm 缓存、临时目录和独立端口登记，实际执行公开 `npx --yes create-axum-saas` 创建默认版和 `--no-examples` 版；两份生成物均无旧标识和 Git 历史，许可证保留，端口互异，`pnpm install --frozen-lockfile` 与 `cargo metadata --no-deps --locked` 通过。默认版包含修正后的 k6 workflow 与桌面断言，Core 版不含参考业务及其 workflow。脱敏结果位于 `.scratch/ci-122/public-package-report.json`，验收时间为 `2026-10-02T00:17:13Z`。
+
+本轮源码变更限于 CI 与测试栈的端口分配，应用运行时保持初次完整双副本浏览器验收的内容；复用注册、登录、API Key、存储与邮件隔离证据。README 和双语创建指南已改用正式发布命令，仍保留从当前源码构建本地包的路径。
 
 本次实际运行环境为 Linux，未验证 macOS/Windows。可选完整观测栈及 Electron GUI 没有重复跑浏览器长测；其共享构建/类型/协议检查与本票变更相关的端口检查已覆盖。
 
@@ -65,3 +73,5 @@ nightly 在安装 k6 时失败：下载使用 `/tmp/k6.tgz`，checksum 清单要
 合并后的主 CI `36941067127` 暴露了另一处端口竞争：API 与 Web 均探测到 34195，API 启动后 Vite 拒绝绑定，测试尚未开始。连续调用公开 `freePort()` 在本机第 24029 组复现同端口；这是关闭探测 socket 后系统立即复用端口，并非 UI 断言失败。
 
 改用 `freePorts(count)` 在整组端口探测期间保持 socket 绑定，完成或中途失败后统一关闭；桌面、E2E、受控负载与观测冒烟均使用同一分配器。模拟系统立即回收端口的回归测试先失败再通过，分配失败时的清理测试通过；真实系统连续 50000 组 API/Web 端口均互异，实际 Electron 四项冒烟再次通过。单端口调用保留原接口。
+
+PR #126 的全部检查通过，包括 backend、frontend、teaching-backend、tooling、documentation、desktop-smoke、example-removal 与 `verify`。手动 nightly `36942374994` 的 load、saturation、trajectory、60 秒 soak 与 60 秒 desktop-soak 均通过。端口修复完成简化检查；Standards 与 Spec 对快照 `5e0d8ed95f401ba1dbe29b74b646e847f84be016` 均无待修复问题，本地完整 `just check` 通过。
