@@ -1,1 +1,4 @@
-{ "kind": "core", "tables": ["_sqlx_migrations"] }
+{
+  "kind": "core",
+  "tables": ["_sqlx_migrations", "saas_core.monitoring_alert_rule"]
+}

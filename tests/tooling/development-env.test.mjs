@@ -39,6 +39,7 @@ test('a copy derives every local endpoint from its port settings', (t) => {
   assert.equal(env.S3_PUBLIC_ENDPOINT, env.S3_ENDPOINT);
   assert.equal(env.APP_BIND, '127.0.0.1:24001');
   assert.equal(env.WORKER_BIND, '127.0.0.1:24002');
+  assert.equal(env.MONITORING_WORKER_URL, 'http://127.0.0.1:24002');
   assert.equal(env.APP_ORIGIN, 'http://127.0.0.1:24003');
   assert.equal(env.VITE_API_PROXY, 'http://127.0.0.1:24001');
   assert.equal(env.SAAS_DESKTOP_ORIGIN, env.APP_ORIGIN);

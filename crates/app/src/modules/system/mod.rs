@@ -1,4 +1,6 @@
 pub mod cache;
+pub mod monitoring;
+pub mod monitoring_alerts;
 use axum::{Extension, Json, extract::State, http::StatusCode, response::Response};
 use serde::Serialize;
 use sqlx::PgPool;

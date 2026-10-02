@@ -64,6 +64,11 @@ export type CacheMetrics = {
     writes: number;
 };
 
+export type CollectionStatus = {
+    last_sample_at?: string | null;
+    state: string;
+};
+
 export type CompleteReset = {
     password: string;
     token: string;
@@ -179,6 +184,22 @@ export type HealthResponse = {
     status: string;
 };
 
+export type HttpMetricPoint = {
+    at: string;
+    error_rate_percent?: number | null;
+    p95_ms?: number | null;
+    requests_per_second?: number | null;
+};
+
+export type HttpMetrics = {
+    error_rate_percent?: number | null;
+    p50_ms?: number | null;
+    p95_ms?: number | null;
+    requests: number;
+    series: Array<HttpMetricPoint>;
+    server_errors: number;
+};
+
 export type JobAttempt = {
     batch: number;
     ended_at?: string | null;
@@ -188,6 +209,12 @@ export type JobAttempt = {
     started_at: string;
     status: string;
     worker_id: string;
+};
+
+export type JobAttemptCount = {
+    count: number;
+    kind: string;
+    outcome: string;
 };
 
 export type JobBatch = {
@@ -225,6 +252,14 @@ export type JobInfo = {
     schema_version: number;
     status: string;
     updated_at: string;
+};
+
+export type JobMonitoringSummary = {
+    attempts: Array<JobAttemptCount>;
+    failed: number;
+    oldest_wait_seconds?: number | null;
+    running: number;
+    waiting: number;
 };
 
 export type JobPage = {
@@ -304,6 +339,41 @@ export type Metadata = {
     subject_user_id?: string | null;
 };
 
+export type MonitoringAlertRule = {
+    breach_started_at?: string | null;
+    duration_minutes: number;
+    enabled: boolean;
+    error_rate_percent: number;
+    id: string;
+    last_evaluated_at?: string | null;
+    state: string;
+    version: number;
+};
+
+export type MonitoringAlertTestRequest = {
+    [key: string]: never;
+};
+
+export type MonitoringAlertTestResult = {
+    status: string;
+};
+
+export type MonitoringServices = {
+    api: string;
+    database: string;
+    worker: string;
+};
+
+export type MonitoringSnapshot = {
+    checked_at: string;
+    collection: CollectionStatus;
+    grafana_url?: string | null;
+    http?: null | HttpMetrics;
+    jobs: JobMonitoringSummary;
+    services: MonitoringServices;
+    window_minutes: number;
+};
+
 export type Notification = {
     created_at: string;
     id: string;
@@ -341,7 +411,7 @@ export type ObjectCapability = {
     url: string;
 };
 
-export type Outcome = 'succeeded' | 'failed';
+export type Outcome = 'succeeded' | 'failed' | 'firing' | 'recovered' | 'test';
 
 export type PolicyMetrics = {
     fallback_limit: number;
@@ -410,6 +480,13 @@ export type UpdateDocument = {
 export type UpdateMember = {
     active: boolean;
     role: MemberRole;
+    version: number;
+};
+
+export type UpdateMonitoringAlertRule = {
+    duration_minutes: number;
+    enabled: boolean;
+    error_rate_percent: number;
     version: number;
 };
 
@@ -1746,6 +1823,119 @@ export type GetCacheStatusResponses = {
 };
 
 export type GetCacheStatusResponse = GetCacheStatusResponses[keyof GetCacheStatusResponses];
+
+export type GetMonitoringSnapshotData = {
+    body?: never;
+    path?: never;
+    query?: {
+        window_minutes?: number;
+    };
+    url: '/api/v1/system/monitoring';
+};
+
+export type GetMonitoringSnapshotErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetMonitoringSnapshotError = GetMonitoringSnapshotErrors[keyof GetMonitoringSnapshotErrors];
+
+export type GetMonitoringSnapshotResponses = {
+    200: MonitoringSnapshot;
+};
+
+export type GetMonitoringSnapshotResponse = GetMonitoringSnapshotResponses[keyof GetMonitoringSnapshotResponses];
+
+export type GetMonitoringAlertRuleData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/system/monitoring/alerts';
+};
+
+export type GetMonitoringAlertRuleErrors = {
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type GetMonitoringAlertRuleError = GetMonitoringAlertRuleErrors[keyof GetMonitoringAlertRuleErrors];
+
+export type GetMonitoringAlertRuleResponses = {
+    200: MonitoringAlertRule;
+};
+
+export type GetMonitoringAlertRuleResponse = GetMonitoringAlertRuleResponses[keyof GetMonitoringAlertRuleResponses];
+
+export type UpdateMonitoringAlertRuleData = {
+    body: UpdateMonitoringAlertRule;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/system/monitoring/alerts';
+};
+
+export type UpdateMonitoringAlertRuleErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    409: ApiErrorResponse;
+    413: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type UpdateMonitoringAlertRuleError = UpdateMonitoringAlertRuleErrors[keyof UpdateMonitoringAlertRuleErrors];
+
+export type UpdateMonitoringAlertRuleResponses = {
+    200: MonitoringAlertRule;
+};
+
+export type UpdateMonitoringAlertRuleResponse = UpdateMonitoringAlertRuleResponses[keyof UpdateMonitoringAlertRuleResponses];
+
+export type TestMonitoringAlertData = {
+    body: MonitoringAlertTestRequest;
+    headers: {
+        'x-csrf-token': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/v1/system/monitoring/alerts/test';
+};
+
+export type TestMonitoringAlertErrors = {
+    400: ApiErrorResponse;
+    401: ApiErrorResponse;
+    403: ApiErrorResponse;
+    /**
+     * Request budget exceeded; retry after the specified seconds
+     */
+    429: ApiErrorResponse;
+    503: ApiErrorResponse;
+};
+
+export type TestMonitoringAlertError = TestMonitoringAlertErrors[keyof TestMonitoringAlertErrors];
+
+export type TestMonitoringAlertResponses = {
+    201: MonitoringAlertTestResult;
+};
+
+export type TestMonitoringAlertResponse = TestMonitoringAlertResponses[keyof TestMonitoringAlertResponses];
 
 export type GetRateLimitStatusData = {
     body?: never;

@@ -34,6 +34,8 @@ const DesignSystemView = lazy(
   () => import('../design-system/design-system-view'),
 );
 
+const MonitoringView = lazy(() => import('../system/monitoring-view'));
+
 function ChoiceGroup<T extends string>({
   name,
   legend,
@@ -78,6 +80,7 @@ export function SettingsView({
   onOpen,
   section,
   onSectionChange,
+  onDirtyChange,
   showroom,
 }: {
   docsUrl: string;
@@ -87,6 +90,7 @@ export function SettingsView({
   /** Selected settings pane, including legacy deep links. */
   section?: string;
   onSectionChange?: (section: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
   /** Ports for the embedded showroom; missing scenes or copy hide it. */
   showroom?: {
     scenes?: AssembledApp['scenes'];
@@ -100,6 +104,7 @@ export function SettingsView({
   const session = useQuery(sessionQuery(apiClient, queryClient));
   const user = session.data?.user;
   const signedIn = user !== undefined;
+  const canMonitor = user?.role === 'admin' || user?.role === 'owner';
   const [avatar, setAvatar] = useGraphicPreference(user?.id, 'user', 'user');
   const entries = [
     { id: 'appearance', label: message('settings.appearance') },
@@ -111,19 +116,27 @@ export function SettingsView({
       authenticated: true,
     },
     { id: 'system', label: message('shell.nav.status') },
+    {
+      id: 'monitoring',
+      label: message('monitoring.title'),
+      authenticated: true,
+      adminOnly: true,
+    },
     { id: 'help', label: message('settings.help') },
   ];
   const selected =
     entries.find((entry) => entry.id === (section ?? localSection)) ??
     entries[0];
   usePageTitle(
-    selected.id === 'api-keys'
-      ? 'apiKeys.title'
-      : selected.id === 'system'
-        ? 'status.title'
-        : selected.id === 'design-system'
-          ? 'design.title'
-          : 'settings.title',
+    selected.id === 'monitoring'
+      ? 'monitoring.title'
+      : selected.id === 'api-keys'
+        ? 'apiKeys.title'
+        : selected.id === 'system'
+          ? 'status.title'
+          : selected.id === 'design-system'
+            ? 'design.title'
+            : 'settings.title',
   );
   const languageOptions: { value: AppLocale; label: string }[] = [
     { value: 'zh', label: message('settings.language.zh') },
@@ -145,7 +158,11 @@ export function SettingsView({
 
   return (
     <SettingsLayout
-      entries={entries.filter((entry) => !entry.authenticated || signedIn)}
+      entries={entries.filter(
+        (entry) =>
+          (!entry.authenticated || signedIn) &&
+          (!entry.adminOnly || canMonitor),
+      )}
       selected={selected.id}
       onSelect={(next) => {
         if (onSectionChange) onSectionChange(next);
@@ -315,6 +332,26 @@ export function SettingsView({
           </SettingsSection>
         ) : null}
 
+        {selected.id === 'monitoring' && signedIn ? (
+          canMonitor && session.data ? (
+            <SettingsSection anchor="monitoring">
+              <Suspense
+                fallback={<p role="status">{message('monitoring.loading')}</p>}
+              >
+                <MonitoringView
+                  key={session.data.user.id}
+                  apiClient={apiClient}
+                  identity={session.data}
+                  docsUrl={docsUrl}
+                  onOpen={onOpen}
+                  onDirtyChange={onDirtyChange}
+                />
+              </Suspense>
+            </SettingsSection>
+          ) : (
+            <p>{message('monitoring.adminOnly')}</p>
+          )
+        ) : null}
         {selected.id === 'system' ? (
           <SettingsSection anchor="system">
             <StatusView embedded apiClient={apiClient} docsUrl={docsUrl} />

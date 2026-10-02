@@ -32,6 +32,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
         .as_ref()
         .map(|storage| FileService::from_settings(storage, &settings.file_limits));
     let mut handlers: Vec<Arc<dyn Handler>> = Vec::new();
+    let alert_maintenance = system::monitoring_alerts::maintenance(
+        pool.clone(),
+        system::monitoring::Monitoring::from_env()?,
+    );
     let maintenance: Vec<Arc<dyn Maintenance>> = vec![
         files::cleanup_maintenance(pool.clone()),
         saas_app::modules::identity::password_reset_maintenance(pool.clone()),
@@ -100,9 +104,17 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let (stop_tx, mut stop_rx) = tokio::sync::watch::channel(false);
     let worker_stop = stop_rx.clone();
     let mut maintenance_stop = stop_rx.clone();
+    let mut alert_stop = stop_rx.clone();
     let maintain = jobs::run_maintenance(maintenance, maintenance_period, async move {
         let _ = maintenance_stop.changed().await;
     });
+    let alerts = jobs::run_maintenance(
+        vec![alert_maintenance],
+        Duration::from_secs(system::monitoring_alerts::EVALUATION_INTERVAL_SECS),
+        async move {
+            let _ = alert_stop.changed().await;
+        },
+    );
     let run_worker = worker.run_until(async move {
         let mut receiver = worker_stop;
         let _ = receiver.changed().await;
@@ -112,12 +124,13 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             let _ = stop_rx.changed().await;
         })
         .into_future();
-    tokio::pin!(run_worker, maintain, server);
-    let (worker_finished, maintenance_finished, server_finished) = tokio::select! {
-        _ = shutdown_signal() => (false, false, false),
-        _ = &mut run_worker => (true, false, false),
-        _ = &mut maintain => (false, true, false),
-        result = &mut server => { result?; (false, false, true) },
+    tokio::pin!(run_worker, maintain, alerts, server);
+    let (worker_finished, maintenance_finished, alerts_finished, server_finished) = tokio::select! {
+        _ = shutdown_signal() => (false, false, false, false),
+        _ = &mut run_worker => (true, false, false, false),
+        _ = &mut maintain => (false, true, false, false),
+        _ = &mut alerts => (false, false, true, false),
+        result = &mut server => { result?; (false, false, false, true) },
     };
     let _ = stop_tx.send(true);
     if !worker_finished {
@@ -125,6 +138,9 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     if !maintenance_finished {
         maintain.await;
+    }
+    if !alerts_finished {
+        alerts.await;
     }
     if !server_finished {
         let _ = tokio::time::timeout(Duration::from_secs(1), server).await;

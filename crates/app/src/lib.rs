@@ -61,6 +61,7 @@ pub struct CoreOptions {
     pub cache: saas_platform::cache::Cache,
     pub limiter: modules::rate_limit::RateLimiter,
     pub password_reset: Option<modules::identity::PasswordReset>,
+    pub monitoring: modules::system::monitoring::Monitoring,
 }
 impl Default for CoreOptions {
     fn default() -> Self {
@@ -69,6 +70,7 @@ impl Default for CoreOptions {
             cache: Default::default(),
             limiter: Default::default(),
             password_reset: None,
+            monitoring: Default::default(),
         }
     }
 }
@@ -107,6 +109,15 @@ pub fn compose_routes_with_options(
             pool.clone(),
             auth.clone(),
             options.limiter.clone(),
+        ))
+        .merge(modules::system::monitoring_alerts::router(
+            pool.clone(),
+            auth.clone(),
+        ))
+        .merge(modules::system::monitoring::router(
+            pool.clone(),
+            auth.clone(),
+            options.monitoring,
         ))
         .merge(modules::system::cache::router(pool, auth, options.cache))
         .merge(domain_routes)
@@ -149,6 +160,8 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     document.merge(modules::audit::openapi());
     document.merge(modules::api_keys::openapi());
     document.merge(modules::system::cache::openapi());
+    document.merge(modules::system::monitoring::openapi());
+    document.merge(modules::system::monitoring_alerts::openapi());
     document.merge(modules::rate_limit::openapi());
     modules::rate_limit::describe(document)
 }

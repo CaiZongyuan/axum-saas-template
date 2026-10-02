@@ -1,5 +1,7 @@
 mod maintenance;
+mod monitoring;
 pub use maintenance::{Maintenance, run_maintenance};
+pub use monitoring::{JobAttemptCount, JobMonitoringSummary, monitoring_summary};
 mod administration;
 mod management;
 pub use management::{openapi, router};

@@ -2,6 +2,7 @@
 pub mod cache;
 pub mod config;
 pub mod mail;
+pub mod monitoring;
 pub mod object_storage;
 pub mod postgres;
 pub mod rate_limit;

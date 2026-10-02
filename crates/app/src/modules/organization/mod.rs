@@ -42,6 +42,12 @@ pub async fn active_role(pool: &PgPool, user_id: &str) -> Result<Option<MemberRo
         .await
 }
 
+/// Keep the current administrator recipient set stable until notification commit.
+pub async fn administrators_in(connection: &mut PgConnection) -> Result<Vec<String>, sqlx::Error> {
+    sqlx::query_scalar("SELECT user_id::text FROM saas_core.memberships WHERE active AND role IN ('owner', 'admin') ORDER BY user_id FOR SHARE")
+        .fetch_all(connection).await
+}
+
 /// Hold membership stable for a caller's mutation; disabling/changing roles waits.
 pub async fn active_role_in(
     connection: &mut PgConnection,

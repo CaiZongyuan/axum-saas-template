@@ -12,8 +12,16 @@ function docker(args, env) {
   }).trim();
 }
 
-export function composeConfiguration(env, files = ['compose.yaml']) {
-  const args = ['compose', ...files.flatMap((file) => ['-f', file])];
+export function composeConfiguration(
+  env,
+  files = ['compose.yaml'],
+  profiles = [],
+) {
+  const args = [
+    'compose',
+    ...files.flatMap((file) => ['-f', file]),
+    ...profiles.flatMap((profile) => ['--profile', profile]),
+  ];
   const config = JSON.parse(
     docker([...args, 'config', '--format', 'json'], env),
   );
@@ -137,11 +145,12 @@ export async function startDevelopmentServices(
   {
     services = developmentServices,
     files = ['compose.yaml'],
+    profiles = [],
     hostProcesses = false,
     forceRecreate = false,
   } = {},
 ) {
-  const { args, config } = composeConfiguration(env, files);
+  const { args, config } = composeConfiguration(env, files, profiles);
   const bindings = composeBindings(config, services);
   const hostBindings = hostProcesses
     ? [

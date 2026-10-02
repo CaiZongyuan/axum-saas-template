@@ -41,14 +41,39 @@ pub async fn on_job_outcome(
 pub enum Outcome {
     Succeeded,
     Failed,
+    Firing,
+    Recovered,
+    Test,
 }
 impl Outcome {
     fn as_str(self) -> &'static str {
         match self {
             Self::Succeeded => "succeeded",
             Self::Failed => "failed",
+            Self::Firing => "firing",
+            Self::Recovered => "recovered",
+            Self::Test => "test",
         }
     }
+}
+
+/// Publish a durable event in the caller's transaction. Repeating its key and
+/// outcome preserves the original notification, including its read state.
+pub async fn publish(
+    connection: &mut PgConnection,
+    recipients: &[String],
+    event_key: &str,
+    subject: &str,
+    target: NotificationTarget,
+    outcome: Outcome,
+) -> Result<(), sqlx::Error> {
+    let ids: Vec<String> = recipients
+        .iter()
+        .map(|_| uuid::Uuid::now_v7().to_string())
+        .collect();
+    sqlx::query("INSERT INTO saas_core.notifications (id, recipient_id, event_key, subject, target, outcome) SELECT n.id::uuid, n.recipient_id::uuid, $3, $4, $5, $6 FROM unnest($1::text[], $2::text[]) AS n(id, recipient_id) ON CONFLICT (recipient_id, event_key, outcome) DO NOTHING")
+        .bind(ids).bind(recipients).bind(event_key).bind(subject).bind(sqlx::types::Json(target)).bind(outcome.as_str()).execute(connection).await?;
+    Ok(())
 }
 
 /// Called by Jobs within the fenced terminal-state transaction. A repeated event
