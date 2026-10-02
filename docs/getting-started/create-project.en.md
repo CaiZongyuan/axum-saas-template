@@ -18,7 +18,7 @@ You can also build the current source snapshot and use a local package from the 
 
 ```bash
 pnpm scaffold:pack
-npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.0.tgz create-axum-saas my-app
+npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.1.tgz create-axum-saas my-app
 ```
 
 The package contains its source snapshot. Creation does not fetch a changing Git branch or install dependencies. The result excludes `.git`, local secrets, data volumes and build directories.

@@ -16,9 +16,12 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { root, stop, waitFor } from './lib/process.mjs';
 import { amzDateNow, signRequest } from './lib/sigv4.mjs';
 
+const { version: creatorVersion } = JSON.parse(
+  readFileSync(join(root, 'tools/create-axum-saas/package.json'), 'utf8'),
+);
 const archive = join(
   root,
-  '.scratch/create-package/create-axum-saas-0.1.0.tgz',
+  `.scratch/create-package/create-axum-saas-${creatorVersion}.tgz`,
 );
 const scratch = join(root, '.scratch/create-package');
 mkdirSync(scratch, { recursive: true });

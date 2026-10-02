@@ -18,7 +18,7 @@ npx create-axum-saas my-app
 
 ```bash
 pnpm scaffold:pack
-npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.0.tgz create-axum-saas my-app
+npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.1.tgz create-axum-saas my-app
 ```
 
 打包包含源码快照，创建过程不下载可变的 Git 分支，也不执行依赖安装。生成的副本不带 `.git`、本机秘密、数据卷或构建目录。
