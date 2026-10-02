@@ -18,7 +18,7 @@ npx create-axum-saas my-app
 
 ```bash
 pnpm scaffold:pack
-npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.1.tgz create-axum-saas my-app
+npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.2.tgz create-axum-saas my-app
 ```
 
 打包包含源码快照，创建过程不下载可变的 Git 分支，也不执行依赖安装。生成的副本不带 `.git`、本机秘密、数据卷或构建目录。
@@ -62,3 +62,13 @@ npx create-axum-saas plain-app --no-examples
 创建与启动之间端口仍可能被其他进程占用，因此每次启动都重新检查。遇到冲突会列出宿主监听的 PID 或 Docker 容器与项目名，提示停止占用者或修改 `.env` 中对应的 `*_PORT`。容器 healthy 但实际绑定缺失时，启动在迁移之前失败。迁移错误会保留 SQLx 的真实原因。
 
 不要为端口冲突删除卷。下一步阅读[项目结构](../architecture/project-structure.md)，再[新增业务模块](../guides/develop-module.md)。已生成的 Core 副本可从 `crates/app/src/modules` 开始自己的业务。
+
+## 5. 模板维护者发布 CLI
+
+先修改 `tools/create-axum-saas/package.json` 的版本并通过 PR 合入 `main`；npm 已发布的版本不能覆盖。等待该 main 提交的 CI 全部通过。
+
+仓库 Actions Secret `NPM_TOKEN` 使用仅授权 `create-axum-saas` 的 granular token，权限选 `Read and write (publish and stage)` 并启用 `Bypass two-factor authentication`。到期后更新 Secret；Actions 发布时不需要交互登录。
+
+打开 [Publish creator](https://github.com/CaiZongyuan/axum-saas-template/actions/workflows/npm-publish.yml)，选择 `Run workflow`、分支 `main`，填写与包元数据一致的 `version`。先保持 `publish` 不勾选进行预演，查看 npm 身份、包内容和成功结果；再以同样版本勾选 `publish` 正式发布。正式发布核对版本未被注册、构建默认与 Core 快照，并等待 registry 提供校验值匹配的包。失败时检查版本、Token 权限和有效期；已经发布成功的版本不要重新发布。
+
+[npm 的 token 策略](https://docs.npmjs.com/about-access-tokens/)计划在 2027 年 1 月移除 token 直接发布新版本；届时需迁移至 Trusted Publishing 或新的 staging 流程。此维护者 workflow、发布脚本与测试不会进入生成的项目。

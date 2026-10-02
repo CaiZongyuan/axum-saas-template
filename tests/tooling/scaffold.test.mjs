@@ -38,6 +38,12 @@ test('the packaged creator emits renamed, history-free copies with disjoint port
   assert.match(create('blue-oak'), /just dev/);
   const first = join(directory, 'red-maple');
   assert.ok(!existsSync(join(first, '.git')));
+  for (const path of [
+    '.github/workflows/npm-publish.yml',
+    'scripts/publish-create-package.mjs',
+    'tests/tooling/publish-create-package.test.mjs',
+  ])
+    assert.ok(!existsSync(join(first, path)), path);
   assert.equal(
     readFileSync(join(first, 'LICENSE'), 'utf8'),
     readFileSync(resolve('LICENSE'), 'utf8'),
@@ -148,6 +154,9 @@ test('a core-only copy contains no example sources or removal tooling', (t) => {
     'crates/app/tests/tutorial_course.rs',
     'crates/app/src/modules/knowledge',
     '.github/workflows/perf-nightly.yml',
+    '.github/workflows/npm-publish.yml',
+    'scripts/publish-create-package.mjs',
+    'tests/tooling/publish-create-package.test.mjs',
   ])
     assert.ok(!existsSync(join(project, path)), path);
   assert.ok(
