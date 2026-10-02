@@ -1,0 +1,59 @@
+name: Publish creator
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version from tools/create-axum-saas/package.json
+        type: string
+        required: true
+      publish:
+        description: Publish to npm (unchecked runs a dry run)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: npm-create-axum-saas-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'CaiZongyuan/axum-saas-template' && (!inputs.publish || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_BUILD_JOBS: '4'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Require successful CI for this main commit
+        if: inputs.publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          release_ci=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs?head_sha=${GITHUB_SHA}&event=push&per_page=100" --jq '.workflow_runs | map(select(.name == "CI")) | first | .conclusion')
+          if [ "$release_ci" != success ]; then
+            echo 'Wait for CI on this main commit to pass, then rerun the release.'
+            exit 1
+          fi
+      - uses: ./.github/actions/setup-checks
+      - name: Build reference and Core snapshots
+        run: pnpm scaffold:pack
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          registry-url: https://registry.npmjs.org
+      - name: Authenticate and release
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          RELEASE_PUBLISH: ${{ inputs.publish }}
+        run: |
+          release_args=(--version "$RELEASE_VERSION")
+          if [ "$RELEASE_PUBLISH" = true ]; then
+            release_args+=(--publish)
+          fi
+          node scripts/publish-create-package.mjs "${release_args[@]}"

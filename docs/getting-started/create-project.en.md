@@ -18,7 +18,7 @@ You can also build the current source snapshot and use a local package from the 
 
 ```bash
 pnpm scaffold:pack
-npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.1.tgz create-axum-saas my-app
+npx --yes --package ./.scratch/create-package/create-axum-saas-0.1.2.tgz create-axum-saas my-app
 ```
 
 The package contains its source snapshot. Creation does not fetch a changing Git branch or install dependencies. The result excludes `.git`, local secrets, data volumes and build directories.
@@ -62,3 +62,13 @@ The development entry derives a Compose namespace from the directory name and fu
 A port can become occupied after creation, so startup checks again every time. Conflicts identify a host listener/PID or Docker container/project and suggest stopping the owner or changing the corresponding `*_PORT` in `.env`. Healthy containers without actual bindings fail before migrations. Migration errors preserve the real SQLx cause.
 
 Do not delete volumes to resolve a port conflict. Continue with [project structure](../architecture/project-structure.md) and [adding a business module](../guides/develop-module.md). A generated Core copy can begin its own business under `crates/app/src/modules`.
+
+## 5. Publish the CLI as a Template Maintainer
+
+Update the version in `tools/create-axum-saas/package.json` and merge it into `main` through a PR; published npm versions cannot be overwritten. Wait for CI on that main commit to pass.
+
+The repository Actions Secret `NPM_TOKEN` must hold a granular token limited to `create-axum-saas`, with `Read and write (publish and stage)` permission and `Bypass two-factor authentication` enabled. Replace the Secret when it expires; Actions publishing requires no interactive login.
+
+Open [Publish creator](https://github.com/CaiZongyuan/axum-saas-template/actions/workflows/npm-publish.yml), choose `Run workflow` on `main`, and enter the package metadata's `version`. Leave `publish` unchecked for a dry run and inspect the npm identity, package contents and successful result. Then dispatch the same version with `publish` checked. Publishing checks that the version is unregistered, builds reference and Core snapshots, and waits for registry integrity to match the archive. On failure, check the version, token permissions and expiration; do not republish a version that already succeeded.
+
+[npm's token policy](https://docs.npmjs.com/about-access-tokens/)plans to remove direct new-version publishing with tokens in January 2027; migrate to Trusted Publishing or the new staging flow then. This maintainer workflow, release script and tests are excluded from generated projects.

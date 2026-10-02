@@ -18,7 +18,7 @@ import {
 
 const packageDirectory = join(root, 'tools/create-axum-saas');
 const excluded =
-  /^(?:tools\/create-axum-saas\/|target(?:\/|$)|node_modules(?:\/|$)|scripts\/(?:build-create-package|pack-scaffold|scaffold-smoke)\.mjs$|scripts\/lib\/scaffold-template\.mjs$|tests\/tooling\/scaffold\.test\.mjs$)/;
+  /^(?:tools\/create-axum-saas\/|target(?:\/|$)|node_modules(?:\/|$)|\.github\/workflows\/npm-publish\.yml$|scripts\/(?:build-create-package|pack-scaffold|scaffold-smoke|publish-create-package)\.mjs$|scripts\/lib\/scaffold-template\.mjs$|tests\/tooling\/(?:scaffold|publish-create-package)\.test\.mjs$)/;
 const files = [
   ...new Set(
     execFileSync('git', ['ls-files', '-z', '--cached'], {
