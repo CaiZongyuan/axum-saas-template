@@ -3,7 +3,7 @@ import { closeSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   developmentEnv,
-  freePort,
+  freePorts,
   root,
   stop,
   waitFor,
@@ -174,15 +174,22 @@ export async function startStack() {
     },
   );
 
+  const [
+    postgresPort,
+    redisPort,
+    rustfsPort,
+    smtpPort,
+    mailpitPort,
+    apiPort,
+    workerPort,
+  ] = await freePorts(7);
   const ports = {
-    POSTGRES_PORT: await freePort(),
-    REDIS_PORT: await freePort(),
-    RUSTFS_PORT: await freePort(),
-    MAILPIT_SMTP_PORT: await freePort(),
-    MAILPIT_HTTP_PORT: await freePort(),
+    POSTGRES_PORT: postgresPort,
+    REDIS_PORT: redisPort,
+    RUSTFS_PORT: rustfsPort,
+    MAILPIT_SMTP_PORT: smtpPort,
+    MAILPIT_HTTP_PORT: mailpitPort,
   };
-  const apiPort = await freePort();
-  const workerPort = await freePort();
 
   // developmentEnv() carries the development mail key handling and every
   // default the binaries need; everything below overrides the wiring so

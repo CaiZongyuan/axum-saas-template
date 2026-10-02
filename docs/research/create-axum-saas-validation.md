@@ -42,7 +42,7 @@ Standards 首轮发现创建目录与 `cd` 不一致，随后发现父仓库版�
 
 ## 发布边界
 
-当前 npm 未认证，`npm whoami` 返回 `ENEEDAUTH`；`create-axum-saas` 尚未注册。公开 `npx create-axum-saas` 的验收需要完成 npm 登录/双因素认证，并发布已审查的 tarball。此步骤完成前保持 #122 开放，不将 PR 或本地包当作公开发布。
+首次合并时 npm 未认证；随后用户完成登录，`npm whoami` 确认账号 `airickc1999`。实际发布仍被 npm 返回 E403，要求双因素认证或启用 bypass 2FA 的 granular token。账号已有具备包写权限的有效发布 token，但当前登录凭据不是它，服务端只返回 token 掩码。公开 `npx create-axum-saas` 的验收需要找到本机的发布配置或完成双因素验证，再发布已审查的 tarball。此步骤完成前保持 #122 开放，不将 PR 或本地包当作公开发布。
 
 本次实际运行环境为 Linux，未验证 macOS/Windows。可选完整观测栈及 Electron GUI 没有重复跑浏览器长测；其共享构建/类型/协议检查与本票变更相关的端口检查已覆盖。
 
@@ -59,3 +59,9 @@ Core 打包现改为通过 YAML API 从 importer 中删除已不再声明的依�
 `f202c60` 的主 CI 在桌面知识库预览测试失败：页面标题与 Markdown 的一级标题同名，正文渲染较快时全页 heading 查询产生 strict-mode 重复匹配。断言改为在公开的“正文” region 内查找标题和正文 marker，不改变应用行为或增加重试。实际 Electron 冒烟四项通过。
 
 nightly 在安装 k6 时失败：下载使用 `/tmp/k6.tgz`，checksum 清单要求 `k6-v2.3.0-linux-amd64.tar.gz`。workflow 统一通过 `K6_ARCHIVE` 命名下载、校验和解压。直接运行该安装片段，下载 SHA-256 校验通过，解压后的二进制报告 k6 v2.3.0。
+
+上述修复经 PR #125 合并为 `5fee6546b7058f085766aef6dec3e5a4278fb105`，PR 所选检查及 `verify` 通过。手动 nightly `36940575753` 的 load、saturation、trajectory、soak 和 desktop-soak 均通过；两种 soak 使用 60 秒验证配置。
+
+合并后的主 CI `36941067127` 暴露了另一处端口竞争：API 与 Web 均探测到 34195，API 启动后 Vite 拒绝绑定，测试尚未开始。连续调用公开 `freePort()` 在本机第 24029 组复现同端口；这是关闭探测 socket 后系统立即复用端口，并非 UI 断言失败。
+
+改用 `freePorts(count)` 在整组端口探测期间保持 socket 绑定，完成或中途失败后统一关闭；桌面、E2E、受控负载与观测冒烟均使用同一分配器。模拟系统立即回收端口的回归测试先失败再通过，分配失败时的清理测试通过；真实系统连续 50000 组 API/Web 端口均互异，实际 Electron 四项冒烟再次通过。单端口调用保留原接口。
