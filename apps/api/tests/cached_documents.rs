@@ -155,6 +155,9 @@ async fn cached_bodies_never_cache_permissions_or_survive_revocation_and_deletio
     let cache = Cache::new(CacheSettings {
         url: std::env::var("REDIS_URL").unwrap(),
         prefix: format!("access:{}", uuid::Uuid::now_v7()),
+        // Authorization assertions require a primed cache. Deadlines and
+        // fallback behavior are exercised separately below.
+        budget: std::time::Duration::from_secs(1),
         ..Default::default()
     })
     .unwrap();
@@ -299,6 +302,7 @@ async fn a_version_change_during_a_cache_miss_reauthorizes_and_does_not_cache_ne
     let direct = Cache::new(CacheSettings {
         url: std::env::var("REDIS_URL").unwrap(),
         prefix,
+        budget: std::time::Duration::from_secs(1),
         ..Default::default()
     })
     .unwrap();
@@ -388,6 +392,7 @@ async fn disconnecting_redis_after_a_hit_still_returns_the_current_database_body
     let cache = Cache::new(CacheSettings {
         url: gate.url.clone(),
         prefix: format!("disconnect:{}", uuid::Uuid::now_v7()),
+        budget: std::time::Duration::from_secs(1),
         ..Default::default()
     })
     .unwrap();

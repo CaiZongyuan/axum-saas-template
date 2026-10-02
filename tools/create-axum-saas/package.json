@@ -1,6 +1,6 @@
 {
   "name": "create-axum-saas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Create an isolated Rust + Axum SaaS project from Dougong",
   "type": "module",
   "bin": {

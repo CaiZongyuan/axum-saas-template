@@ -50,7 +50,7 @@ Built with **Rust, Axum, Tokio, Tower, SQLx, PostgreSQL, Redis, RustFS, React, T
 
 <!-- scaffold:creator:start -->
 
-Create a renamed, isolated project with `create-axum-saas`; `--no-examples` produces a Core-only starting point. Before the first npm release, build the package with `pnpm scaffold:pack` and run its local tarball with `npx`. See [Create your project](docs/getting-started/create-project.en.md) for the complete command and multiple-copy workflow.
+Create a renamed, isolated project with `npx create-axum-saas my-app`; add `--no-examples` for a Core-only starting point. See [Create your project](docs/getting-started/create-project.en.md) for prerequisites, startup and the multiple-copy workflow.
 
 <!-- scaffold:creator:end -->
 

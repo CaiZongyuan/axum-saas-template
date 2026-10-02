@@ -50,7 +50,7 @@
 
 <!-- scaffold:creator:start -->
 
-用 `create-axum-saas` 创建完成改名、端口与 Docker namespace 隔离的项目；`--no-examples` 生成只含 Core 的起点。首次 npm 发布前，运行 `pnpm scaffold:pack` 并通过 `npx` 使用本地 tarball。完整命令与多副本流程见[创建自己的项目](docs/getting-started/create-project.md)。
+用 `npx create-axum-saas my-app` 创建完成改名、端口与 Docker namespace 隔离的项目；加上 `--no-examples` 生成只含 Core 的起点。工具链、启动与多副本流程见[创建自己的项目](docs/getting-started/create-project.md)。
 
 <!-- scaffold:creator:end -->
 
