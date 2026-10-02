@@ -77,3 +77,15 @@ nightly 在安装 k6 时失败：下载使用 `/tmp/k6.tgz`，checksum 清单要
 PR #126 的全部检查通过，包括 backend、frontend、teaching-backend、tooling、documentation、desktop-smoke、example-removal 与 `verify`。手动 nightly `36942374994` 的 load、saturation、trajectory、60 秒 soak 与 60 秒 desktop-soak 均通过。端口修复完成简化检查；Standards 与 Spec 对快照 `5e0d8ed95f401ba1dbe29b74b646e847f84be016` 均无待修复问题，本地完整 `just check` 通过。
 
 主 CI `36944760132` 的桌面、backend 与其他选中任务通过，但 dual-example gate 的缓存权限测试期望 2 次命中而得到 1 次。它沿用了生产的 100ms Redis 预算，正常降级也会导致精确命中断言失败。临时把该 fixture 预算压至 1ms，经原 HTTP 入口复现 3 次 fallback、0 次命中，正文与权限行为仍成功。此后与已有 miss→hit 测试一致，将依赖缓存命中的 fixture 使用 1 秒测试预算，保留全部授权、版本、删除及命中断言；独立慢 Redis 测试仍使用 200ms 并验证有界降级。五项真实 PostgreSQL/Redis 集成测试通过。临时诊断代码已删除；这些后续改动仅作用于仓库测试，不修改已发布包的应用运行时。
+
+## 补丁发布与最终验收
+
+为让新生成的项目包含缓存 fixture 修正，发布 [`create-axum-saas@0.1.1`](https://www.npmjs.com/package/create-axum-saas/v/0.1.1)。源码与 PR #127 的合并提交 `e87f840d6dfcfb1436042f731d0c0d7d5cadc9b2` 一致；包内默认模板的缓存测试源码与已验证文件逐字节相同。打包冒烟入口从包元数据读取版本，双语本地打包命令同步为 `0.1.1`。最终包 SHA-256：
+
+```text
+ddfaa3edf753ec92a7b6bb27429fec4f1c0e38ee33e689204ec24ceb2b4946c4
+```
+
+npm 单次浏览器验证完成后发布成功；公开 registry 的 `latest` 为 `0.1.1`，版本、SHA-512 integrity 与 SHA-1 shasum 均匹配本地包。再用全新缓存实际执行不固定版本的 `npx --yes create-axum-saas`，并确认实际下载版本为 `0.1.1`。默认版与 Core 版均通过改名、无历史、许可证、端口互斥、冻结 pnpm 安装和锁定 Cargo metadata 检查。验收时间 `2026-10-02T01:23:25Z`，结果分别位于 `.scratch/ci-122/public-package-report-0.1.1.json` 与 `.scratch/ci-122/registry-receipt-0.1.1.json`。
+
+最终本地 `just check` 通过；PR #127 的 CI `36947181866` 和合并后的主分支 CI `36948762667` 均完整通过，包含所有示例组合、backend、frontend、teaching-backend、tooling、documentation、desktop-smoke 与 `verify`。主分支文档发布也通过。缓存 fixture 修正及版本准备分别经简化检查和 Standards + Spec 审查，快照为 `107798b38dea70e9318c1c5c378e4ae38f9940da` 与 `d12b0a3438397fc9616d54cd941959b5afcace39`，均无待修复问题。应用运行时仍复用初次完整双副本浏览器验收，不重复相同旅程。
