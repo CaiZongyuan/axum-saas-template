@@ -74,14 +74,23 @@ Expect HTTP 200 and an `x-request-id`. Open **[http://127.0.0.1:15400/register](
 
 `just dev` starts PostgreSQL, Redis, RustFS, and Mailpit in Docker, applies migrations, initializes storage, then starts the API, Worker, and Web app on the host. Rust changes restart the API/Worker; the Web app supports hot reload.
 
+To start the application with logs, traces, metrics, and the monitoring dashboard, stop any existing `just dev` process and run:
+
+```bash
+just dev-observability
+```
+
+Sign in as an Owner or Admin and open **Settings → Monitoring**, or visit [http://127.0.0.1:15400/settings?section=monitoring](http://127.0.0.1:15400/settings?section=monitoring). This starts the normal development app plus Collector, Prometheus, Loki, Tempo, and [Grafana](http://127.0.0.1:13300). Use the application to generate a few API requests and allow a few scrapes before inspecting metrics. Normal `just dev` does not start these monitoring services. See the [observability guide](docs/tutorials/19-observability.en.md) for collection settings and in-app alerts.
+
 Development defaults come from [.env.example](.env.example). Copy it to an untracked `.env` to customize your setup.
 
-| Local service     | Address                                 |
-| ----------------- | --------------------------------------- |
-| Web app           | http://127.0.0.1:15400                  |
-| API readiness     | http://127.0.0.1:18000/health/ready     |
-| OpenAPI schema    | http://127.0.0.1:18000/api/openapi.json |
-| Development email | http://127.0.0.1:18025                  |
+| Local service                | Address                                 |
+| ---------------------------- | --------------------------------------- |
+| Web app                      | http://127.0.0.1:15400                  |
+| API readiness                | http://127.0.0.1:18000/health/ready     |
+| OpenAPI schema               | http://127.0.0.1:18000/api/openapi.json |
+| Development email            | http://127.0.0.1:18025                  |
+| Grafana (monitoring startup) | http://127.0.0.1:13300                  |
 
 With `just dev` running, use `just desktop` to open the same application in Electron. `Ctrl+C` stops the host processes; `just services-down` stops the Docker services while preserving their data volumes.
 

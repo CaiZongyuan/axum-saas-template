@@ -74,14 +74,23 @@ curl -i http://127.0.0.1:18000/api/v1/system/status
 
 `just dev` 在 Docker 中启动 PostgreSQL、Redis、RustFS 与 Mailpit，执行迁移、初始化存储，然后在宿主机启动 API、Worker 和 Web。修改 Rust 源码会重启 API/Worker，Web 支持热更新。
 
+需要同时启用日志收集、链路追踪、指标和监控看板时，先停止正在运行的 `just dev`，再运行：
+
+```bash
+just dev-observability
+```
+
+以 Owner 或 Admin 登录，打开 **设置 → 监控与诊断**，也可以直接访问 [http://127.0.0.1:15400/settings?section=monitoring](http://127.0.0.1:15400/settings?section=monitoring)。该命令会启动正常开发应用，以及 Collector、Prometheus、Loki、Tempo 和 [Grafana](http://127.0.0.1:13300)。在应用中执行几次操作，等待几次采集后再查看指标。普通 `just dev` 不启动这些监控服务；采集配置和站内告警见[可观测性指南](docs/tutorials/19-observability.md)。
+
 开发默认值来自 [.env.example](.env.example)，需要调整时复制为不提交的 `.env`。
 
-| 本地服务       | 地址                                    |
-| -------------- | --------------------------------------- |
-| Web 应用       | http://127.0.0.1:15400                  |
-| API 就绪检查   | http://127.0.0.1:18000/health/ready     |
-| OpenAPI Schema | http://127.0.0.1:18000/api/openapi.json |
-| 开发邮件       | http://127.0.0.1:18025                  |
+| 本地服务              | 地址                                    |
+| --------------------- | --------------------------------------- |
+| Web 应用              | http://127.0.0.1:15400                  |
+| API 就绪检查          | http://127.0.0.1:18000/health/ready     |
+| OpenAPI Schema        | http://127.0.0.1:18000/api/openapi.json |
+| 开发邮件              | http://127.0.0.1:18025                  |
+| Grafana（监控启动时） | http://127.0.0.1:13300                  |
 
 保持 `just dev` 运行，使用 `just desktop` 在 Electron 中打开同一应用。`Ctrl+C` 停止宿主机进程；`just services-down` 停止 Docker 服务并保留数据卷。
 

@@ -45,7 +45,10 @@ export default function DesignSystemView({
 
   const showroom = (
     <Tabs defaultValue="foundation">
-      <TabsList aria-label={message('design.title')}>
+      <TabsList
+        aria-label={message('design.title')}
+        className="max-w-full flex-wrap h-auto!"
+      >
         <TabsTrigger value="foundation">
           {message('design.tab.foundation')}
         </TabsTrigger>
