@@ -38,6 +38,7 @@ import {
 } from '@saas/views';
 import { assembledApp, exampleEntries } from './app-examples';
 import { DesktopPreferencesMirror } from './desktop-preferences';
+import { useSettingsNavigation } from './settings-navigation';
 
 // The design-system page and its icon catalog load on demand
 // (docs/ui/design.md §6 Q9): the subpath import keeps the design-system
@@ -268,26 +269,31 @@ const settingsRoute = createRoute({
 function AppSettingsPage({ section }: { section?: string }) {
   const { apiClient, docsUrl } = rootRoute.useRouteContext();
   const navigate = useNavigate();
+  const guard = useSettingsNavigation();
   return (
-    <SettingsView
-      docsUrl={docsUrl}
-      apiClient={apiClient}
-      onOpen={shellPathPort(navigate)}
-      section={section}
-      onSectionChange={(next) => {
-        void navigate({
-          to: '/settings',
-          search: (previous: Record<string, unknown>) => ({
-            ...previous,
-            section: next,
-          }),
-        });
-      }}
-      showroom={{
-        scenes: assembledApp.scenes,
-        copyText: (text) => navigator.clipboard.writeText(text),
-      }}
-    />
+    <>
+      {guard.prompt}
+      <SettingsView
+        docsUrl={docsUrl}
+        apiClient={apiClient}
+        onOpen={shellPathPort(navigate)}
+        section={section}
+        onDirtyChange={guard.onDirtyChange}
+        onSectionChange={(next) => {
+          void navigate({
+            to: '/settings',
+            search: (previous: Record<string, unknown>) => ({
+              ...previous,
+              section: next,
+            }),
+          });
+        }}
+        showroom={{
+          scenes: assembledApp.scenes,
+          copyText: (text) => navigator.clipboard.writeText(text),
+        }}
+      />
+    </>
   );
 }
 
@@ -524,6 +530,13 @@ const notificationsRoute = createRoute({
     return (
       <NotificationsView
         apiClient={apiClient}
+        onOpen={(path) => {
+          const target = new URL(path, window.location.origin);
+          void navigate({
+            to: target.pathname,
+            search: Object.fromEntries(target.searchParams),
+          });
+        }}
         resolveTarget={
           assembledApp.resolveNotificationTarget
             ? (target) =>

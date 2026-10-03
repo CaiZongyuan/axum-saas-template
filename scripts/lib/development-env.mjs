@@ -61,6 +61,7 @@ export function developmentEndpoints(env) {
     REDIS_URL: `redis://127.0.0.1:${env.REDIS_PORT}/`,
     APP_BIND: `127.0.0.1:${env.APP_PORT}`,
     WORKER_BIND: `127.0.0.1:${env.WORKER_PORT}`,
+    MONITORING_WORKER_URL: `http://127.0.0.1:${env.WORKER_PORT}`,
     APP_ORIGIN: `http://127.0.0.1:${env.WEB_PORT}`,
     VITE_API_PROXY: `http://127.0.0.1:${env.APP_PORT}`,
     S3_ENDPOINT: `http://127.0.0.1:${env.RUSTFS_PORT}`,

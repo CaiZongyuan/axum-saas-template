@@ -5,6 +5,7 @@
 // locales must stay complete — the parity test in core-messages.test.ts is
 // the release check.
 
+import { monitoringMessages } from '../system/monitoring-messages';
 import { graphicMessages } from './graphic-messages';
 
 export const coreMessages: {
@@ -13,6 +14,7 @@ export const coreMessages: {
 } = {
   zh: {
     ...graphicMessages.zh,
+    ...monitoringMessages.zh,
     'app.name': 'SaaS 模板',
     'app.description': '从真实全栈请求开始的可运行 SaaS 模板教程。',
 
@@ -452,6 +454,7 @@ export const coreMessages: {
   },
   en: {
     ...graphicMessages.en,
+    ...monitoringMessages.en,
     'app.name': 'SaaS Template',
     'app.description':
       'A runnable SaaS template tutorial starting from a real full-stack request.',

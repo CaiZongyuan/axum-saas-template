@@ -119,6 +119,7 @@ pub fn start(
             .with_view(|_| Stream::builder().with_cardinality_limit(128).build().ok())
             .build();
         global::set_meter_provider(meter.clone());
+        metrics::register_heartbeat(service);
         (Some(provider), Some(meter))
     } else {
         (None, None)

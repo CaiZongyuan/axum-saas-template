@@ -53,10 +53,18 @@ export type NotificationTargetResolver = (
 // only the outcome word translated (docs/ui/design.md §6 Q1) — the
 // subject travels as a param so each locale owns its own layout.
 export function notificationHeading(
-  notice: Pick<Notification, 'subject' | 'outcome'>,
+  notice: Pick<Notification, 'subject' | 'outcome'> & {
+    target?: NotificationTarget;
+  },
   display: NotificationDisplay | undefined,
   text: (key: string, params?: MessageParams) => string,
 ): string {
+  if (
+    notice.target?.kind === 'core.monitoring.alert' &&
+    ['firing', 'recovered', 'test'].includes(notice.outcome)
+  ) {
+    return text(`monitoring.notification.${notice.outcome}`);
+  }
   if (display) return text(display.titleKey);
   return text(
     notice.outcome === 'succeeded'
@@ -69,11 +77,13 @@ export function notificationHeading(
 export function NotificationsView({
   apiClient,
   onBack,
+  onOpen,
   resolveTarget,
   describeNotification,
 }: {
   apiClient: ApiClient;
   onBack: () => void;
+  onOpen?: (path: string) => void;
   resolveTarget?: NotificationTargetResolver;
   describeNotification?: (
     notice: Notification,
@@ -105,6 +115,7 @@ export function NotificationsView({
           key={session.data.user.id}
           apiClient={apiClient}
           identity={session.data}
+          onOpen={onOpen}
           resolveTarget={resolveTarget}
           describeNotification={describeNotification}
         />
@@ -115,11 +126,13 @@ export function NotificationsView({
 function Inbox({
   apiClient,
   identity,
+  onOpen,
   resolveTarget,
   describeNotification,
 }: {
   apiClient: ApiClient;
   identity: CurrentSession;
+  onOpen?: (path: string) => void;
   resolveTarget?: NotificationTargetResolver;
   describeNotification?: (
     notice: Notification,
@@ -230,7 +243,14 @@ function Inbox({
       {!query.isError ? (
         <ul className="flex flex-col gap-3">
           {items.map((notice) => {
-            const open = resolveTarget?.(notice.target);
+            const monitoringTarget =
+              notice.target.kind === 'core.monitoring.alert'
+                ? '/settings?section=monitoring'
+                : undefined;
+            const open =
+              monitoringTarget && onOpen
+                ? () => onOpen(monitoringTarget)
+                : resolveTarget?.(notice.target);
             const display = describeNotification?.(notice);
             return (
               <li
@@ -263,6 +283,13 @@ function Inbox({
                         // Observer callbacks stop on unmount; a late read must not override navigation.
                         read.mutate({ notice }, { onSuccess: open });
                       }}
+                    >
+                      {message('notifications.openResult')}
+                    </Button>
+                  ) : monitoringTarget ? (
+                    <Button
+                      nativeButton={false}
+                      render={<a href={monitoringTarget} />}
                     >
                       {message('notifications.openResult')}
                     </Button>

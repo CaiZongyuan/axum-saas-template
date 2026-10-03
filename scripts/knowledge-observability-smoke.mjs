@@ -79,6 +79,7 @@ try {
         DATABASE_URL: url,
         APP_BIND: `127.0.0.1:${apiPort}`,
         WORKER_BIND: `127.0.0.1:${workerPort}`,
+        WORKER_PORT: String(workerPort),
         APP_ORIGIN: `http://127.0.0.1:${apiPort}`,
         RUST_LOG: 'trace',
         MAIL_SMTP_HOST: '',
@@ -254,6 +255,46 @@ try {
           );
           return result.data?.result?.length ? result : undefined;
         }, 'completed job metric in Prometheus');
+        stage = 'settings-monitoring';
+        await eventually(async () => {
+          const result = await json(
+            `http://127.0.0.1:${promPort}/api/v1/query?query=${encodeURIComponent('saas_telemetry_heartbeat_seconds{service="saas-api"}')}`,
+          );
+          return result.data?.result?.some(
+            (row) => Number(row.value?.[1]) > Date.now() / 1000 - 180,
+          );
+        }, 'application heartbeat name and freshness in Prometheus');
+        const monitoring = await eventually(async () => {
+          await request('/api/v1/knowledge/documents');
+          const snapshot = (
+            await request('/api/v1/system/monitoring?window_minutes=15')
+          ).body;
+          return snapshot.collection.state === 'collecting' &&
+            snapshot.http?.requests > 0
+            ? snapshot
+            : undefined;
+        }, 'real monitoring settings summary');
+        ensure(
+          monitoring.services.worker === 'ready',
+          'Monitoring must check the real Worker',
+        );
+        const rule = (await request('/api/v1/system/monitoring/alerts')).body;
+        await request('/api/v1/system/monitoring/alerts', 'PUT', {
+          version: rule.version,
+          enabled: false,
+          error_rate_percent: 1,
+          duration_minutes: 5,
+        });
+        await request('/api/v1/system/monitoring/alerts/test', 'POST', {});
+        const inbox = (await request('/api/v1/notifications')).body;
+        ensure(
+          inbox.data.some(
+            (notice) =>
+              notice.target.kind === 'core.monitoring.alert' &&
+              notice.outcome === 'test',
+          ),
+          'Monitoring test notice must appear in the real inbox',
+        );
         await eventually(async () => {
           const query = `{service_name="saas-worker"} |= "${failed.trace}" |= "knowledge.export_credential_revoked"`;
           const result = await json(
@@ -318,6 +359,9 @@ try {
             'distributed-trace',
             'api-worker-logs',
             'job-metric',
+            'application-heartbeat-in-prometheus',
+            'monitoring-settings-summary',
+            'monitoring-test-notice',
             'grafana-dashboard',
             'audit-association',
             'revoked-session-failure-diagnostic',

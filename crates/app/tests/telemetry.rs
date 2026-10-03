@@ -8,7 +8,10 @@ use opentelemetry_proto::tonic::collector::metrics::v1::ExportMetricsServiceRequ
 use opentelemetry_proto::tonic::collector::trace::v1::ExportTraceServiceRequest;
 use prost::Message;
 use sqlx::PgPool;
-use std::sync::Arc;
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tower::ServiceExt;
 
 #[sqlx::test(migrations = "../../migrations")]
@@ -57,13 +60,80 @@ async fn real_otlp_carries_the_http_parent_without_exporting_raw_request_content
     let settings = saas_platform::telemetry::TelemetrySettings {
         endpoint: Some(endpoint),
         log_directory: Some(log_dir.path().to_path_buf()),
+        metrics_interval: Duration::from_secs(1),
         ..Default::default()
     };
+    let started_at = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
     let guard = tokio::task::spawn_blocking(move || {
         saas_platform::telemetry::start(settings, "saas-api", "trace".parse().unwrap()).unwrap()
     })
     .await
     .unwrap();
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let records = metrics.lock().await;
+            let mut heartbeats = Vec::new();
+            for metric in records
+                .iter()
+                .flat_map(|record| &record.resource_metrics)
+                .flat_map(|resource| &resource.scope_metrics)
+                .flat_map(|scope| &scope.metrics)
+            {
+                use opentelemetry_proto::tonic::metrics::v1::{
+                    metric::Data, number_data_point::Value,
+                };
+                assert_ne!(
+                    metric.name, "saas.http.requests",
+                    "no app request has run yet"
+                );
+                if metric.name != "saas.telemetry.heartbeat" {
+                    continue;
+                }
+                assert_eq!(metric.unit, "s");
+                let Some(Data::Gauge(gauge)) = &metric.data else {
+                    panic!("heartbeat must be an observable gauge");
+                };
+                for point in &gauge.data_points {
+                    assert_eq!(point.attributes.len(), 1);
+                    assert_eq!(point.attributes[0].key, "service");
+                    assert_eq!(
+                        point.attributes[0].value.as_ref().unwrap().value,
+                        Some(
+                            opentelemetry_proto::tonic::common::v1::any_value::Value::StringValue(
+                                "saas-api".to_owned()
+                            )
+                        )
+                    );
+                    let Some(Value::AsDouble(timestamp)) = point.value else {
+                        panic!("heartbeat must contain a Unix timestamp in seconds");
+                    };
+                    assert!(timestamp >= started_at);
+                    assert!(
+                        timestamp
+                            <= SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs_f64()
+                    );
+                    heartbeats.push(timestamp);
+                }
+            }
+            if heartbeats.len() >= 2 {
+                assert!(
+                    heartbeats.last().unwrap() > &heartbeats[0],
+                    "idle collection must advance the heartbeat"
+                );
+                break;
+            }
+            drop(records);
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .expect("fresh heartbeats must be exported while there is no HTTP traffic");
     let response = saas_app::router(pool.clone())
         .oneshot(
             Request::get("/health/live?private=should-not-be-exported")
@@ -151,6 +221,10 @@ async fn real_otlp_carries_the_http_parent_without_exporting_raw_request_content
     {
         use opentelemetry_proto::tonic::metrics::v1::metric::Data;
         let points: Vec<_> = match metric.data.as_ref().unwrap() {
+            Data::Gauge(gauge) => {
+                assert_eq!(metric.name, "saas.telemetry.heartbeat");
+                gauge.data_points.iter().map(|p| &p.attributes).collect()
+            }
             Data::Sum(sum) => sum.data_points.iter().map(|p| &p.attributes).collect(),
             Data::Histogram(hist) => {
                 for point in &hist.data_points {
@@ -162,13 +236,21 @@ async fn real_otlp_carries_the_http_parent_without_exporting_raw_request_content
                 }
                 hist.data_points.iter().map(|p| &p.attributes).collect()
             }
-            _ => panic!("only explicit counters and histograms are registered"),
+            _ => panic!("only heartbeat, explicit counters and histograms are registered"),
         };
         for attributes in points {
             for attribute in attributes {
                 assert!(
-                    ["route", "method", "status", "kind", "outcome", "operation"]
-                        .contains(&attribute.key.as_str()),
+                    [
+                        "route",
+                        "method",
+                        "status",
+                        "kind",
+                        "outcome",
+                        "operation",
+                        "service"
+                    ]
+                    .contains(&attribute.key.as_str()),
                     "metric labels must use the fixed low-cardinality vocabulary"
                 );
             }

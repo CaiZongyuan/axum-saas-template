@@ -87,6 +87,7 @@ pub fn configured_router(
             cache,
             limiter,
             password_reset,
+            monitoring: saas_app::modules::system::monitoring::Monitoring::from_env()?,
         },
     ))
 }

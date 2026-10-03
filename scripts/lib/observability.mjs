@@ -14,6 +14,13 @@ export function observabilityEnv(env) {
     ...env,
     TELEMETRY_ENDPOINT:
       env.TELEMETRY_ENDPOINT || `http://127.0.0.1:${env.TELEMETRY_HTTP_PORT}`,
+    MONITORING_PROMETHEUS_URL:
+      env.MONITORING_PROMETHEUS_URL ||
+      `http://127.0.0.1:${env.PROMETHEUS_PORT}`,
+    MONITORING_WORKER_URL:
+      env.MONITORING_WORKER_URL || `http://127.0.0.1:${env.WORKER_PORT}`,
+    MONITORING_GRAFANA_URL:
+      env.MONITORING_GRAFANA_URL || `http://127.0.0.1:${env.GRAFANA_PORT}`,
     TELEMETRY_LOG_DIRECTORY: resolve(
       root,
       env.TELEMETRY_LOG_DIRECTORY || '.runtime/telemetry',
@@ -42,6 +49,7 @@ export async function startObservability(env) {
   await startDevelopmentServices(env, {
     services: observabilityServices,
     files: ['compose.yaml', 'compose.observability.yaml'],
+    profiles: ['observability'],
   });
   await Promise.all([
     waitFor(

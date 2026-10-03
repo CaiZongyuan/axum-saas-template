@@ -2,7 +2,28 @@ use opentelemetry::{
     KeyValue, global,
     metrics::{Counter, Histogram},
 };
-use std::{sync::OnceLock, time::Duration};
+use std::{
+    sync::OnceLock,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+/// Collection time distinguishes a live exporter from cached Collector samples,
+/// including when there are no HTTP requests or completed background jobs.
+pub(super) fn register_heartbeat(service: &'static str) {
+    if !matches!(service, "saas-api" | "saas-worker") {
+        return;
+    }
+    global::meter("saas")
+        .f64_observable_gauge("saas.telemetry.heartbeat")
+        .with_unit("s")
+        .with_callback(move |observer| {
+            if let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) {
+                observer.observe(now.as_secs_f64(), &[KeyValue::new("service", service)]);
+            }
+        })
+        .build();
+}
+
 // Durations are recorded in seconds; the SDK defaults assume much coarser values.
 const LATENCY_SECONDS: &[f64] = &[
     0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0,
